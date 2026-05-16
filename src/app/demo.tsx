@@ -4,6 +4,8 @@ import { ScatterChart, Scatter, XAxis, YAxis, CartesianGrid, ResponsiveContainer
 import { CheckCircle, AlertTriangle, XCircle, ChevronDown, ChevronUp, Clock, User, Building, FileText, ArrowRight, RotateCcw, Upload } from 'lucide-react';
 import { AUTHENTIC_DATA, THRESHOLD, MEANS, N_SAMPLES, analyzeDoc } from './knn';
 
+const API_BASE_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:8000';
+
 function cx(...c: (string | boolean | undefined)[]) { return c.filter(Boolean).join(' '); }
 
 const CASE = {
@@ -137,33 +139,44 @@ function ChartTip({ active, payload }: { active?: boolean; payload?: { payload: 
 }
 
 export function LiveDemoSection() {
-  const [meta, setMeta] = useState(75);
-  const [lay, setLay]   = useState(80);
-  const [fnt, setFnt]   = useState(70);
+  const [file, setFile] = useState<File | null>(null);
   const [phase, setPhase] = useState<'idle' | 'processing' | 'done'>('idle');
   const [step, setStep]   = useState(0);
+  const [result, setResult] = useState<any>(null);
 
-  const result = useMemo(() => analyzeDoc({ metadata: meta, layout: lay, font: fnt }), [meta, lay, fnt]);
-  const tc = { green: '#22c55e', yellow: '#f59e0b', red: '#ef4444' }[result.tier];
+  const STEPS = ['Extracting EXIF metadata & signatures', 'Running OpenCV Error Level Analysis', 'Running local OCR and math validation', 'Calculating final risk score'];
 
-  const chartData = useMemo(() => [
-    ...AUTHENTIC_DATA.map(p => ({ x: p.metadata, y: p.layout, type: 'authentic' })),
-    { x: meta, y: lay, type: 'current' },
-  ], [meta, lay]);
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      setFile(e.target.files[0]);
+    }
+  };
 
-  const STEPS = ['Extracting EXIF metadata & timestamps', 'Running Error Level Analysis (pixel)', 'Checking structural & font consistency', 'Querying FAISS index against baseline', 'Generating explainable AI narrative'];
+  const handleSubmit = async () => {
+    if (!file) return;
+    setPhase('processing');
+    setStep(0);
+    const stepInterval = setInterval(() => setStep(s => (s < 4 ? s + 1 : s)), 600);
 
-  const handleSubmit = useCallback(() => {
-    setPhase('processing'); setStep(0);
-    STEPS.forEach((_, i) => setTimeout(() => setStep(i + 1), 500 * (i + 1)));
-    setTimeout(() => setPhase('done'), 500 * (STEPS.length + 1));
-  }, []);
-
-  const scenarios: [string, number, number, number][] = [
-    ['Authentic Sample', 75, 80, 70],
-    ['Poor Scan Quality', 65, 55, 62],
-    ['Suspected Forgery', 22, 38, 94],
-  ];
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+      const res = await fetch(`${API_BASE_URL}/api/v1/analyze`, {
+        method: 'POST',
+        body: formData,
+      });
+      const data = await res.json();
+      clearInterval(stepInterval);
+      setStep(4);
+      setResult(data);
+      setPhase('done');
+    } catch (err) {
+      clearInterval(stepInterval);
+      console.error(err);
+      alert('Error analyzing document');
+      setPhase('idle');
+    }
+  };
 
   return (
     <section id="demo" className="bg-gray-50 py-16 px-4 border-t border-gray-200">
@@ -209,34 +222,19 @@ export function LiveDemoSection() {
             <motion.div key="idle" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="space-y-5">
 
               {/* Upload zone */}
-              <div className="bg-white border-2 border-dashed border-gray-200 hover:border-blue-300 rounded-2xl p-10 text-center cursor-pointer transition-all group" onClick={handleSubmit}>
+              <div className="bg-white border-2 border-dashed border-gray-200 hover:border-blue-300 rounded-2xl p-10 text-center transition-all group relative">
+                <input type="file" onChange={handleFileChange} accept=".pdf,.jpg,.jpeg,.png" className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" />
                 <Upload className="w-10 h-10 text-gray-300 group-hover:text-blue-400 mx-auto mb-3 transition-colors" />
-                <p className="text-base font-semibold text-gray-700 mb-1">Drop the document here, or <span className="text-blue-600">browse files</span></p>
+                <p className="text-base font-semibold text-gray-700 mb-1">
+                  {file ? file.name : <span>Drop the document here, or <span className="text-blue-600">browse files</span></span>}
+                </p>
                 <p className="text-sm text-gray-400">PDF, JPG, PNG · Max 50MB · Encrypted in transit</p>
               </div>
 
               {/* Feature controls */}
               <div className="bg-white border border-gray-200 rounded-2xl shadow-sm p-6">
-                <div className="flex items-center justify-between mb-5">
-                  <div>
-                    <h3 className="text-sm font-bold text-gray-800">Forensic Feature Preview</h3>
-                    <p className="text-xs text-gray-400 mt-0.5">Simulates extracted feature scores. Adjust to test different document scenarios.</p>
-                  </div>
-                  <div className="flex gap-2 flex-wrap justify-end">
-                    {scenarios.map(([label, m, l, f]) => (
-                      <ScenarioBtn key={label} label={label}
-                        active={meta === m && lay === l && fnt === f}
-                        onClick={() => { setMeta(m); setLay(l); setFnt(f); }} />
-                    ))}
-                  </div>
-                </div>
-                <div className="grid md:grid-cols-3 gap-6 mb-6">
-                  <Slider label="Metadata Consistency" hint="EXIF fields, timestamps, software signatures" value={meta} onChange={setMeta} />
-                  <Slider label="Layout & Structure" hint="Margins, column alignment, bounding boxes" value={lay} onChange={setLay} />
-                  <Slider label="Font & Pixel Variance" hint="Kerning, ELA compression artifacts" value={fnt} onChange={setFnt} />
-                </div>
-                <button onClick={handleSubmit}
-                  className="w-full py-3.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-sm transition-colors flex items-center justify-center gap-2 shadow-md shadow-blue-600/20">
+                <button onClick={handleSubmit} disabled={!file}
+                  className={cx("w-full py-3.5 rounded-xl text-white font-bold text-sm transition-colors flex items-center justify-center gap-2 shadow-md", file ? "bg-blue-600 hover:bg-blue-700 shadow-blue-600/20" : "bg-gray-300 cursor-not-allowed")}>
                   Run Forensic Analysis <ArrowRight className="w-4 h-4" />
                 </button>
               </div>
@@ -249,7 +247,7 @@ export function LiveDemoSection() {
               <div className="text-center mb-6">
                 <div className="w-12 h-12 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-4" />
                 <h3 className="text-lg font-bold text-gray-800">Running Forensic Pipeline</h3>
-                <p className="text-sm text-gray-400">Three parallel extraction streams via FAISS index</p>
+                <p className="text-sm text-gray-400">Extracting EXIF, Error Level Analysis, & Local Math Validation</p>
               </div>
               <div className="space-y-3 max-w-sm mx-auto">
                 {STEPS.map((s, i) => <ProcessingStep key={s} label={s} done={step > i + 1} active={step === i + 1} />)}
@@ -257,96 +255,51 @@ export function LiveDemoSection() {
             </motion.div>
           )}
 
-          {phase === 'done' && (
+          {phase === 'done' && result && (
             <motion.div key="done" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="space-y-5">
 
               {/* Verdict */}
-              <RiskBadge score={result.riskScore} tier={result.tier} />
+              <RiskBadge score={result.risk_score} tier={result.risk_score > 75 ? 'red' : result.risk_score > 30 ? 'yellow' : 'green'} />
 
-              <div className="grid md:grid-cols-5 gap-5">
+              <div className="grid md:grid-cols-2 gap-5">
                 {/* Findings */}
-                <div className="md:col-span-3 space-y-4">
+                <div className="space-y-4">
                   <div className="flex items-center justify-between">
                     <h3 className="text-sm font-bold text-gray-700">Forensic Findings</h3>
-                    <span className="text-xs text-gray-400">{result.xaiReasons.length} issues detected</span>
+                    <span className="text-xs text-gray-400">{result.anomalies.length} issues detected</span>
                   </div>
-                  {result.xaiReasons.length === 0 ? (
+                  {result.anomalies.length === 0 ? (
                     <div className="bg-green-50 border border-green-200 rounded-xl p-6 text-center">
                       <CheckCircle className="w-10 h-10 text-green-500 mx-auto mb-2" />
                       <p className="font-bold text-green-800">No issues found</p>
-                      <p className="text-sm text-green-600 mt-1">All feature vectors are within normal baseline distribution.</p>
+                      <p className="text-sm text-green-600 mt-1">Document passed OpenCV and metadata checks.</p>
                     </div>
-                  ) : result.xaiReasons.map((r, i) => (
-                    <FindingCard key={i} n={i+1} title={r.field} plain={r.plain} technical={r.technical} severity={r.severity} />
+                  ) : result.anomalies.map((r: string, i: number) => (
+                    <FindingCard key={i} n={i+1} title={`Anomaly Detected`} plain={r} technical="Extracted via OpenCV / Local Math Validation" severity="high" />
                   ))}
 
-                  {/* Z-score breakdown */}
-                  <div className="bg-white border border-gray-200 rounded-xl overflow-hidden shadow-sm">
-                    <div className="px-4 py-3 border-b border-gray-100 bg-gray-50">
-                      <h4 className="text-xs font-bold text-gray-600 uppercase tracking-wider">Feature Z-Score Analysis</h4>
+                  <div className="bg-white border border-gray-200 rounded-xl overflow-hidden shadow-sm p-4">
+                    <h4 className="text-xs font-bold text-gray-600 uppercase tracking-wider mb-2">Local Validation Status</h4>
+                    <div className="flex items-center gap-2">
+                      <div className="w-2.5 h-2.5 rounded-full bg-green-500" />
+                      <span className="text-sm text-gray-700 font-mono">{result.validation_status}</span>
                     </div>
-                    <table className="w-full text-sm">
-                      <thead><tr className="text-left text-xs text-gray-400 border-b border-gray-100">
-                        <th className="px-4 py-2 font-medium">Feature</th><th className="px-4 py-2 font-medium">Score</th>
-                        <th className="px-4 py-2 font-medium">Baseline Avg</th><th className="px-4 py-2 font-medium">Deviation</th><th className="px-4 py-2 font-medium">Status</th>
-                      </tr></thead>
-                      <tbody>
-                        {[['Metadata', meta, MEANS.metadata.mean, result.zScores.metadata],
-                          ['Layout', lay, MEANS.layout.mean, result.zScores.layout],
-                          ['Font & Pixel', fnt, MEANS.font.mean, result.zScores.font]
-                        ].map(([name, val, avg, z]) => {
-                          const bad = Math.abs(z as number) > 2;
-                          return (
-                            <tr key={name as string} className="border-b border-gray-50 last:border-0 hover:bg-gray-50 transition-colors">
-                              <td className="px-4 py-3 font-medium text-gray-700">{name as string}</td>
-                              <td className="px-4 py-3 font-mono text-gray-800">{(val as number).toFixed(1)}</td>
-                              <td className="px-4 py-3 font-mono text-gray-400">{(avg as number).toFixed(1)}</td>
-                              <td className={cx('px-4 py-3 font-mono font-bold', bad ? 'text-red-600' : 'text-gray-400')}>{(z as number).toFixed(2)}σ</td>
-                              <td className="px-4 py-3">
-                                <span className={cx('text-xs px-2 py-0.5 rounded-full font-semibold', bad ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700')}>
-                                  {bad ? 'Flagged' : 'Normal'}
-                                </span>
-                              </td>
-                            </tr>
-                          );
-                        })}
-                      </tbody>
-                    </table>
                   </div>
                 </div>
 
                 {/* Right panel */}
-                <div className="md:col-span-2 space-y-4">
-                  <div className="grid grid-cols-2 gap-3">
-                    <MetricPill label="Distance" value={result.dist.toFixed(3)} color="text-blue-600" />
-                    <MetricPill label="Threshold" value={THRESHOLD.toFixed(3)} color="text-gray-700" />
-                    <MetricPill label="Confidence" value={`${result.confidence.toFixed(0)}%`} color="text-purple-600" />
-                    <MetricPill label="Baseline" value={`${N_SAMPLES} docs`} color="text-gray-700" />
-                  </div>
-
-                  {/* Chart */}
+                <div className="space-y-4">
                   <div className="bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden">
                     <div className="px-4 py-3 border-b border-gray-100 bg-gray-50 flex items-center justify-between">
-                      <h4 className="text-xs font-bold text-gray-600 uppercase tracking-wider">Feature Cluster Map</h4>
-                      <div className="flex gap-3 text-[10px] text-gray-400">
-                        <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-emerald-500 inline-block" />Baseline</span>
-                        <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full inline-block" style={{ background: tc }} />This doc</span>
-                      </div>
+                      <h4 className="text-xs font-bold text-gray-600 uppercase tracking-wider">Error Level Analysis (ELA) Heatmap</h4>
                     </div>
-                    <ResponsiveContainer width="100%" height={200}>
-                      <ScatterChart margin={{ top: 8, right: 12, bottom: 8, left: -10 }}>
-                        <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-                        <XAxis type="number" dataKey="x" domain={[30, 100]} stroke="#d1d5db" tick={{ fill: '#9ca3af', fontSize: 10 }} />
-                        <YAxis type="number" dataKey="y" domain={[40, 100]} stroke="#d1d5db" tick={{ fill: '#9ca3af', fontSize: 10 }} />
-                        <Tooltip content={<ChartTip />} />
-                        <Scatter data={chartData.filter(d => d.type === 'authentic')} fill="#10b981" opacity={0.4}>
-                          {chartData.filter(d => d.type === 'authentic').map((_, i) => <Cell key={i} fill="#10b981" />)}
-                        </Scatter>
-                        <Scatter data={chartData.filter(d => d.type === 'current')}>
-                          {chartData.filter(d => d.type === 'current').map((_, i) => <Cell key={i} fill={tc} r={8} stroke="#fff" strokeWidth={2.5} />)}
-                        </Scatter>
-                      </ScatterChart>
-                    </ResponsiveContainer>
+                    <div className="p-4 bg-gray-900 flex justify-center">
+                      {result.heatmap_image_b64 ? (
+                        <img src={`data:image/png;base64,${result.heatmap_image_b64}`} alt="ELA Heatmap" className="max-h-64 object-contain rounded border border-gray-700" />
+                      ) : (
+                        <div className="h-48 flex items-center justify-center text-gray-500">No Heatmap</div>
+                      )}
+                    </div>
                   </div>
                 </div>
               </div>
@@ -356,18 +309,13 @@ export function LiveDemoSection() {
                 <div>
                   <p className="text-sm font-bold text-gray-800">Recommended Action</p>
                   <p className="text-xs text-gray-500 mt-0.5">
-                    {{ green: 'Document has been auto-approved. You may forward it to the processing queue.', yellow: 'Please assign this file to a senior underwriter for manual verification.', red: 'Do not process. Escalate to the Fraud Investigation Unit immediately.' }[result.tier]}
+                    {result.risk_score <= 30 ? 'Document has been auto-approved.' : result.risk_score <= 75 ? 'Please assign this file to a senior underwriter.' : 'Escalate to the Fraud Investigation Unit immediately.'}
                   </p>
                 </div>
                 <div className="flex gap-2">
-                  <button onClick={() => { setPhase('idle'); setStep(0); }}
+                  <button onClick={() => { setPhase('idle'); setStep(0); setFile(null); setResult(null); }}
                     className="flex items-center gap-1.5 px-4 py-2.5 rounded-xl border border-gray-200 text-gray-600 text-sm font-semibold hover:bg-gray-50 transition-colors">
                     <RotateCcw className="w-3.5 h-3.5" /> New Document
-                  </button>
-                  <button className={cx('flex items-center gap-1.5 px-4 py-2.5 rounded-xl text-sm font-bold text-white transition-colors shadow-sm',
-                    result.tier === 'red' ? 'bg-red-600 hover:bg-red-700' : result.tier === 'yellow' ? 'bg-amber-500 hover:bg-amber-600' : 'bg-green-600 hover:bg-green-700')}>
-                    {{ green: 'Approve & Forward', yellow: 'Send for Review', red: 'Escalate to FIU' }[result.tier]}
-                    <ArrowRight className="w-4 h-4" />
                   </button>
                 </div>
               </div>

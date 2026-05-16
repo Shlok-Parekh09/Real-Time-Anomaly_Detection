@@ -157,9 +157,9 @@ export function ArchitectureSection() {
           <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white border border-[#E5E5E5] text-neutral-600 text-xs font-bold mb-4 shadow-[0_2px_10px_rgba(0,0,0,0.03)] uppercase tracking-widest">
             System Architecture
           </div>
-          <h2 className="text-4xl font-black text-[#131313] mb-4 tracking-tight">Real-Time Forensics &amp; Anomaly Pipeline</h2>
+          <h2 className="text-4xl font-black text-[#131313] mb-4 tracking-tight">Real-Time Forensics &amp; Validation Pipeline</h2>
           <p className="text-neutral-500 text-base max-w-2xl mx-auto">
-            A high-performance AWS-native pipeline achieving sub-150ms end-to-end latency via parallel microservices and Redis-cached FAISS indexes.
+            A high-performance pipeline achieving sub-second latency via FastAPI, OpenCV Error Level Analysis, and local document validation.
           </p>
         </div>
 
@@ -167,14 +167,14 @@ export function ArchitectureSection() {
         <motion.div initial={{ opacity: 0, y: 30 }} whileInView={{ opacity: 1, y: 0 }} transition={{ duration: 0.7 }} viewport={{ once: true }}
           className="rounded-[2.5rem] overflow-hidden shadow-[0_20px_60px_-12px_rgba(0,0,0,0.08)] bg-white border border-[#E5E5E5]">
 
-          {/* AWS Cloud header bar */}
+          {/* Runtime header bar */}
           <div className="bg-[#FDFDFD] border-b border-[#E5E5E5] px-8 py-4 flex items-center gap-4">
             <div className="flex items-center gap-2.5 bg-white border border-[#E5E5E5] rounded-xl px-4 py-2 shadow-[0_2px_8px_rgba(0,0,0,0.02)]">
-              <span className="text-orange-500 font-black text-sm tracking-wider">☁️ AWS</span>
+              <span className="text-orange-500 font-black text-sm tracking-wider">⚙️ Local</span>
               <div className="w-px h-4 bg-neutral-200" />
-              <span className="text-neutral-600 text-[11px] font-bold uppercase tracking-widest">Cloud Infrastructure</span>
+              <span className="text-neutral-600 text-[11px] font-bold uppercase tracking-widest">FastAPI + React Runtime</span>
             </div>
-            <span className="text-xs text-neutral-400 font-medium">High-Availability Multi-AZ</span>
+            <span className="text-xs text-neutral-400 font-medium">Docker-ready backend and dashboard</span>
             
             <div className="ml-auto flex items-center gap-3">
               <div className="flex gap-1.5">
@@ -215,21 +215,14 @@ export function ArchitectureSection() {
               {/* ── Section 2: Ingestion ───────────────────────────────── */}
               <div className="flex flex-col items-center gap-4 w-full">
                 <div className="text-[10px] text-slate-500 font-bold uppercase tracking-widest text-center bg-white/80 px-4 py-1.5 rounded-full border border-slate-200 shadow-sm">
-                  2. Ingestion Pipeline
+                  2. Backend Ingestion
                 </div>
                 <div className="flex flex-col md:flex-row items-center gap-5">
-                  <div className="border border-emerald-200/60 bg-emerald-50/80 backdrop-blur-sm rounded-2xl p-5 w-56 text-center shadow-sm relative overflow-hidden">
+                  <div className="border border-emerald-200/60 bg-emerald-50/80 backdrop-blur-sm rounded-2xl p-5 w-64 text-center shadow-sm relative overflow-hidden">
                     <div className="absolute top-0 right-0 w-20 h-20 bg-emerald-200/30 rounded-bl-full" />
-                    <div className="text-4xl mb-3 relative">🐳</div>
-                    <div className="text-sm text-emerald-950 font-black relative">API Ingestion</div>
-                    <div className="text-[10px] text-emerald-700 mt-1 font-bold relative">FastAPI / Docker</div>
-                  </div>
-                  <div className="hidden md:block"><Arrow label="Stream" /></div>
-                  <div className="md:hidden"><DownArrow /></div>
-                  <div className="border border-indigo-200/60 bg-indigo-50/80 backdrop-blur-sm rounded-2xl p-5 w-56 text-center shadow-sm">
-                    <div className="text-4xl mb-3">📨</div>
-                    <div className="text-sm text-indigo-950 font-black">Event Bus</div>
-                    <div className="text-[10px] text-indigo-700 mt-1 font-bold">Kafka Message Queue</div>
+                    <div className="text-4xl mb-3 relative">⚡</div>
+                    <div className="text-sm text-emerald-950 font-black relative">FastAPI Gateway</div>
+                    <div className="text-[10px] text-emerald-700 mt-1 font-bold relative">High-throughput /api/v1/analyze</div>
                   </div>
                 </div>
               </div>
@@ -240,79 +233,42 @@ export function ArchitectureSection() {
               <div className="w-full border border-blue-200/50 bg-blue-50/30 backdrop-blur-md rounded-[2.5rem] p-6 md:p-8 relative shadow-[inset_0_2px_20px_rgba(59,130,246,0.05)]">
                 <div className="absolute -top-3.5 left-1/2 -translate-x-1/2 px-6 bg-blue-600 text-[10px] font-black text-white uppercase tracking-widest flex items-center gap-2 rounded-full shadow-lg shadow-blue-500/30 py-1.5">
                   <span className="w-2 h-2 rounded-full bg-white animate-pulse" />
-                  Core Forensics Engine
+                  Python Forensics & Local Validation
                 </div>
                 
                 <div className="mt-4">
                   {/* Step 1: Parallel streams */}
                   <div className="mb-6 bg-white/70 backdrop-blur-sm p-5 rounded-2xl border border-blue-100 shadow-sm">
-                    <div className="text-[11px] text-blue-900 font-black uppercase tracking-widest mb-5 pl-1 flex items-center justify-center md:justify-start gap-2">
-                      <span className="bg-blue-200 text-blue-800 w-5 h-5 rounded flex items-center justify-center text-[10px]">1</span>
-                      Parallel Feature Extraction (Microservices)
-                    </div>
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                       <PipelineBox color="cyan" icon="🔍" title="Metadata Scan"
                         sub="Hidden File Traces"
-                        items={['Creation dates', 'Software signatures', 'Modification history']} />
-                      <PipelineBox color="violet" icon="🔬" title="Pixel Analysis"
-                        sub="Image Forgery"
-                        items={['Error Level Analysis', 'Copy-Move Detection', 'Compression variance']} />
-                      <PipelineBox color="teal" icon="🔲" title="Structural Check"
-                        sub="Layout anomalies"
-                        items={['Font matching', 'Bounding boxes', 'Invisible layers']} />
+                        items={['EXIF extraction', 'Software signatures (e.g. Photoshop)']} />
+                      <PipelineBox color="violet" icon="🔬" title="OpenCV Engine"
+                        sub="Error Level Analysis"
+                        items={['Pixel compression variance', 'Color-mapped heatmaps']} />
+                      <PipelineBox color="amber" icon="🧮" title="Math Validation"
+                        sub="Local Extraction"
+                        items={['OCR Text Parsing', 'Financial structure consistency']} />
                     </div>
                   </div>
 
                   {/* Steps 2-4 */}
-                  <div className="flex flex-col md:flex-row items-stretch gap-4">
-                    <div className="flex-1 border border-indigo-200/60 bg-white/60 backdrop-blur-sm rounded-2xl p-5 text-center flex flex-col justify-center shadow-sm relative group">
-                      <div className="absolute top-3 left-3 bg-indigo-100 text-indigo-800 w-5 h-5 rounded flex items-center justify-center text-[10px] font-black">2</div>
-                      <div className="text-4xl mb-3 mt-2 group-hover:scale-110 transition-transform">🧮</div>
-                      <div className="text-sm font-black text-indigo-950 leading-tight">Vectorization</div>
-                      <div className="text-[10px] text-indigo-700 mt-1.5 font-bold">512-dim feature vector</div>
-                    </div>
-                    <div className="hidden md:flex flex-col justify-center"><Arrow /></div>
-                    <div className="md:hidden"><DownArrow /></div>
-                    
-                    <div className="flex-1 border border-blue-300/60 bg-blue-100/50 backdrop-blur-sm rounded-2xl p-5 text-center flex flex-col justify-center shadow-md relative overflow-hidden group">
-                      <div className="absolute -right-6 -top-6 w-32 h-32 bg-blue-400/20 rounded-full blur-3xl" />
-                      <div className="absolute top-3 left-3 bg-blue-200 text-blue-800 w-5 h-5 rounded flex items-center justify-center text-[10px] font-black">3</div>
-                      <div className="text-4xl mb-3 mt-2 relative z-10 group-hover:scale-110 transition-transform">📐</div>
-                      <div className="text-sm font-black text-blue-950 leading-tight relative z-10">Distance Scoring</div>
-                      <div className="text-[10px] text-blue-800 mt-1.5 font-bold relative z-10">Find Nearest Neighbors</div>
-                    </div>
-                    
-                    <div className="hidden md:flex flex-col justify-center"><Arrow /></div>
-                    <div className="md:hidden"><DownArrow /></div>
-                    
-                    <div className="flex-1 border border-emerald-200/60 bg-white/60 backdrop-blur-sm rounded-2xl p-5 text-center flex flex-col justify-center shadow-sm relative group">
-                      <div className="absolute top-3 left-3 bg-emerald-100 text-emerald-800 w-5 h-5 rounded flex items-center justify-center text-[10px] font-black">4</div>
-                      <div className="text-4xl mb-3 mt-2 group-hover:scale-110 transition-transform">🧠</div>
-                      <div className="text-sm font-black text-emerald-950 leading-tight">AI Insights</div>
-                      <div className="text-[10px] text-emerald-700 mt-1.5 font-bold leading-relaxed">Plain-English Report</div>
-                    </div>
-                  </div>
-
-                  {/* Vector DB */}
                   <div className="flex justify-center mt-6 relative">
                     <div className="flex flex-col items-center">
                       <UpDownArrow />
                       <div className="border border-slate-300 bg-slate-800 text-white rounded-2xl px-8 py-5 text-center shadow-xl relative overflow-hidden group">
-                        <div className="absolute inset-0 bg-gradient-to-r from-cyan-500/20 to-blue-500/20 opacity-0 group-hover:opacity-100 transition-opacity" />
+                        <div className="absolute inset-0 bg-gradient-to-r from-teal-500/20 to-emerald-500/20 opacity-0 group-hover:opacity-100 transition-opacity" />
                         <div className="text-sm font-black tracking-wide flex items-center gap-2 justify-center relative z-10">
-                          <span className="text-cyan-400 text-lg">🗄️</span> Authentic Baseline DB
+                          <span className="text-teal-400 text-lg">🤖</span> Local Validation Engine
                         </div>
-                        <div className="text-[10px] text-slate-300 font-bold mt-1.5 tracking-widest uppercase relative z-10">In-Memory FAISS Index</div>
-                      </div>
-                      <div className="text-[10px] text-emerald-600 font-black mt-4 bg-emerald-50 px-4 py-2 rounded-full border border-emerald-200 flex items-center gap-2 shadow-sm">
-                        <span className="animate-spin duration-[3000ms] text-lg leading-none">↻</span> Active Learning Updates
+                        <div className="text-[10px] text-slate-300 font-bold mt-1.5 tracking-widest uppercase relative z-10">OCR, PDF parsing, and rule checks</div>
                       </div>
                     </div>
                   </div>
                 </div>
               </div>
 
-              <DownArrow label="< 150ms total latency" />
+              <DownArrow label="Sub-second processing" />
 
               {/* ── Section 4: Outputs ─────────────────────────────────── */}
               <div className="flex flex-col items-center gap-4 w-full pt-2">
@@ -321,14 +277,14 @@ export function ArchitectureSection() {
                 </div>
                 <div className="flex flex-wrap justify-center gap-5 w-full">
                   <div className="w-56">
-                    <PipelineBox color="amber" icon="📊" title="Risk Score API"
+                    <PipelineBox color="amber" icon="📊" title="Risk Score"
                       sub="Direct to LOS"
-                      items={['Percentage score', 'Pass/Fail flag']} />
+                      items={['Percentage score (0-100%)', 'Aggregated risk tier']} />
                   </div>
                   <div className="w-56">
-                    <PipelineBox color="blue" icon="📑" title="XAI Report"
+                    <PipelineBox color="blue" icon="📑" title="Visual Proof"
                       sub="For Underwriters"
-                      items={['Highlighted anomalies', 'Confidence metrics']} />
+                      items={['ELA Heatmap image', 'Detected anomalies list']} />
                   </div>
                   <div className="w-56 border border-rose-200/60 bg-gradient-to-br from-white to-rose-50/50 rounded-2xl p-5 text-center shadow-sm hover:-translate-y-1 transition-transform cursor-help">
                     <div className="text-4xl mb-3">👤</div>
@@ -342,9 +298,9 @@ export function ArchitectureSection() {
 
             {/* Legend */}
             <div className="mt-16 border-t border-slate-200/60 pt-6 flex flex-wrap items-center justify-center gap-x-12 gap-y-4 text-[13px] text-slate-600 bg-white/60 backdrop-blur-md rounded-2xl p-5 shadow-sm relative z-10">
-              <span className="flex items-center gap-2.5"><span className="text-indigo-500 bg-indigo-100 p-1.5 rounded-full leading-none">⚡</span> <strong className="text-slate-900 font-black">Parallel Execution:</strong> No bottlenecks</span>
-              <span className="flex items-center gap-2.5"><span className="text-blue-500 bg-blue-100 p-1.5 rounded-full leading-none">⏱️</span> <strong className="text-slate-900 font-black">Sub-150ms:</strong> Total latency</span>
-              <span className="flex items-center gap-2.5"><span className="text-emerald-500 bg-emerald-100 p-1.5 rounded-full leading-none">🔄</span> <strong className="text-slate-900 font-black">Adaptive:</strong> Learns from valid docs</span>
+              <span className="flex items-center gap-2.5"><span className="text-indigo-500 bg-indigo-100 p-1.5 rounded-full leading-none">⚡</span> <strong className="text-slate-900 font-black">Local Execution:</strong> No external orchestration</span>
+              <span className="flex items-center gap-2.5"><span className="text-blue-500 bg-blue-100 p-1.5 rounded-full leading-none">⏱️</span> <strong className="text-slate-900 font-black">On Upload:</strong> Analysis runs immediately</span>
+              <span className="flex items-center gap-2.5"><span className="text-emerald-500 bg-emerald-100 p-1.5 rounded-full leading-none">🔄</span> <strong className="text-slate-900 font-black">Data-Driven:</strong> Uses uploaded file content</span>
             </div>
           </div>
         </motion.div>
@@ -355,10 +311,10 @@ export function ArchitectureSection() {
 
 // ── How It Works ──────────────────────────────────────────────────────────────
 const steps = [
-  { icon: '📥', n: '01', title: 'Ingest & Parse', desc: 'Document submitted via API. Message queue triggers parallel microservice consumers instantly.' },
-  { icon: '🔬', n: '02', title: 'Forensic Extraction', desc: 'Metadata, pixel analysis, and layout structural checks run simultaneously across microservices.' },
-  { icon: '📐', n: '03', title: 'Distance Scoring', desc: 'Compares document features against millions of authenticated baseline records in <2ms.' },
-  { icon: '🧠', n: '04', title: 'XAI Narrative', desc: 'Delivers a clear risk score and plain-English reasons. Underwriters understand the verdict instantly.' },
+  { icon: '📥', n: '01', title: 'Ingest & Parse', desc: 'Document submitted through the app. FastAPI validates the upload and reads the actual file bytes.' },
+  { icon: '🔬', n: '02', title: 'Forensic Extraction', desc: 'Metadata, ELA heatmap generation, and copy-move checks run locally with Python and OpenCV.' },
+  { icon: '📐', n: '03', title: 'Local Validation', desc: 'PDF parsing or OCR extracts text, then rule-based math checks use the uploaded document values.' },
+  { icon: '🧠', n: '04', title: 'Risk Report', desc: 'The backend returns the risk score, anomalies, heatmap, metadata, and validation status to the dashboard.' },
 ];
 
 export function HowItWorks() {
