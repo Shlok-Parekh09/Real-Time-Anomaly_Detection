@@ -5,6 +5,8 @@ from typing import Any, Dict, List, Tuple
 
 from PIL import Image
 
+from forensics import extract_document_text
+
 
 MONEY_PATTERN = re.compile(
     r"(?P<currency>[$₹€£])?\s*(?P<amount>-?\d[\d,]*(?:\.\d{1,2})?)"
@@ -98,11 +100,20 @@ def _extract_image_text(document_bytes: bytes) -> Tuple[str, float | None, List[
     return "\n".join(extracted_lines), average_confidence, []
 
 
-def extract_text_and_numbers(document_bytes: bytes, file_name: str) -> Dict[str, Any]:
+def extract_text_and_numbers(document_bytes: bytes, file_name: str, content_type: str = "") -> Dict[str, Any]:
     """
     Extract text from the uploaded document using local parsers only.
     No remote OCR service or fixed sample payload is used.
     """
+    parsed = extract_document_text(document_bytes, file_name, content_type)
+    if parsed.get("source") not in {"generic_text_scan"}:
+        return {
+            "text": parsed.get("text", ""),
+            "confidence_score": parsed.get("confidence_score"),
+            "source": parsed.get("source"),
+            "notes": parsed.get("notes", []),
+        }
+
     if _is_pdf(file_name, document_bytes):
         text, confidence, notes = _extract_pdf_text(document_bytes)
         source = "local_pdf_parser"
@@ -193,12 +204,12 @@ def validate_math_consistency(ocr_data: Dict[str, Any]) -> Tuple[bool, List[str]
     return True, anomalies, checks
 
 
-def run_local_validation(document_bytes: bytes, file_name: str) -> Tuple[Dict[str, Any], List[str]]:
+def run_local_validation(document_bytes: bytes, file_name: str, content_type: str = "") -> Tuple[Dict[str, Any], List[str]]:
     """
     Run local validation over the uploaded document.
     Kept as the backend entry point so the current service architecture stays stable.
     """
-    ocr_data = extract_text_and_numbers(document_bytes, Path(file_name or "").name)
+    ocr_data = extract_text_and_numbers(document_bytes, Path(file_name or "").name, content_type)
     extracted_text = ocr_data.get("text", "")
     notes = list(ocr_data.get("notes", []))
 

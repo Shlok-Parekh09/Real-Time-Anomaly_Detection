@@ -1,107 +1,124 @@
-# 🔍 Real-Time Document Tampering & Fraud Detection System
+# Real-Time Document Fraud Detection
 
-> Enterprise-Grade AI Digital Forensics Engine for Financial & Land Documents
+AI-assisted document forensics for bank statements, financial documents, images, and spreadsheets. The app uses a FastAPI backend for file analysis and a single Vite/React frontend for the landing page and underwriter dashboard.
 
-## Overview
+## What It Does
 
-This project has evolved from a simple KNN prototype into a **production-ready microservices architecture**. It leverages Computer Vision (OpenCV) and Agentic Validation to detect sophisticated document forgery, including copy-move manipulations, metadata tampering, and semantic/mathematical inconsistencies in real-time.
+- Opens one frontend from the repo root with `npm run dev`.
+- Shows an intro page with a top `Start` button.
+- Opens the full underwriter dashboard on the same frontend when `Start` is clicked.
+- Accepts PDF, image, Excel workbook, CSV, and TSV uploads.
+- Detects fraud signals such as X-ray revision recovery, masking, suspicious software metadata, date mismatch, annotations, hidden workbook content, external links, and validation failures.
+- Shows an X-ray comparison view inspired by the reference video: recovered previous content, submitted content, a reveal slider, and extracted alteration details.
+- Uses `CEREBRAS_API_KEY` for AI-generated explanations, with a local fallback when no key is configured.
 
-## ✨ Key Features
+## Project Layout
 
-✅ **Advanced Image Forensics** - Performs deep pixel-level Error Level Analysis (ELA) and ORB-based Copy-Move Detection to find cloned or spliced regions.  
-✅ **Agentic OCR & Math Validation** - Extracts document text and uses agentic reasoning to verify financial math (e.g., ensuring Income - Deductions = Net Income).  
-✅ **EXIF Metadata Scanning** - Instantly flags documents edited with software like Photoshop or GIMP.  
-✅ **Premium Underwriter UI** - A high-end, glassmorphism React dashboard designed for explainability (XAI), providing visual proof via heatmaps.  
-✅ **Sub-150ms Latency** - Built on FastAPI to handle high-throughput parallel execution without bottlenecks.  
-✅ **Orchestration Ready** - Built-in n8n webhook integrations for cross-referencing external land registries and databases.  
-
-## 🏗️ Technical Architecture
-
-### 1. Frontend (Underwriter Dashboard)
-- **Framework**: React 18, Vite
-- **Styling**: Tailwind CSS, Framer Motion (for micro-animations)
-- **Icons**: Lucide React
-- **Integration**: Fetch API interacting with the backend.
-
-### 2. Backend (Forensics Engine)
-- **Framework**: FastAPI, Uvicorn
-- **Computer Vision**: OpenCV (`opencv-python-headless`), Pillow, NumPy
-- **Capabilities**: 
-  - `forensics.py`: ELA Heatmap generation, EXIF Extraction, ORB Keypoint Copy-Move detection.
-  - `agentic_validation.py`: OCR bounding box simulation and math validation logic.
-
-## 🚀 Installation & Setup
-
-### Prerequisites
-- Python 3.10+
-- Node.js 18+ & npm
-
-### Backend Setup
-1. Navigate to the backend directory:
-   ```bash
-   cd fraud_detection_system/backend
-   ```
-2. Install Python dependencies:
-   ```bash
-   pip install -r requirements.txt
-   ```
-3. Start the FastAPI server:
-   ```bash
-   uvicorn main:app --reload
-   ```
-   *(The API will be available at `http://localhost:8000` and Swagger UI at `http://localhost:8000/docs`)*
-
-### Frontend Setup
-1. Open a new terminal and navigate to the frontend directory:
-   ```bash
-   cd fraud_detection_system/frontend
-   ```
-2. Install Node dependencies:
-   ```bash
-   npm install
-   ```
-3. Start the Vite development server:
-   ```bash
-   npm run dev
-   ```
-   *(The Dashboard will be available at `http://localhost:5173` or `http://localhost:5174`)*
-
-## 📖 Usage Guide
-
-1. **Access the Dashboard**: Open `http://localhost:5173` in your browser.
-2. **Upload a Document**: Scroll down to the **Forensic Analysis Console** and upload a PDF, JPG, or PNG document.
-3. **Real-Time Analysis**: Watch the pipeline extract EXIF data, run OpenCV ELA, and perform agentic math validation.
-4. **Interpret Results**:
-   - **Risk Score**: A synthesized 0-100% score indicating the probability of fraud.
-   - **Visual Proof**: An ELA Heatmap that highlights modified pixels in red/yellow.
-   - **Forensic Findings**: A detailed breakdown of the exact anomalies detected (e.g., "Copy-Move forgery detected!").
-
-## 📂 Project Structure
-
-```
-Real-Time Anomaly Detection App/
+```text
+.
+├── src/                              # Single active React frontend
+│   └── app/
+│       ├── App.tsx                   # Landing page + Start button flow
+│       ├── UnderwriterDashboard.tsx  # Active document review UI
+│       └── sections.tsx              # Landing page sections
 ├── fraud_detection_system/
-│   ├── backend/
-│   │   ├── main.py                 # FastAPI Gateway & Orchestration
-│   │   ├── forensics.py            # OpenCV ELA & Copy-Move Algorithms
-│   │   ├── agentic_validation.py   # OCR & Math Verification Logic
-│   │   └── requirements.txt        # Python dependencies
-│   ├── frontend/
-│   │   ├── src/
-│   │   │   ├── App.tsx             # Main React Application
-│   │   │   ├── components/         # Dashboard UI Components
-│   │   │   └── index.css           # Global Tailwind Styles
-│   │   ├── package.json            # Node dependencies
-│   │   └── vite.config.ts          # Vite configuration
-└── README.md                       # This documentation
+│   └── backend/
+│       ├── main.py                   # FastAPI API
+│       ├── forensics.py              # X-ray recovery, fraud signals, Cerebras narrative
+│       ├── local_validation.py       # Text extraction and math checks
+│       └── requirements.txt
+├── package.json                      # Root frontend scripts
+└── README.md
 ```
 
-## 🔮 Future Enhancements
-- [ ] Integration with AWS Textract or real `pytesseract` for production OCR.
-- [ ] Connect the `n8n` webhooks to live external databases.
-- [ ] Add explainable AI (SHAP values) for the overall risk tier generation.
-- [ ] Dockerize the application for one-click deployments.
+`fraud_detection_system/frontend` is no longer the app you need to run for the UI. The root frontend owns the dashboard now, so there is no separate `5174` frontend.
 
----
+## Backend Setup
 
-**Built for Modern Document Security.** Clean architecture, state-of-the-art visual forensics, and real-time processing.
+From the repo root:
+
+```powershell
+python -m pip install -r fraud_detection_system\backend\requirements.txt
+```
+
+Optional Cerebras configuration:
+
+```powershell
+$env:CEREBRAS_API_KEY="your_cerebras_key"
+$env:CEREBRAS_MODEL="gpt-oss-120b"
+```
+
+Start the backend:
+
+```powershell
+cd fraud_detection_system\backend
+python -m uvicorn main:app --host 127.0.0.1 --port 8000
+```
+
+Health check:
+
+```powershell
+Invoke-RestMethod http://127.0.0.1:8000/health
+```
+
+## Frontend Setup
+
+From the repo root:
+
+```powershell
+npm install
+npm run dev
+```
+
+Open:
+
+```text
+http://127.0.0.1:5173
+```
+
+Click `Start` in the top navigation to open the document forensics dashboard on the same port.
+
+## How To Use
+
+1. Start the backend on `127.0.0.1:8000`.
+2. Start the root frontend with `npm run dev`.
+3. Open `http://127.0.0.1:5173`.
+4. Click `Start`.
+5. Upload a PDF, image, Excel workbook, CSV, or TSV.
+6. Click `Run Forensics`.
+7. Review the trust score, fraud signals, X-ray recovered version, parsed details, and AI explanation.
+
+## API
+
+Main endpoint:
+
+```http
+POST /api/v1/analyze
+```
+
+Multipart field:
+
+```text
+file=<uploaded document>
+```
+
+The response includes:
+
+- `file_type`
+- `risk_score`
+- `trust_score`
+- `fraud_signals`
+- `recovered_version`
+- `ai_explanation`
+- `metadata`
+- `extracted_text`
+- `validation_status`
+- `validation_checks`
+
+## Notes
+
+- The X-ray feature can recover prior PDF incremental revisions when the PDF still contains previous bodies.
+- For `.xlsx/.xlsm`, it scans workbook internals for hidden sheets, formulas, external links, comments, and unreferenced shared strings that can reveal overwritten values.
+- Legacy `.xls` files are accepted, but deep workbook recovery is limited because the format is binary OLE.
+- Image OCR depends on local Tesseract availability. The rest of the backend still runs if OCR is unavailable.
+- The UI falls back to local explanation text unless `CEREBRAS_API_KEY` is set before starting the backend.

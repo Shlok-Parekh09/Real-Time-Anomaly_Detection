@@ -244,8 +244,8 @@ export function ArchitectureSection() {
                         sub="Hidden File Traces"
                         items={['EXIF extraction', 'Software signatures (e.g. Photoshop)']} />
                       <PipelineBox color="violet" icon="🔬" title="OpenCV Engine"
-                        sub="Error Level Analysis"
-                        items={['Pixel compression variance', 'Color-mapped heatmaps']} />
+                        sub="Revision Recovery"
+                        items={['PDF incremental update scan', 'Workbook shared-string recovery']} />
                       <PipelineBox color="amber" icon="🧮" title="Math Validation"
                         sub="Local Extraction"
                         items={['OCR Text Parsing', 'Financial structure consistency']} />
@@ -284,7 +284,7 @@ export function ArchitectureSection() {
                   <div className="w-56">
                     <PipelineBox color="blue" icon="📑" title="Visual Proof"
                       sub="For Underwriters"
-                      items={['ELA Heatmap image', 'Detected anomalies list']} />
+                      items={['Recovered previous version', 'Detected fraud signals']} />
                   </div>
                   <div className="w-56 border border-rose-200/60 bg-gradient-to-br from-white to-rose-50/50 rounded-2xl p-5 text-center shadow-sm hover:-translate-y-1 transition-transform cursor-help">
                     <div className="text-4xl mb-3">👤</div>
@@ -312,9 +312,9 @@ export function ArchitectureSection() {
 // ── How It Works ──────────────────────────────────────────────────────────────
 const steps = [
   { icon: '📥', n: '01', title: 'Ingest & Parse', desc: 'Document submitted through the app. FastAPI validates the upload and reads the actual file bytes.' },
-  { icon: '🔬', n: '02', title: 'Forensic Extraction', desc: 'Metadata, ELA heatmap generation, and copy-move checks run locally with Python and OpenCV.' },
+  { icon: '🔬', n: '02', title: 'Forensic Extraction', desc: 'Metadata, X-ray revision recovery, spreadsheet tracing, and copy-move checks run locally with Python.' },
   { icon: '📐', n: '03', title: 'Local Validation', desc: 'PDF parsing or OCR extracts text, then rule-based math checks use the uploaded document values.' },
-  { icon: '🧠', n: '04', title: 'Risk Report', desc: 'The backend returns the risk score, anomalies, heatmap, metadata, and validation status to the dashboard.' },
+  { icon: '🧠', n: '04', title: 'Risk Report', desc: 'The backend returns trust score, fraud signals, recovered-version evidence, metadata, and validation status to the dashboard.' },
 ];
 
 export function HowItWorks() {

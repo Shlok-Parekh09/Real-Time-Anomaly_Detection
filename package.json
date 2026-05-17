@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "build": "vite build",
-    "dev": "vite"
+    "dev": "vite --host 127.0.0.1 --port 5173 --strictPort"
   },
   "dependencies": {
     "@emotion/react": "11.14.0",

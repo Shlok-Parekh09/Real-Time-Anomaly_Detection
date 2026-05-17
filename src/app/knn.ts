@@ -134,7 +134,7 @@ function fontReason(val: number, z: number): XAIReason {
     icon: '🔤',
     technical: `Font/pixel variance vector z-score: ${z.toFixed(2)}σ (baseline μ=70, σ=9)`,
     plain: high
-      ? `Pixel-level analysis (ELA) shows ${Math.round(Math.abs(z) * 5)} numerals with zero compression artifacts — indicating those characters were digitally inserted at a different JPEG compression level than the surrounding text.`
+      ? `Pixel-level analysis shows ${Math.round(Math.abs(z) * 5)} numerals with unusual compression artifacts — indicating those characters may have been digitally inserted at a different compression level than the surrounding text.`
       : `Font rendering entropy is ${(Math.abs(z) * 8).toFixed(0)}% below baseline. Kerning and sub-pixel hinting suggest the document was scanned from a lower-quality printer than the institutional letterhead implies.`,
   };
 }

@@ -1,87 +1,177 @@
-from fastapi import FastAPI, UploadFile, File, HTTPException
+from __future__ import annotations
+
+from typing import Any
+
+from fastapi import FastAPI, File, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
-from typing import List
-import base64
 
-from forensics import perform_ela, extract_metadata, detect_copy_move
+from forensics import (
+    analyze_forensic_signals,
+    calculate_risk_score,
+    detect_file_type,
+    extract_metadata,
+    generate_cerebras_explanation,
+)
 from local_validation import run_local_validation
+
 
 app = FastAPI(title="Document Tampering and Fraud Detection API")
 
-# Configure CORS for the frontend
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Allows all origins for demo purposes
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
+
+ALLOWED_EXTENSIONS = {
+    ".pdf",
+    ".png",
+    ".jpg",
+    ".jpeg",
+    ".webp",
+    ".bmp",
+    ".tif",
+    ".tiff",
+    ".xlsx",
+    ".xlsm",
+    ".xltx",
+    ".xltm",
+    ".xls",
+    ".csv",
+    ".tsv",
+}
+
+
+class FraudSignal(BaseModel):
+    id: str
+    name: str
+    severity: str
+    summary: str
+    description: str
+    evidence: list[str]
+    confidence: float
+    recovered_version_available: bool = False
+
+
+class RecoveredChange(BaseModel):
+    field: str
+    previous_value: str
+    current_value: str
+    type: str
+
+
+class RecoveredSection(BaseModel):
+    title: str
+    items: list[str]
+
+
+class RecoveredVersion(BaseModel):
+    available: bool
+    title: str
+    summary: str
+    method: str
+    preview_text: str
+    sections: list[RecoveredSection]
+    changes: list[RecoveredChange]
+    confidence: float
+
+
+class AiExplanation(BaseModel):
+    summary: str
+    likely_alteration: str
+    recommended_action: str
+    limitations: str
+    generated_by: str
+
+
 class AnalysisResult(BaseModel):
     file_name: str
+    file_type: str
     risk_score: float
-    heatmap_image_b64: str
-    anomalies: List[str]
-    metadata: dict
+    trust_score: float
+    anomalies: list[str]
+    fraud_signals: list[FraudSignal]
+    recovered_version: RecoveredVersion
+    ai_explanation: AiExplanation
+    metadata: dict[str, Any]
+    feature_summary: dict[str, Any]
     extracted_text: str
     validation_status: str
-    validation_checks: List[str]
+    validation_checks: list[str]
     ocr_confidence: float | None = None
+
+
+def _is_allowed_upload(file_name: str, content_type: str, file_bytes: bytes) -> bool:
+    lower_name = (file_name or "").lower()
+    has_allowed_extension = any(lower_name.endswith(ext) for ext in ALLOWED_EXTENSIONS)
+    detected_type = detect_file_type(file_name, content_type, file_bytes)
+    return has_allowed_extension or detected_type in {"pdf", "image", "excel"}
+
 
 @app.post("/api/v1/analyze", response_model=AnalysisResult)
 async def analyze_document(file: UploadFile = File(...)):
-    content_type = file.content_type or ""
-    if not content_type.startswith('image/') and content_type != 'application/pdf':
-        raise HTTPException(status_code=400, detail="Invalid file type. Please upload an image or PDF.")
-
-    file_bytes = await file.read()
     file_name = file.filename or "uploaded-document"
-    
-    # Track all anomalies across modules
-    all_anomalies = []
-    
-    # 1. Document Ingestion & Metadata Checking
-    metadata, meta_anomalies = extract_metadata(file_bytes)
-    all_anomalies.extend(meta_anomalies)
-    
-    # 2. Forensic Analysis (ELA)
-    heatmap_bytes, risk_score, ela_anomalies = perform_ela(file_bytes)
-    all_anomalies.extend(ela_anomalies)
-    
-    # Convert heatmap to base64 for frontend display
-    heatmap_b64 = ""
-    if heatmap_bytes:
-        heatmap_b64 = base64.b64encode(heatmap_bytes).decode('utf-8')
-        
-    # 2.5 Copy-Move Detection
-    cm_risk_score, cm_anomalies = detect_copy_move(file_bytes)
-    all_anomalies.extend(cm_anomalies)
-    
-    # 3. Local Document Validation
-    validation_results, validation_anomalies = run_local_validation(file_bytes, file_name)
-    all_anomalies.extend(validation_anomalies)
-    
-    # Synthesize Final Risk Score
-    # Base risk score from ELA and Copy-Move
-    final_risk_score = max(risk_score, cm_risk_score)
-    if meta_anomalies:
-        final_risk_score = min(100.0, final_risk_score + 20.0)
-    if validation_anomalies:
-        final_risk_score = min(100.0, final_risk_score + 30.0)
+    content_type = file.content_type or ""
+    file_bytes = await file.read()
+
+    if not file_bytes:
+        raise HTTPException(status_code=400, detail="Uploaded file is empty.")
+    if not _is_allowed_upload(file_name, content_type, file_bytes):
+        raise HTTPException(
+            status_code=400,
+            detail="Invalid file type. Upload PDF, image, Excel workbook, CSV, or TSV files.",
+        )
+
+    file_type = detect_file_type(file_name, content_type, file_bytes)
+
+    metadata, metadata_anomalies = extract_metadata(file_bytes, file_name, content_type)
+    validation_results, validation_anomalies = run_local_validation(file_bytes, file_name, content_type)
+
+    fraud_signals, recovered_version, feature_summary = analyze_forensic_signals(
+        file_bytes,
+        file_name,
+        content_type,
+        metadata,
+        metadata_anomalies,
+        validation_anomalies,
+    )
+
+    risk_score = calculate_risk_score(fraud_signals)
+    trust_score = round(max(0.0, 100.0 - risk_score), 1)
+    anomalies = [signal["summary"] for signal in fraud_signals]
+
+    ai_explanation = generate_cerebras_explanation(
+        file_name=file_name,
+        risk_score=risk_score,
+        trust_score=trust_score,
+        signals=fraud_signals,
+        recovered_version=recovered_version,
+        validation_status=validation_results.get("validation_status", ""),
+        extracted_text=validation_results.get("extracted_text", ""),
+    )
 
     return AnalysisResult(
         file_name=file_name,
-        risk_score=final_risk_score,
-        heatmap_image_b64=heatmap_b64,
-        anomalies=all_anomalies,
+        file_type=file_type,
+        risk_score=risk_score,
+        trust_score=trust_score,
+        anomalies=anomalies,
+        fraud_signals=fraud_signals,
+        recovered_version=recovered_version,
+        ai_explanation=ai_explanation,
         metadata=metadata,
+        feature_summary=feature_summary,
         extracted_text=validation_results.get("extracted_text", ""),
         validation_status=validation_results.get("validation_status", ""),
         validation_checks=validation_results.get("validation_checks", []),
         ocr_confidence=validation_results.get("ocr_confidence"),
     )
 
+
 @app.get("/health")
 def health_check():
-    return {"status": "healthy"}
+    return {"status": "healthy", "features": ["pdf", "image", "excel", "xray", "cerebras"]}
