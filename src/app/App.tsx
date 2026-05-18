@@ -38,7 +38,7 @@ export default function App() {
   const [started, setStarted] = useState(false);
 
   if (started) {
-    return <UnderwriterDashboard />;
+    return <UnderwriterDashboard onBack={() => setStarted(false)} />;
   }
 
   return (

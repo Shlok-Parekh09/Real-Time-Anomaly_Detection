@@ -12,6 +12,7 @@ import {
   File,
   FileText,
   Layers,
+  MoveHorizontal,
   RotateCcw,
   Search,
   Settings,
@@ -21,7 +22,7 @@ import {
 } from 'lucide-react';
 
 const API_BASE_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:8000';
-const ACCEPTED_FILES = '.pdf,.png,.jpg,.jpeg,.webp,.bmp,.tif,.tiff,.xlsx,.xlsm,.xltx,.xltm,.xls,.csv,.tsv,application/pdf,image/*,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel,text/csv,text/tab-separated-values';
+const ACCEPTED_FILES = '.pdf,.png,.jpg,.jpeg,.webp,.bmp,.tif,.tiff,application/pdf,image/*';
 
 interface FraudSignal {
   id: string;
@@ -82,6 +83,8 @@ interface AnalysisResult {
   ocr_confidence?: number | null;
 }
 
+type ReviewDecision = 'accepted' | 'rejected';
+
 function cx(...classes: Array<string | false | null | undefined>) {
   return classes.filter(Boolean).join(' ');
 }
@@ -94,14 +97,22 @@ function formatBytes(bytes?: number) {
 
 function friendlyType(file: File | null, result: AnalysisResult | null) {
   const type = result?.file_type;
-  if (type === 'excel') return 'Spreadsheet';
   if (type === 'pdf') return 'PDF';
   if (type === 'image') return 'Image';
   if (!file) return 'Unknown';
-  if (file.name.toLowerCase().match(/\.(xlsx|xlsm|xltx|xltm|xls|csv|tsv)$/)) return 'Spreadsheet';
   if (file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf')) return 'PDF';
   if (file.type.startsWith('image/')) return 'Image';
   return 'Document';
+}
+
+function isSupportedUpload(file: File) {
+  const lowerName = file.name.toLowerCase();
+  return (
+    file.type === 'application/pdf' ||
+    file.type.startsWith('image/') ||
+    lowerName.endsWith('.pdf') ||
+    /\.(png|jpe?g|webp|bmp|tiff?)$/.test(lowerName)
+  );
 }
 
 function metadataValue(value: unknown) {
@@ -133,6 +144,69 @@ function severityStyles(severity: string) {
     icon: 'bg-slate-100 text-slate-500',
     dot: 'bg-slate-400',
   };
+}
+
+interface VisualRegion {
+  label: string;
+  severity: 'high' | 'medium' | 'low';
+  top: string;
+  left: string;
+  width: string;
+  height: string;
+}
+
+const REGION_LAYOUT: Array<Omit<VisualRegion, 'label' | 'severity'>> = [
+  { top: '17%', left: '10%', width: '28%', height: '9%' },
+  { top: '78%', left: '62%', width: '25%', height: '7%' },
+  { top: '36%', left: '12%', width: '45%', height: '6%' },
+  { top: '61%', left: '58%', width: '28%', height: '6%' },
+  { top: '24%', left: '63%', width: '20%', height: '8%' },
+  { top: '82%', left: '14%', width: '25%', height: '7%' },
+];
+
+function pdfViewerUrl(previewUrl: string) {
+  return `${previewUrl}#toolbar=0&navpanes=0&scrollbar=0&view=Fit`;
+}
+
+function buildVisualRegions(result: AnalysisResult | null): VisualRegion[] {
+  const changes = result?.recovered_version?.changes ?? [];
+  if (changes.length) {
+    return changes.slice(0, REGION_LAYOUT.length).map((change, index) => ({
+      ...REGION_LAYOUT[index],
+      label: change.field || `Recovered change ${index + 1}`,
+      severity: change.type === 'removed' ? 'high' : 'medium',
+    }));
+  }
+
+  return (result?.fraud_signals ?? []).slice(0, REGION_LAYOUT.length).map((signal, index) => ({
+    ...REGION_LAYOUT[index],
+    label: signal.name,
+    severity: signal.severity === 'high' || signal.severity === 'medium' ? signal.severity : 'low',
+  }));
+}
+
+function EvidenceOverlay({ regions }: { regions: VisualRegion[] }) {
+  if (!regions.length) return null;
+  return (
+    <div className="pointer-events-none absolute inset-0">
+      {regions.map((region, index) => (
+        <div
+          key={`${region.label}-${index}`}
+          className="absolute rounded-sm border-2 border-red-500 bg-red-500/18 shadow-[0_0_0_9999px_rgba(0,0,0,0.02)]"
+          style={{
+            top: region.top,
+            left: region.left,
+            width: region.width,
+            height: region.height,
+          }}
+        >
+          <span className="absolute -top-6 left-0 max-w-48 truncate rounded-sm bg-red-600 px-2 py-1 text-[10px] font-black uppercase tracking-wide text-white shadow">
+            {region.label}
+          </span>
+        </div>
+      ))}
+    </div>
+  );
 }
 
 function SignalRow({
@@ -175,33 +249,235 @@ function SignalRow({
   );
 }
 
+function PdfFrame({ previewUrl, title, className }: { previewUrl: string; title: string; className?: string }) {
+  return (
+    <iframe
+      title={title}
+      src={pdfViewerUrl(previewUrl)}
+      className={cx('h-full w-full border-0 bg-white', className)}
+      loading="lazy"
+    />
+  );
+}
+
+function OriginalVersionLayer({ result }: { result: AnalysisResult }) {
+  const recovered = result.recovered_version;
+  const originalRows = (recovered.preview_text || '')
+    .split('\n')
+    .filter(Boolean)
+    .slice(0, 34);
+  const fallbackRows = recovered.changes.slice(0, 12).map((change) => `${change.field}: ${change.previous_value}`);
+  const rows = originalRows.length ? originalRows : fallbackRows;
+
+  return (
+    <div className="flex h-full items-center justify-center overflow-auto bg-[#e9f8f1] p-6">
+      <div className="min-h-[86%] w-[min(720px,92%)] rounded-sm border border-emerald-200 bg-white p-8 shadow-2xl">
+        <div className="mb-6 flex items-center justify-between border-b border-emerald-100 pb-4">
+          <div>
+            <p className="text-[10px] font-black uppercase tracking-wide text-emerald-600">Original recovered</p>
+            <p className="mt-1 text-sm font-bold text-slate-900">{recovered.title}</p>
+          </div>
+          <span className="rounded-full bg-emerald-100 px-2 py-1 text-[10px] font-black text-emerald-700">
+            X-ray
+          </span>
+        </div>
+        {rows.length ? (
+          <div className="space-y-2 font-mono text-xs leading-relaxed text-slate-700">
+            {rows.map((row, index) => (
+              <p key={`${row}-${index}`} className="border-b border-slate-100 pb-2">
+                {row}
+              </p>
+            ))}
+          </div>
+        ) : (
+          <div className="flex min-h-[420px] items-center justify-center text-center text-sm text-slate-500">
+            <div>
+              <Eye className="mx-auto mb-3 h-9 w-9 text-emerald-300" />
+              <p>No recoverable original page image was found.</p>
+              <p className="mt-1 text-xs text-slate-400">The submitted document stays visible on the fraud side.</p>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function SubmittedVersionLayer({
+  kind,
+  previewUrl,
+  rows,
+}: {
+  kind: string;
+  previewUrl: string;
+  rows: string[];
+}) {
+  if (kind === 'image') {
+    return (
+      <div className="flex h-full items-center justify-center overflow-auto bg-neutral-900 p-5">
+        <img
+          src={previewUrl}
+          alt="Submitted document preview"
+          className="max-h-[calc(100vh-245px)] max-w-full object-contain grayscale contrast-90 brightness-75"
+        />
+      </div>
+    );
+  }
+
+  if (kind === 'pdf') {
+    return <PdfFrame title="Submitted fraud PDF preview" previewUrl={previewUrl} className="grayscale contrast-90 brightness-75" />;
+  }
+
+  return (
+    <div className="h-full overflow-auto bg-neutral-900 p-6 grayscale contrast-90 brightness-75">
+      <div className="min-w-[760px] rounded bg-white p-4 font-mono text-xs text-slate-800">
+        {rows.length > 0 ? (
+          rows.map((row, index) => (
+            <div key={`${row}-${index}`} className="border-b border-slate-100 px-2 py-1">
+              {row}
+            </div>
+          ))
+        ) : (
+          <div className="flex h-[460px] items-center justify-center text-center text-sm text-slate-500">
+            Document text appears after forensics completes.
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function XrayComparison({
+  kind,
+  previewUrl,
+  result,
+  rows,
+  regions,
+  showEvidenceMarkers,
+  previewHeight,
+}: {
+  kind: string;
+  previewUrl: string;
+  result: AnalysisResult;
+  rows: string[];
+  regions: VisualRegion[];
+  showEvidenceMarkers: boolean;
+  previewHeight: string;
+}) {
+  const [reveal, setReveal] = useState(50);
+  const containerRef = React.useRef<HTMLDivElement | null>(null);
+
+  const updateRevealFromClientX = (clientX: number) => {
+    const rect = containerRef.current?.getBoundingClientRect();
+    if (!rect || rect.width <= 0) return;
+    const next = ((clientX - rect.left) / rect.width) * 100;
+    setReveal(Math.max(0, Math.min(100, next)));
+  };
+
+  const handleKeyDown = (event: React.KeyboardEvent<HTMLButtonElement>) => {
+    if (event.key === 'ArrowLeft') {
+      event.preventDefault();
+      setReveal((current) => Math.max(0, current - 4));
+    }
+    if (event.key === 'ArrowRight') {
+      event.preventDefault();
+      setReveal((current) => Math.min(100, current + 4));
+    }
+    if (event.key === 'Home') {
+      event.preventDefault();
+      setReveal(0);
+    }
+    if (event.key === 'End') {
+      event.preventDefault();
+      setReveal(100);
+    }
+  };
+
+  return (
+    <div ref={containerRef} className={cx('relative select-none overflow-hidden bg-neutral-900', previewHeight)}>
+      <SubmittedVersionLayer kind={kind} previewUrl={previewUrl} rows={rows} />
+      <div
+        className="pointer-events-none absolute inset-0"
+        style={{ clipPath: `inset(0 ${100 - reveal}% 0 0)` }}
+      >
+        <OriginalVersionLayer result={result} />
+      </div>
+      {showEvidenceMarkers && <EvidenceOverlay regions={regions} />}
+      <div className="pointer-events-none absolute left-4 top-4 z-10 rounded-full bg-emerald-600 px-3 py-1 text-[10px] font-black uppercase tracking-wide text-white shadow">
+        Original
+      </div>
+      <div className="pointer-events-none absolute right-4 top-4 z-10 rounded-full bg-red-600 px-3 py-1 text-[10px] font-black uppercase tracking-wide text-white shadow">
+        Fraud
+      </div>
+      <button
+        type="button"
+        role="slider"
+        aria-label="X-ray comparison position"
+        aria-valuemin={0}
+        aria-valuemax={100}
+        aria-valuenow={Math.round(reveal)}
+        title="Drag to compare original and submitted versions"
+        className="absolute inset-y-0 z-20 w-12 cursor-ew-resize touch-none outline-none focus-visible:ring-2 focus-visible:ring-violet-400"
+        style={{ left: `${reveal}%`, transform: 'translateX(-50%)' }}
+        onPointerDown={(event) => {
+          event.preventDefault();
+          event.currentTarget.setPointerCapture(event.pointerId);
+          updateRevealFromClientX(event.clientX);
+        }}
+        onPointerMove={(event) => {
+          if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+            updateRevealFromClientX(event.clientX);
+          }
+        }}
+        onKeyDown={handleKeyDown}
+      >
+        <span className="absolute inset-y-0 left-1/2 w-1 -translate-x-1/2 bg-white shadow-[0_0_18px_rgba(255,255,255,0.95)]" />
+        <span className="absolute left-1/2 top-1/2 flex h-12 w-12 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full border border-white/80 bg-slate-950/85 text-white shadow-2xl">
+          <MoveHorizontal className="h-5 w-5" />
+        </span>
+      </button>
+    </div>
+  );
+}
+
 function DocumentPreview({
   file,
   previewUrl,
   result,
   mode,
+  showEvidenceMarkers,
 }: {
   file: File | null;
   previewUrl: string | null;
   result: AnalysisResult | null;
   mode: 'document' | 'xray';
+  showEvidenceMarkers: boolean;
 }) {
   const rows = useMemo(
     () => (result?.extracted_text || '').split('\n').filter(Boolean).slice(0, 28),
     [result?.extracted_text]
   );
   const kind = friendlyType(file, result).toLowerCase();
-  const [reveal, setReveal] = useState(48);
 
   if (mode === 'xray' && result) {
     const recovered = result.recovered_version;
-    const primaryChanges = recovered.changes.slice(0, 4);
-    const previousPrimary = primaryChanges[0]?.previous_value || 'Recovered previous value';
-    const currentPrimary = primaryChanges[0]?.current_value || 'Submitted document value';
-    const previousSecondary = primaryChanges[1]?.previous_value || 'Original account holder';
-    const currentSecondary = primaryChanges[1]?.current_value || 'Submitted account holder';
+    const regions = buildVisualRegions(result);
+    const previewHeight = 'h-[calc(100vh-205px)] min-h-[640px]';
+
+    if (!file || !previewUrl) {
+      return (
+        <div className="flex h-full min-h-[520px] items-center justify-center rounded-lg border border-dashed border-slate-300 bg-white text-center">
+          <div>
+            <Eye className="mx-auto mb-4 h-12 w-12 text-slate-300" />
+            <p className="text-sm font-semibold text-slate-700">Upload a document to inspect it</p>
+            <p className="mt-1 text-xs text-slate-400">PDF and image files are supported.</p>
+          </div>
+        </div>
+      );
+    }
+
     return (
-      <div className="grid h-full gap-4 xl:grid-cols-[1.15fr_0.85fr]">
+      <div className="space-y-4">
         <section className="overflow-hidden rounded-lg border border-slate-200 bg-white">
           <div className="flex items-center justify-between border-b border-slate-100 bg-slate-50 px-4 py-3">
             <div>
@@ -213,156 +489,67 @@ function DocumentPreview({
             </span>
           </div>
 
-          <div className="bg-[#edeaf3] p-5">
-            <div className="relative mx-auto min-h-[560px] max-w-[820px] overflow-hidden bg-black shadow-lg">
-              <div className="absolute inset-0 bg-white p-10 text-slate-950">
-                <div className="mb-10 flex items-start justify-between">
-                  <div>
-                    <p className="text-3xl font-black tracking-tight">Recovered Bank Statement</p>
-                    <p className="text-sm font-semibold text-slate-500">Submitted version</p>
-                  </div>
-                  <div className="rounded bg-red-700 px-4 py-3 text-sm font-black text-white">BANK</div>
-                </div>
-                <div className="grid grid-cols-2 gap-8">
-                  <div className="space-y-5">
-                    <div className="inline-block border-2 border-red-400 bg-red-100 px-5 py-3 text-sm font-bold text-red-950">
-                      {currentPrimary}
-                    </div>
-                    <div className="border-t-4 border-slate-900 pt-3">
-                      <p className="text-2xl font-black">Important Account Information</p>
-                      <p className="mt-2 text-sm leading-relaxed text-slate-700">
-                        Submitted document layer after the final incremental update.
-                      </p>
-                    </div>
-                  </div>
-                  <div className="space-y-5">
-                    <div className="border-l-4 border-slate-900 pl-4">
-                      <p className="text-xl font-black">Questions?</p>
-                      <p className="mt-2 text-sm leading-relaxed">Available by phone 24 hours a day, 7 days a week.</p>
-                    </div>
-                    <div className="border-t-4 border-slate-900 pt-3">
-                      <p className="text-xl font-black">Account options</p>
-                      <div className="mt-3 grid grid-cols-2 gap-2 text-sm">
-                        <span>Online Banking</span><span>Checked</span>
-                        <span>Direct Deposit</span><span>Checked</span>
-                        <span>Account holder</span><span>{currentSecondary}</span>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              <div
-                className="absolute inset-y-0 left-0 overflow-hidden bg-black text-white"
-                style={{ width: `${reveal}%` }}
-              >
-                <div className="h-full w-[820px] p-10 opacity-90">
-                  <div className="mb-10 flex items-start justify-between">
-                    <div>
-                      <p className="text-3xl font-black tracking-tight text-white/80">Recovered Bank Statement</p>
-                      <p className="text-sm font-semibold text-white/50">Previous version layer</p>
-                    </div>
-                    <div className="rounded border border-white/20 px-4 py-3 text-sm font-black text-white/70">BANK</div>
-                  </div>
-                  <div className="grid grid-cols-2 gap-8">
-                    <div className="space-y-5">
-                      <div className="inline-block border border-white/80 bg-white/20 px-5 py-3 text-sm font-bold text-white">
-                        {previousPrimary}
-                      </div>
-                      <div className="border-t-4 border-white/40 pt-3">
-                        <p className="text-2xl font-black text-white/80">Important Account Information</p>
-                        <p className="mt-2 text-sm leading-relaxed text-white/55">
-                          The recovered layer shows content present before the submitted revision.
-                        </p>
-                      </div>
-                    </div>
-                    <div className="space-y-5">
-                      <div className="border-l-4 border-white/40 pl-4">
-                        <p className="text-xl font-black text-white/80">Questions?</p>
-                        <p className="mt-2 text-sm leading-relaxed text-white/55">Recovered text is dimmed for comparison.</p>
-                      </div>
-                      <div className="border-t-4 border-white/40 pt-3">
-                        <p className="text-xl font-black text-white/80">Account options</p>
-                        <div className="mt-3 grid grid-cols-2 gap-2 text-sm text-white/60">
-                          <span>Online Banking</span><span>Checked</span>
-                          <span>Direct Deposit</span><span>Checked</span>
-                          <span>Account holder</span><span>{previousSecondary}</span>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              <div className="absolute inset-y-0" style={{ left: `${reveal}%` }}>
-                <div className="h-full w-1 bg-white shadow-[0_0_20px_rgba(255,255,255,0.85)]" />
-                <div className="absolute top-1/2 -ml-5 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full border-2 border-white bg-slate-900 text-white shadow-lg">
-                  <ChevronRight className="h-5 w-5 rotate-180" />
-                  <ChevronRight className="-ml-2 h-5 w-5" />
-                </div>
-              </div>
-
-              {primaryChanges.length > 0 && (
-                <div className="absolute left-[9%] top-[18%] h-16 w-52 border-2 border-white/80 bg-white/10" />
-              )}
-              {primaryChanges.length > 1 && (
-                <div className="absolute bottom-[12%] right-[12%] h-14 w-56 border-2 border-white/70 bg-white/10" />
-              )}
+          <div className="bg-[#e7e5ed] p-4 lg:p-5">
+            <div className="relative mx-auto w-full max-w-[1120px] overflow-hidden rounded-md bg-neutral-950 shadow-lg">
+              <XrayComparison
+                kind={kind}
+                previewUrl={previewUrl}
+                result={result}
+                rows={rows}
+                regions={regions}
+                showEvidenceMarkers={showEvidenceMarkers}
+                previewHeight={previewHeight}
+              />
             </div>
-
-            <input
-              aria-label="X-ray reveal"
-              type="range"
-              min={18}
-              max={82}
-              value={reveal}
-              onChange={(event) => setReveal(Number(event.target.value))}
-              className="mx-auto mt-4 block w-full max-w-[520px] accent-violet-700"
-            />
           </div>
         </section>
 
         <section className="overflow-hidden rounded-lg border border-slate-200 bg-white">
-          <div className="border-b border-slate-100 bg-slate-50 px-4 py-3">
-            <p className="text-xs font-bold uppercase tracking-wide text-slate-500">How It Was Altered</p>
-            <p className="mt-1 text-sm font-semibold text-slate-900">{recovered.method}</p>
-          </div>
-          <div className="h-[620px] overflow-auto p-4">
-            <p className="mb-4 rounded-lg bg-violet-50 p-3 text-sm leading-relaxed text-violet-950">
-              {recovered.summary}
-            </p>
-            {recovered.changes.length > 0 ? (
-              <div className="space-y-3">
-                {recovered.changes.map((change, index) => (
-                  <div key={`${change.field}-${index}`} className="rounded-lg border border-slate-200 bg-white p-3">
-                    <div className="mb-2 flex items-center justify-between gap-3">
-                      <p className="text-xs font-bold text-slate-500">{change.field}</p>
-                      <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-bold uppercase text-slate-500">
-                        {change.type}
-                      </span>
-                    </div>
-                    <div className="space-y-2">
-                      <div className="rounded-md bg-red-50 p-2">
-                        <p className="mb-1 text-[10px] font-bold uppercase text-red-600">Previous</p>
-                        <p className="text-xs leading-relaxed text-red-950">{change.previous_value}</p>
+          <div className="grid gap-0 lg:grid-cols-[1fr_1.15fr]">
+            <div className="border-b border-slate-100 bg-slate-50 p-4 lg:border-b-0 lg:border-r">
+              <p className="text-xs font-bold uppercase tracking-wide text-slate-500">How It Was Altered</p>
+              <p className="mt-1 text-sm font-semibold text-slate-900">{recovered.method}</p>
+              <p className="mt-3 text-sm leading-relaxed text-slate-600">{recovered.summary}</p>
+              {result.ai_explanation?.likely_alteration && (
+                <p className="mt-3 rounded-lg bg-violet-50 p-3 text-sm leading-relaxed text-violet-950">
+                  {result.ai_explanation.likely_alteration}
+                </p>
+              )}
+            </div>
+            <div className="max-h-[320px] overflow-auto p-4">
+              {recovered.changes.length > 0 ? (
+                <div className="grid gap-3 md:grid-cols-2">
+                  {recovered.changes.map((change, index) => (
+                    <div key={`${change.field}-${index}`} className="rounded-lg border border-slate-200 bg-white p-3">
+                      <div className="mb-2 flex items-center justify-between gap-3">
+                        <p className="text-xs font-bold text-slate-500">{change.field}</p>
+                        <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-bold uppercase text-slate-500">
+                          {change.type}
+                        </span>
                       </div>
-                      <div className="rounded-md bg-emerald-50 p-2">
-                        <p className="mb-1 text-[10px] font-bold uppercase text-emerald-600">Submitted</p>
-                        <p className="text-xs leading-relaxed text-emerald-950">{change.current_value}</p>
+                      <div className="space-y-2">
+                        <div className="rounded-md bg-red-50 p-2">
+                          <p className="mb-1 text-[10px] font-bold uppercase text-red-600">Previous</p>
+                          <p className="text-xs leading-relaxed text-red-950">{change.previous_value}</p>
+                        </div>
+                        <div className="rounded-md bg-emerald-50 p-2">
+                          <p className="mb-1 text-[10px] font-bold uppercase text-emerald-600">Submitted</p>
+                          <p className="text-xs leading-relaxed text-emerald-950">{change.current_value}</p>
+                        </div>
                       </div>
                     </div>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <div className="flex h-72 items-center justify-center text-center text-sm text-slate-500">
-                <div>
-                  <Eye className="mx-auto mb-3 h-8 w-8 text-slate-300" />
-                  <p>No previous-version edits were recovered.</p>
+                  ))}
                 </div>
+              ) : (
+                <div className="flex h-56 items-center justify-center text-center text-sm text-slate-500">
+                  <div>
+                    <Eye className="mx-auto mb-3 h-8 w-8 text-slate-300" />
+                    <p>No previous-version edits were recovered.</p>
+                  </div>
+                </div>
+              )}
+            </div>
               </div>
-            )}
-          </div>
         </section>
       </div>
     );
@@ -374,7 +561,7 @@ function DocumentPreview({
         <div>
           <FileText className="mx-auto mb-4 h-12 w-12 text-slate-300" />
           <p className="text-sm font-semibold text-slate-700">Upload a document to inspect it</p>
-          <p className="mt-1 text-xs text-slate-400">PDF, image, Excel, CSV, and TSV are supported.</p>
+          <p className="mt-1 text-xs text-slate-400">PDF and image files are supported.</p>
         </div>
       </div>
     );
@@ -391,7 +578,7 @@ function DocumentPreview({
   if (kind === 'pdf') {
     return (
       <div className="h-full min-h-[620px] overflow-hidden rounded-lg border border-slate-200 bg-white">
-        <iframe title="PDF preview" src={previewUrl} className="h-full min-h-[620px] w-full" />
+        <PdfFrame title="PDF preview" previewUrl={previewUrl} className="min-h-[620px]" />
       </div>
     );
   }
@@ -399,7 +586,7 @@ function DocumentPreview({
   return (
     <div className="h-full min-h-[520px] overflow-hidden rounded-lg border border-slate-200 bg-white">
       <div className="border-b border-slate-100 bg-slate-50 px-4 py-3">
-        <p className="text-xs font-bold uppercase tracking-wide text-slate-500">Spreadsheet Preview</p>
+        <p className="text-xs font-bold uppercase tracking-wide text-slate-500">Document Text</p>
         <p className="mt-1 text-sm font-semibold text-slate-900">{file.name}</p>
       </div>
       <div className="h-[560px] overflow-auto p-4">
@@ -415,7 +602,7 @@ function DocumentPreview({
           <div className="flex h-full items-center justify-center text-center text-sm text-slate-500">
             <div>
               <Database className="mx-auto mb-3 h-9 w-9 text-slate-300" />
-              <p>Run forensics to render the workbook preview and X-ray traces.</p>
+              <p>Run forensics to render extracted text and X-ray traces.</p>
             </div>
           </div>
         )}
@@ -424,13 +611,22 @@ function DocumentPreview({
   );
 }
 
-export default function UnderwriterDashboard() {
+export default function UnderwriterDashboard({ onBack }: { onBack?: () => void }) {
   const [file, setFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [savingDecision, setSavingDecision] = useState<ReviewDecision | null>(null);
   const [result, setResult] = useState<AnalysisResult | null>(null);
   const [selectedSignalId, setSelectedSignalId] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<'document' | 'xray'>('document');
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [settings, setSettings] = useState({
+    autoOpenXray: true,
+    showEvidenceMarkers: true,
+  });
+  const [reviewDecision, setReviewDecision] = useState<ReviewDecision | null>(null);
+  const [decisionMessage, setDecisionMessage] = useState('');
+  const [cerebrasApiKey, setCerebrasApiKey] = useState('');
 
   const selectedSignal = useMemo(() => {
     if (!result?.fraud_signals.length) return null;
@@ -458,12 +654,19 @@ export default function UnderwriterDashboard() {
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const selected = event.target.files?.[0];
     if (!selected) return;
+    if (!isSupportedUpload(selected)) {
+      event.target.value = '';
+      alert('Only PDF and image files are supported.');
+      return;
+    }
     if (previewUrl) URL.revokeObjectURL(previewUrl);
     setFile(selected);
     setPreviewUrl(URL.createObjectURL(selected));
     setResult(null);
     setSelectedSignalId(null);
     setViewMode('document');
+    setReviewDecision(null);
+    setDecisionMessage('');
   };
 
   const handleAnalyze = async () => {
@@ -472,6 +675,9 @@ export default function UnderwriterDashboard() {
     setViewMode('document');
     const formData = new FormData();
     formData.append('file', file);
+    if (cerebrasApiKey.trim()) {
+      formData.append('cerebras_api_key', cerebrasApiKey.trim());
+    }
 
     try {
       const response = await fetch(`${API_BASE_URL}/api/v1/analyze`, {
@@ -483,8 +689,10 @@ export default function UnderwriterDashboard() {
       }
       const data = (await response.json()) as AnalysisResult;
       setResult(data);
+      setReviewDecision(null);
+      setDecisionMessage('');
       setSelectedSignalId(data.fraud_signals[0]?.id ?? null);
-      if (data.recovered_version.available) {
+      if (settings.autoOpenXray && data.recovered_version.available) {
         setViewMode('xray');
       }
     } catch (error) {
@@ -495,14 +703,51 @@ export default function UnderwriterDashboard() {
     }
   };
 
+  const handleReviewDecision = async (decision: ReviewDecision) => {
+    if (!file || !result) return;
+    setSavingDecision(decision);
+    setDecisionMessage('');
+
+    const formData = new FormData();
+    formData.append('decision', decision);
+    formData.append('file', file);
+    formData.append('analysis_json', JSON.stringify(result));
+
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/v1/review-decision`, {
+        method: 'POST',
+        body: formData,
+      });
+      if (!response.ok) {
+        throw new Error(await response.text());
+      }
+      setReviewDecision(decision);
+      setDecisionMessage(decision === 'accepted' ? 'Saved to authorized documents.' : 'Saved to private unauthorized documents.');
+    } catch (error) {
+      console.error('Error saving review decision:', error);
+      alert('Failed to save the review decision. Make sure the backend is running.');
+    } finally {
+      setSavingDecision(null);
+    }
+  };
+
+  const handleBack = () => {
+    if (onBack) {
+      onBack();
+      return;
+    }
+    window.history.back();
+  };
+
   const trustScore = result?.trust_score ?? 0;
   const riskLabel = !result ? 'Awaiting Scan' : trustScore >= 70 ? 'Low Risk' : trustScore >= 35 ? 'Review Required' : 'High Risk';
+  const decisionLabel = reviewDecision === 'accepted' ? 'Accepted' : reviewDecision === 'rejected' ? 'Rejected' : 'Pending';
 
   return (
     <div className="min-h-screen bg-[#f8f6fb] text-slate-950">
-      <header className="sticky top-0 z-30 flex h-[62px] items-center justify-between border-b border-slate-200 bg-white px-5">
+      <header className="sticky top-0 z-30 flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 bg-white px-5 py-2">
         <div className="flex min-w-0 items-center gap-3">
-          <button className="rounded-full p-2 text-slate-500 hover:bg-slate-100" type="button" aria-label="Back">
+          <button onClick={handleBack} className="rounded-full p-2 text-slate-500 hover:bg-slate-100" type="button" aria-label="Back">
             <ChevronRight className="h-5 w-5 rotate-180" />
           </button>
           <div className="flex h-10 w-10 items-center justify-center rounded-full bg-violet-100 text-violet-700">
@@ -515,23 +760,125 @@ export default function UnderwriterDashboard() {
             </p>
           </div>
         </div>
+        <label className="order-3 flex w-full min-w-[220px] items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm focus-within:border-violet-300 focus-within:bg-white md:order-none md:mx-4 md:w-auto md:max-w-[430px] md:flex-1">
+          <Bot className="h-4 w-4 shrink-0 text-violet-600" />
+          <input
+            type="password"
+            value={cerebrasApiKey}
+            onChange={(event) => setCerebrasApiKey(event.target.value)}
+            placeholder="Cerebras API key for descriptions"
+            aria-label="Cerebras API key"
+            autoComplete="off"
+            className="min-w-0 flex-1 bg-transparent text-sm font-semibold text-slate-700 outline-none placeholder:text-slate-400"
+          />
+        </label>
         <div className="flex items-center gap-2">
-          <button className="hidden rounded-lg border border-slate-200 px-3 py-2 text-sm font-semibold text-slate-600 hover:bg-slate-50 sm:flex" type="button">
+          {reviewDecision && (
+            <span
+              className={cx(
+                'hidden rounded-full px-3 py-1 text-xs font-black uppercase tracking-wide sm:inline-flex',
+                reviewDecision === 'accepted' ? 'bg-emerald-100 text-emerald-700' : 'bg-red-100 text-red-700'
+              )}
+            >
+              {decisionLabel}
+            </span>
+          )}
+          <button
+            onClick={() => setSettingsOpen(true)}
+            className="hidden rounded-lg border border-slate-200 px-3 py-2 text-sm font-semibold text-slate-600 hover:bg-slate-50 sm:flex"
+            type="button"
+            aria-expanded={settingsOpen}
+          >
             <Settings className="mr-2 h-4 w-4" />
             Settings
           </button>
-          <button className="rounded-lg border border-slate-200 px-3 py-2 text-sm font-bold text-slate-700 hover:bg-slate-50" type="button">
-            <XCircle className="mr-2 inline h-4 w-4" />
-            Reject
+          <button
+            onClick={() => handleReviewDecision('rejected')}
+            disabled={!result || savingDecision !== null}
+            className={cx(
+              'rounded-lg border px-3 py-2 text-sm font-bold transition-colors',
+              !result || savingDecision !== null
+                ? 'cursor-not-allowed border-slate-200 bg-slate-100 text-slate-400'
+                : reviewDecision === 'rejected'
+                  ? 'border-red-200 bg-red-50 text-red-700'
+                  : 'border-slate-200 text-slate-700 hover:bg-slate-50'
+            )}
+            type="button"
+          >
+            {savingDecision === 'rejected' ? <Activity className="mr-2 inline h-4 w-4 animate-spin" /> : <XCircle className="mr-2 inline h-4 w-4" />}
+            {savingDecision === 'rejected' ? 'Saving' : 'Reject'}
           </button>
-          <button className="rounded-lg bg-slate-900 px-3 py-2 text-sm font-bold text-white hover:bg-slate-800" type="button">
-            <Check className="mr-2 inline h-4 w-4" />
-            Accept
+          <button
+            onClick={() => handleReviewDecision('accepted')}
+            disabled={!result || savingDecision !== null}
+            className={cx(
+              'rounded-lg px-3 py-2 text-sm font-bold text-white transition-colors',
+              !result || savingDecision !== null
+                ? 'cursor-not-allowed bg-slate-300'
+                : reviewDecision === 'accepted'
+                  ? 'bg-emerald-600 hover:bg-emerald-700'
+                  : 'bg-slate-900 hover:bg-slate-800'
+            )}
+            type="button"
+          >
+            {savingDecision === 'accepted' ? <Activity className="mr-2 inline h-4 w-4 animate-spin" /> : <Check className="mr-2 inline h-4 w-4" />}
+            {savingDecision === 'accepted' ? 'Saving' : 'Accept'}
           </button>
         </div>
       </header>
 
-      <main className="grid min-h-[calc(100vh-62px)] grid-cols-1 xl:grid-cols-[280px_1fr_390px]">
+      {settingsOpen && (
+        <div className="fixed inset-0 z-50">
+          <button
+            type="button"
+            aria-label="Close settings"
+            className="absolute inset-0 bg-slate-950/20"
+            onClick={() => setSettingsOpen(false)}
+          />
+          <section className="absolute right-5 top-16 w-[min(360px,calc(100vw-40px))] overflow-hidden rounded-lg border border-slate-200 bg-white shadow-xl">
+            <div className="flex items-center justify-between border-b border-slate-100 px-4 py-3">
+              <div>
+                <p className="text-sm font-black text-slate-900">Settings</p>
+                <p className="text-xs text-slate-500">Review controls</p>
+              </div>
+              <button
+                type="button"
+                aria-label="Close settings"
+                className="rounded-full p-2 text-slate-400 hover:bg-slate-100 hover:text-slate-700"
+                onClick={() => setSettingsOpen(false)}
+              >
+                <XCircle className="h-4 w-4" />
+              </button>
+            </div>
+            <div className="space-y-3 p-4">
+              <label className="flex cursor-pointer items-center justify-between gap-4 rounded-lg border border-slate-200 p-3">
+                <span className="text-sm font-bold text-slate-800">Open X-ray automatically</span>
+                <input
+                  type="checkbox"
+                  checked={settings.autoOpenXray}
+                  onChange={(event) => setSettings((current) => ({ ...current, autoOpenXray: event.target.checked }))}
+                  className="h-4 w-4 accent-violet-700"
+                />
+              </label>
+              <label className="flex cursor-pointer items-center justify-between gap-4 rounded-lg border border-slate-200 p-3">
+                <span className="text-sm font-bold text-slate-800">Show red evidence marks</span>
+                <input
+                  type="checkbox"
+                  checked={settings.showEvidenceMarkers}
+                  onChange={(event) => setSettings((current) => ({ ...current, showEvidenceMarkers: event.target.checked }))}
+                  className="h-4 w-4 accent-violet-700"
+                />
+              </label>
+              <div className="rounded-lg bg-slate-50 p-3">
+                <p className="text-xs font-bold uppercase text-slate-400">Backend</p>
+                <p className="mt-1 break-all text-sm font-semibold text-slate-700">{API_BASE_URL}</p>
+              </div>
+            </div>
+          </section>
+        </div>
+      )}
+
+      <main className="grid min-h-[calc(100vh-96px)] grid-cols-1 xl:grid-cols-[280px_1fr_390px]">
         <aside className="border-r border-slate-200 bg-white">
           <section className="border-b border-slate-200 p-5">
             <div className="mb-4 flex items-center justify-between">
@@ -551,6 +898,20 @@ export default function UnderwriterDashboard() {
                 <p className="text-xs font-semibold text-slate-400">Quality Score</p>
                 <p className="font-bold text-slate-800">{result ? result.trust_score.toFixed(1) : '--'}</p>
               </div>
+              <div>
+                <p className="text-xs font-semibold text-slate-400">Decision</p>
+                <p
+                  className={cx(
+                    'font-bold',
+                    reviewDecision === 'accepted' && 'text-emerald-700',
+                    reviewDecision === 'rejected' && 'text-red-700',
+                    !reviewDecision && 'text-slate-800'
+                  )}
+                >
+                  {decisionLabel}
+                </p>
+                {decisionMessage && <p className="mt-1 text-xs font-semibold text-slate-500">{decisionMessage}</p>}
+              </div>
             </div>
           </section>
 
@@ -565,7 +926,7 @@ export default function UnderwriterDashboard() {
               />
               <Upload className="mx-auto mb-2 h-8 w-8 text-slate-300" />
               <p className="text-sm font-bold text-slate-700">{file ? 'Replace file' : 'Browse files'}</p>
-              <p className="mt-1 text-xs text-slate-400">PDF, image, Excel, CSV, TSV</p>
+              <p className="mt-1 text-xs text-slate-400">PDF, image</p>
             </div>
             <button
               onClick={handleAnalyze}
@@ -629,7 +990,13 @@ export default function UnderwriterDashboard() {
               </div>
             )}
           </div>
-          <DocumentPreview file={file} previewUrl={previewUrl} result={result} mode={viewMode} />
+          <DocumentPreview
+            file={file}
+            previewUrl={previewUrl}
+            result={result}
+            mode={viewMode}
+            showEvidenceMarkers={settings.showEvidenceMarkers}
+          />
         </section>
 
         <aside className="border-l border-slate-200 bg-white">
@@ -741,7 +1108,7 @@ export default function UnderwriterDashboard() {
               </div>
             ) : (
               <div className="rounded-lg bg-slate-50 p-4 text-sm text-slate-500">
-                Cerebras-generated descriptions appear here when the backend has CEREBRAS_API_KEY set.
+                Enter a Cerebras API key at the top to generate descriptions, or run without one for local fallback text.
               </div>
             )}
           </section>
@@ -753,6 +1120,8 @@ export default function UnderwriterDashboard() {
                   setResult(null);
                   setSelectedSignalId(null);
                   setViewMode('document');
+                  setReviewDecision(null);
+                  setDecisionMessage('');
                 }}
                 className="flex w-full items-center justify-center gap-2 rounded-lg border border-slate-200 px-4 py-3 text-sm font-bold text-slate-600 hover:bg-slate-50"
                 type="button"

@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import csv
 import difflib
 import io
 import json
@@ -34,8 +33,6 @@ def detect_file_type(file_name: str, content_type: str, document_bytes: bytes) -
     if lower_name.endswith((".xlsx", ".xlsm", ".xltx", ".xltm")):
         return "excel"
     if lower_name.endswith(".xls") or document_bytes.startswith(OLE_MAGIC):
-        return "excel"
-    if lower_name.endswith((".csv", ".tsv")) or lower_type in {"text/csv", "text/tab-separated-values"}:
         return "excel"
     if lower_type.startswith("image/") or lower_name.endswith((".png", ".jpg", ".jpeg", ".webp", ".bmp", ".tif", ".tiff")):
         return "image"
@@ -311,24 +308,6 @@ def _extract_xlsx_snapshot(document_bytes: bytes) -> dict[str, Any]:
     return snapshot
 
 
-def _extract_csv_snapshot(document_bytes: bytes, file_name: str) -> dict[str, Any]:
-    text = _decode_text(document_bytes)
-    dialect = csv.excel_tab if file_name.lower().endswith(".tsv") else csv.excel
-    rows = list(csv.reader(io.StringIO(text), dialect=dialect))
-    preview = rows[:30]
-    return {
-        "sheets": [{"name": "CSV", "preview_grid": preview, "cells": []}],
-        "shared_strings": [],
-        "unused_shared_strings": [],
-        "formulas": [],
-        "hidden_sheets": [],
-        "external_links": [],
-        "comments": [],
-        "core_properties": {},
-        "notes": [],
-    }
-
-
 def extract_document_text(document_bytes: bytes, file_name: str, content_type: str = "") -> dict[str, Any]:
     file_type = detect_file_type(file_name, content_type, document_bytes)
     notes: list[str] = []
@@ -343,10 +322,7 @@ def extract_document_text(document_bytes: bytes, file_name: str, content_type: s
         }
 
     if file_type == "excel":
-        lower_name = (file_name or "").lower()
-        if lower_name.endswith((".csv", ".tsv")):
-            snapshot = _extract_csv_snapshot(document_bytes, lower_name)
-        elif document_bytes.startswith(OLE_MAGIC):
+        if document_bytes.startswith(OLE_MAGIC):
             strings = [_compact_text(s.decode("latin-1", errors="ignore"), 120) for s in re.findall(rb"[\x20-\x7e]{4,}", document_bytes)]
             text = "\n".join(strings[:300])
             return {
@@ -355,8 +331,7 @@ def extract_document_text(document_bytes: bytes, file_name: str, content_type: s
                 "source": "legacy_xls_string_scan",
                 "notes": ["Legacy .xls support is limited to safe string extraction. Convert to .xlsx for cell-level X-ray recovery."],
             }
-        else:
-            snapshot = _extract_xlsx_snapshot(document_bytes)
+        snapshot = _extract_xlsx_snapshot(document_bytes)
 
         lines: list[str] = []
         for sheet in snapshot.get("sheets", []):
@@ -369,7 +344,7 @@ def extract_document_text(document_bytes: bytes, file_name: str, content_type: s
         return {
             "text": "\n".join(lines),
             "confidence_score": 92.0 if lines else 20.0,
-            "source": "xlsx_package_parser" if not lower_name.endswith((".csv", ".tsv")) else "csv_parser",
+            "source": "xlsx_package_parser",
             "notes": notes,
         }
 
@@ -467,15 +442,11 @@ def extract_metadata(document_bytes: bytes, file_name: str = "", content_type: s
         return metadata, anomalies
 
     if file_type == "excel":
-        lower_name = (file_name or "").lower()
-        if lower_name.endswith((".csv", ".tsv")):
-            snapshot = _extract_csv_snapshot(document_bytes, lower_name)
-        elif document_bytes.startswith(OLE_MAGIC):
+        if document_bytes.startswith(OLE_MAGIC):
             metadata["format"] = "Legacy Excel binary workbook"
             anomalies.append("Legacy .xls file: only limited internal recovery is available.")
             return metadata, anomalies
-        else:
-            snapshot = _extract_xlsx_snapshot(document_bytes)
+        snapshot = _extract_xlsx_snapshot(document_bytes)
 
         metadata.update(snapshot.get("core_properties", {}))
         metadata["sheet_count"] = len(snapshot.get("sheets", []))
@@ -586,19 +557,6 @@ def _pdf_recovered_version(document_bytes: bytes) -> dict[str, Any]:
 
 
 def _excel_recovered_version(document_bytes: bytes, file_name: str) -> dict[str, Any]:
-    lower_name = (file_name or "").lower()
-    if lower_name.endswith((".csv", ".tsv")):
-        return {
-            "available": False,
-            "title": "No workbook history recovered",
-            "summary": "CSV/TSV files do not carry OOXML package history, hidden sheets, or shared-string remnants.",
-            "method": "Delimited text scan",
-            "preview_text": "",
-            "sections": [],
-            "changes": [],
-            "confidence": 0.0,
-        }
-
     if document_bytes.startswith(OLE_MAGIC):
         return {
             "available": False,
@@ -822,8 +780,7 @@ def _detect_image_copy_move(document_bytes: bytes) -> list[dict[str, Any]]:
 
 
 def _detect_xlsx_signals(document_bytes: bytes, file_name: str) -> list[dict[str, Any]]:
-    lower_name = (file_name or "").lower()
-    if lower_name.endswith((".csv", ".tsv")) or document_bytes.startswith(OLE_MAGIC):
+    if document_bytes.startswith(OLE_MAGIC):
         return []
     snapshot = _extract_xlsx_snapshot(document_bytes)
     signals: list[dict[str, Any]] = []
@@ -1024,10 +981,11 @@ def generate_cerebras_explanation(
     recovered_version: dict[str, Any],
     validation_status: str,
     extracted_text: str,
+    api_key: str | None = None,
 ) -> dict[str, str]:
     fallback = _local_explanation(file_name, risk_score, trust_score, signals, recovered_version)
-    api_key = os.getenv("CEREBRAS_API_KEY", "").strip()
-    if not api_key:
+    resolved_api_key = (api_key or os.getenv("CEREBRAS_API_KEY", "")).strip()
+    if not resolved_api_key:
         return fallback
 
     model = os.getenv("CEREBRAS_MODEL", "gpt-oss-120b").strip() or "gpt-oss-120b"
@@ -1066,7 +1024,7 @@ def generate_cerebras_explanation(
         data=json.dumps(body).encode("utf-8"),
         headers={
             "Content-Type": "application/json",
-            "Authorization": f"Bearer {api_key}",
+            "Authorization": f"Bearer {resolved_api_key}",
         },
         method="POST",
     )
