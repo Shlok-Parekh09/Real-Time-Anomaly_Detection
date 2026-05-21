@@ -1192,44 +1192,98 @@ def generate_openrouter_explanation(
     extracted_text: str,
     api_key: str | None = None,
 ) -> dict[str, str]:
+    """
+    Generate AI-powered forensic analysis using OpenRouter API.
+    This function REQUIRES a valid API key - no hardcoded fallbacks.
+    """
     resolved_api_key = (api_key or os.getenv("OPENROUTER_API_KEY", "")).strip()
     if not resolved_api_key:
         return {
-            "summary": "OpenRouter API key is missing.",
-            "likely_alteration": "AI analysis unavailable.",
-            "recommended_action": "Please configure a valid OpenRouter API key to enable AI forensics.",
-            "limitations": "Missing API key.",
-            "generated_by": "error",
+            "summary": "⚠️ AI Analysis Unavailable - API Key Required",
+            "likely_alteration": "Cannot perform intelligent analysis without OpenRouter API key. Please provide an API key to enable AI-powered fraud detection.",
+            "recommended_action": "Configure OPENROUTER_API_KEY environment variable or provide API key in the request to enable deep learning analysis of document authenticity.",
+            "limitations": "No AI analysis performed. Only basic forensic signals are available without API key.",
+            "generated_by": "error:missing_api_key",
         }
 
-    model = os.getenv("OPENROUTER_MODEL", "openai/gpt-oss-120b:free").strip() or "openai/gpt-oss-120b:free"
-    prompt = {
-        "file_name": file_name,
-        "risk_score": risk_score,
-        "trust_score": trust_score,
-        "signals": signals[:8],
-        "recovered_version": {
-            "available": recovered_version.get("available"),
-            "summary": recovered_version.get("summary"),
-            "changes": recovered_version.get("changes", [])[:12],
+    model = os.getenv("OPENROUTER_MODEL", "anthropic/claude-3.5-sonnet").strip() or "anthropic/claude-3.5-sonnet"
+    
+    # Build comprehensive context for AI analysis
+    context = {
+        "document_info": {
+            "file_name": file_name,
+            "risk_score": risk_score,
+            "trust_score": trust_score,
+            "validation_status": validation_status,
         },
-        "validation_status": validation_status,
-        "text_excerpt": _compact_text(extracted_text, 1600),
+        "forensic_signals": [
+            {
+                "name": s.get("name"),
+                "severity": s.get("severity"),
+                "summary": s.get("summary"),
+                "evidence": s.get("evidence", []),
+                "confidence": s.get("confidence"),
+            }
+            for s in signals[:10]
+        ],
+        "xray_recovery": {
+            "available": recovered_version.get("available"),
+            "title": recovered_version.get("title"),
+            "summary": recovered_version.get("summary"),
+            "method": recovered_version.get("method"),
+            "changes_count": len(recovered_version.get("changes", [])),
+            "changes_sample": recovered_version.get("changes", [])[:15],
+            "confidence": recovered_version.get("confidence"),
+        },
+        "document_content": {
+            "text_excerpt": _compact_text(extracted_text, 2500),
+            "text_length": len(extracted_text),
+        },
     }
+    
+    system_prompt = """You are an expert document forensics analyst specializing in fraud detection for financial institutions.
+
+Your role is to analyze forensic signals, X-ray recovery data, and document content to provide:
+1. A clear, evidence-based assessment of document authenticity
+2. Specific indicators of potential tampering or fabrication
+3. Actionable recommendations for underwriters
+4. Honest limitations of the analysis
+
+Guidelines:
+- Be precise and evidence-based - cite specific signals and findings
+- Use professional, non-accusatory language
+- Explain WHY each finding matters for document authenticity
+- Consider the full context - some signals may have legitimate explanations
+- Be honest about uncertainty and limitations
+- Focus on patterns and combinations of signals, not isolated findings
+
+Return ONLY valid JSON with these exact keys:
+{
+  "summary": "2-3 sentence executive summary of findings",
+  "likely_alteration": "Detailed analysis of specific tampering indicators found, or 'No significant tampering indicators detected' if document appears authentic",
+  "recommended_action": "Specific next steps for the underwriter based on risk level",
+  "limitations": "What this analysis cannot determine and what additional verification is needed"
+}"""
+
+    user_prompt = f"""Analyze this document for fraud indicators:
+
+{json.dumps(context, indent=2, ensure_ascii=False)}
+
+Provide a thorough forensic analysis considering:
+1. The combination and severity of detected signals
+2. X-ray recovery findings (if available)
+3. Document content patterns
+4. Risk score context ({risk_score:.1f}/100)
+
+Focus on actionable insights for underwriters making lending decisions."""
+
     body = {
         "model": model,
-        "temperature": 0.2,
-        "max_completion_tokens": 550,
+        "temperature": 0.3,
+        "max_tokens": 800,
         "messages": [
-            {
-                "role": "system",
-                "content": (
-                    "You are a document fraud forensics analyst. Explain findings in concise, "
-                    "non-accusatory language for a bank underwriter. Return only JSON with keys "
-                    "summary, likely_alteration, recommended_action, limitations."
-                ),
-            },
-            {"role": "user", "content": json.dumps(prompt, ensure_ascii=True)},
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": user_prompt},
         ],
     }
 
@@ -1244,26 +1298,54 @@ def generate_openrouter_explanation(
         },
         method="POST",
     )
+    
     try:
-        with urllib.request.urlopen(request, timeout=12) as response:
+        with urllib.request.urlopen(request, timeout=30) as response:
             payload = json.loads(response.read().decode("utf-8"))
+        
         content = payload["choices"][0]["message"]["content"]
-        match = re.search(r"\{.*\}", content, flags=re.DOTALL)
-        parsed = json.loads(match.group(0) if match else content)
+        
+        # Extract JSON from response (handle markdown code blocks)
+        json_match = re.search(r"```(?:json)?\s*(\{.*?\})\s*```", content, flags=re.DOTALL)
+        if json_match:
+            json_str = json_match.group(1)
+        else:
+            json_match = re.search(r"\{.*\}", content, flags=re.DOTALL)
+            json_str = json_match.group(0) if json_match else content
+        
+        parsed = json.loads(json_str)
+        
         return {
-            "summary": str(parsed.get("summary") or "Failed to parse summary from OpenRouter response."),
-            "likely_alteration": str(parsed.get("likely_alteration") or "Failed to parse alteration details."),
-            "recommended_action": str(parsed.get("recommended_action") or "Manual review required."),
-            "limitations": str(parsed.get("limitations") or "Generated from file-level forensic signals; verify against issuer records."),
+            "summary": str(parsed.get("summary") or "Analysis completed but summary extraction failed."),
+            "likely_alteration": str(parsed.get("likely_alteration") or "Analysis completed but alteration details extraction failed."),
+            "recommended_action": str(parsed.get("recommended_action") or "Manual review recommended."),
+            "limitations": str(parsed.get("limitations") or "Standard forensic analysis limitations apply."),
             "generated_by": f"openrouter:{model}",
         }
-    except (urllib.error.URLError, urllib.error.HTTPError, TimeoutError, KeyError, json.JSONDecodeError, ValueError) as exc:
+    except urllib.error.HTTPError as exc:
+        error_body = exc.read().decode("utf-8") if exc.fp else "No error details"
         return {
-            "summary": f"OpenRouter API call failed: {exc}",
-            "likely_alteration": "AI analysis failed due to an API error.",
-            "recommended_action": "Check your API key and network connection.",
-            "limitations": f"Error details: {exc}",
-            "generated_by": "error",
+            "summary": f"❌ AI Analysis Failed - HTTP {exc.code}",
+            "likely_alteration": f"OpenRouter API returned error {exc.code}. This may indicate invalid API key, insufficient credits, or service unavailability.",
+            "recommended_action": "Verify your OpenRouter API key is valid and has sufficient credits. Check https://openrouter.ai/keys for account status.",
+            "limitations": f"API Error Details: {error_body[:200]}",
+            "generated_by": f"error:http_{exc.code}",
+        }
+    except (urllib.error.URLError, TimeoutError) as exc:
+        return {
+            "summary": "❌ AI Analysis Failed - Network Error",
+            "likely_alteration": f"Could not connect to OpenRouter API: {exc}",
+            "recommended_action": "Check your internet connection and firewall settings. Ensure https://openrouter.ai is accessible.",
+            "limitations": f"Network error: {exc}",
+            "generated_by": "error:network",
+        }
+    except (KeyError, json.JSONDecodeError, ValueError) as exc:
+        return {
+            "summary": "❌ AI Analysis Failed - Response Parse Error",
+            "likely_alteration": f"Received invalid response from AI model: {exc}",
+            "recommended_action": "This may be a temporary issue with the AI model. Try again or contact support if the issue persists.",
+            "limitations": f"Parse error: {exc}",
+            "generated_by": "error:parse",
         }
 
 
@@ -1273,44 +1355,55 @@ def enrich_signal_descriptions(
     file_name: str,
     api_key: str | None = None,
 ) -> list[dict[str, Any]]:
-    """Call OpenRouter to generate richer per-signal descriptions.
-
-    When no valid API key is available the signals are returned unchanged.
+    """
+    Call OpenRouter to generate richer, context-aware per-signal descriptions.
+    Returns original signals if no API key is available.
     """
     resolved_api_key = (api_key or os.getenv("OPENROUTER_API_KEY", "")).strip()
     if not resolved_api_key or not signals:
         return signals
 
-    model = os.getenv("OPENROUTER_MODEL", "openai/gpt-oss-120b:free").strip() or "openai/gpt-oss-120b:free"
+    model = os.getenv("OPENROUTER_MODEL", "anthropic/claude-3.5-sonnet").strip() or "anthropic/claude-3.5-sonnet"
 
     signal_summaries = [
-        {"id": s.get("id"), "name": s.get("name"), "severity": s.get("severity"),
-         "summary": s.get("summary"), "evidence": s.get("evidence", [])[:4]}
-        for s in signals[:8]
+        {
+            "id": s.get("id"),
+            "name": s.get("name"),
+            "severity": s.get("severity"),
+            "summary": s.get("summary"),
+            "evidence": s.get("evidence", [])[:5],
+            "confidence": s.get("confidence"),
+            "xray_available": s.get("recovered_version_available", False),
+        }
+        for s in signals[:10]
     ]
+
+    system_prompt = """You are a document forensics expert writing detailed explanations of fraud signals for bank underwriters.
+
+For each signal, provide a comprehensive 3-4 sentence description that:
+1. Explains what the signal means in plain language
+2. Why it's a red flag for document authenticity
+3. What legitimate scenarios might cause this signal (if any)
+4. What the underwriter should verify or investigate further
+
+Use professional, evidence-based language. Avoid being overly accusatory - focus on facts and patterns.
+
+Return ONLY a JSON array of objects with keys: id, description
+Example: [{"id": "signal-1", "description": "This signal indicates..."}]"""
+
+    user_prompt = f"""Analyze these fraud signals detected in document "{file_name}":
+
+{json.dumps({"signals": signal_summaries}, indent=2, ensure_ascii=False)}
+
+Provide expert descriptions for each signal that help underwriters understand the significance and take appropriate action."""
 
     body = {
         "model": model,
-        "temperature": 0.25,
-        "max_completion_tokens": 800,
+        "temperature": 0.3,
+        "max_tokens": 1200,
         "messages": [
-            {
-                "role": "system",
-                "content": (
-                    "You are a document fraud forensics analyst writing descriptions for detected fraud signals. "
-                    "For each signal, write a 2-3 sentence expert description explaining what the signal means, "
-                    "why it matters for document authenticity, and what an underwriter should look for. "
-                    "Return ONLY a JSON array of objects with keys: id, description. "
-                    "Keep language professional and non-accusatory."
-                ),
-            },
-            {
-                "role": "user",
-                "content": json.dumps(
-                    {"file_name": file_name, "signals": signal_summaries},
-                    ensure_ascii=True,
-                ),
-            },
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": user_prompt},
         ],
     }
 
@@ -1327,23 +1420,41 @@ def enrich_signal_descriptions(
     )
 
     try:
-        with urllib.request.urlopen(request, timeout=15) as response:
+        with urllib.request.urlopen(request, timeout=25) as response:
             payload = json.loads(response.read().decode("utf-8"))
+        
         content = payload["choices"][0]["message"]["content"]
-        # Extract JSON array from the response
-        match = re.search(r"\[.*\]", content, flags=re.DOTALL)
-        parsed = json.loads(match.group(0) if match else content)
+        
+        # Extract JSON array from response (handle markdown code blocks)
+        json_match = re.search(r"```(?:json)?\s*(\[.*?\])\s*```", content, flags=re.DOTALL)
+        if json_match:
+            json_str = json_match.group(1)
+        else:
+            json_match = re.search(r"\[.*\]", content, flags=re.DOTALL)
+            json_str = json_match.group(0) if json_match else content
+        
+        parsed = json.loads(json_str)
+        
         if not isinstance(parsed, list):
             return signals
 
-        enriched_map = {item["id"]: item.get("description", "") for item in parsed if isinstance(item, dict) and "id" in item}
+        enriched_map = {
+            item["id"]: item.get("description", "")
+            for item in parsed
+            if isinstance(item, dict) and "id" in item
+        }
+        
         enriched_signals = []
         for signal in signals:
             enriched = dict(signal)
             new_desc = enriched_map.get(signal.get("id", ""))
-            if new_desc and isinstance(new_desc, str) and len(new_desc) > 10:
+            if new_desc and isinstance(new_desc, str) and len(new_desc) > 20:
                 enriched["description"] = new_desc
             enriched_signals.append(enriched)
+        
         return enriched_signals
-    except Exception:
+    except Exception as exc:
+        # Silently return original signals if enrichment fails
+        # This ensures the analysis continues even if AI enrichment has issues
+        print(f"Signal enrichment failed: {exc}")
         return signals
