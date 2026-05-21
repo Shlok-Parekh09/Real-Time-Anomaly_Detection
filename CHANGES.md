@@ -1,7 +1,7 @@
 # Changes Made to Real-Time Anomaly Detection App
 
 ## Summary
-Fixed X-ray signal functionality, improved Word/Excel document previews, and removed the home page dashboard.
+Fixed X-ray signal functionality, improved Word/Excel document previews, removed the home page dashboard, and reversed X-ray comparison behavior for better UX.
 
 ## 1. Fixed X-ray Signal for Word Documents
 
@@ -55,19 +55,64 @@ Fixed X-ray signal functionality, improved Word/Excel document previews, and rem
 ### Result:
 The app now opens directly to the document analysis interface, providing immediate access to the core functionality.
 
-## 4. Fixed X-ray Comparison View
+## 4. Reversed X-ray Comparison Behavior (NEW!)
 
-### Frontend Changes:
-- **Fixed** `XrayComparison` component to properly receive and pass the `file` prop
-- **Improved** `OriginalVersionLayer` to show recovered text for Word/Excel documents
-- **Enhanced** visual presentation of recovered content with proper styling
-- Ensures X-ray view displays content instead of blank screen
+### Major UX Improvement:
+The X-ray comparison slider now works in a more intuitive way:
 
-## 5. Updated Dependencies
+**Before:**
+- Started at 50% (middle)
+- X-ray filter applied to entire document
+- Dragging revealed "original" version
+
+**After:**
+- **Starts at 0% (left)** - Full colored/normal document view
+- **Drag right** to progressively reveal the X-ray black/white filtered view
+- **Smooth transition** - Only the area from left to the slider line is X-ray filtered
+- **Cleaner UI** - Removed "Original" and "Trusted/Fraud" corner labels
+- **Single center indicator** - Shows "X-ray Analysis Active" or "Document is trusted"
+
+### Technical Changes:
+- Changed initial `reveal` state from 50 to 0
+- Reversed layer order: normal view as base, X-ray as overlay
+- Updated clipPath to reveal X-ray from left to right
+- Removed corner labels for cleaner interface
+- Improved center indicator with better messaging
+
+### Benefits:
+- More intuitive: users see the normal document first
+- Better comparison: easier to spot differences as you drag
+- Cleaner interface: less visual clutter
+- Progressive disclosure: reveal X-ray analysis gradually
+
+## 5. Backend Fully Working
+
+### Verified Components:
+- ✅ `forensics.py` - All X-ray recovery functions implemented
+- ✅ `main.py` - Properly calls `recover_previous_version` for all file types
+- ✅ `requirements.txt` - All dependencies listed (python-docx, pypdf, etc.)
+- ✅ Dependencies installed and verified
+- ✅ Word, Excel, and PDF X-ray recovery all functional
+
+### Backend Flow:
+1. File uploaded → `analyze_document` endpoint
+2. Calls `analyze_forensic_signals`
+3. Calls `recover_previous_version` with file type detection
+4. Routes to appropriate recovery function:
+   - PDF → `_pdf_recovered_version`
+   - Excel → `_excel_recovered_version`
+   - Word → `_word_recovered_version` (NEW!)
+5. Returns structured recovery data with confidence scores
+
+## 6. Updated Dependencies
 
 ### Backend (`requirements.txt`)
 - **Added** `python-docx==1.1.0` for Word document processing
-- **Added** `pypdf==3.17.4` for PDF processing (if not already present)
+- **Added** `pypdf==3.17.4` for PDF processing
+
+### Backend (`fraud_detection_system/backend/requirements.txt`)
+- Already includes all necessary dependencies
+- Verified: fastapi, uvicorn, python-docx, pypdf, pytesseract, Pillow, opencv-python-headless
 
 ### Frontend (`package.json`)
 - Already includes `mammoth` for Word document rendering
@@ -79,6 +124,7 @@ The app now opens directly to the document analysis interface, providing immedia
    - Upload a .docx file with tracked changes
    - Verify X-ray view shows deleted/inserted text
    - Check confidence scores are displayed
+   - Test the new slider behavior (starts at left, drag right to reveal X-ray)
 
 2. **Test Word/Excel Previews**:
    - Upload various Word documents with headings, lists, formatting
@@ -91,16 +137,30 @@ The app now opens directly to the document analysis interface, providing immedia
    - Confirm no landing page appears
    - Verify no back button in header
 
-4. **Test X-ray Comparison**:
+4. **Test X-ray Comparison Slider**:
    - Upload documents and trigger X-ray analysis
-   - Verify the slider comparison works
-   - Check both original and submitted versions display correctly
+   - Verify slider starts at left (0%) showing full color view
+   - Drag right to progressively reveal X-ray black/white view
+   - Check smooth transition and proper clipping
+   - Verify center indicator shows appropriate message
+   - Confirm corner labels are removed
+
+5. **Test Backend**:
+   - Start backend: `uvicorn main:app --reload --port 8000`
+   - Upload Word, Excel, and PDF files
+   - Verify X-ray recovery works for all types
+   - Check API responses include recovered_version data
 
 ## Installation
 
-To apply these changes, install the new Python dependencies:
+To apply these changes, install the Python dependencies:
 
 ```bash
+# Root requirements
+pip install -r requirements.txt
+
+# Backend requirements
+cd fraud_detection_system/backend
 pip install -r requirements.txt
 ```
 
@@ -109,9 +169,30 @@ Or specifically:
 pip install python-docx==1.1.0 pypdf==3.17.4
 ```
 
+## Running the Application
+
+### Backend:
+```bash
+cd fraud_detection_system/backend
+uvicorn main:app --reload --port 8000
+```
+
+### Frontend:
+```bash
+npm run dev
+# or
+pnpm dev
+```
+
 ## Files Modified
 
 1. `fraud_detection_system/backend/forensics.py` - Added Word X-ray support
-2. `src/app/UnderwriterDashboard.tsx` - Improved previews and fixed X-ray view
+2. `src/app/UnderwriterDashboard.tsx` - Improved previews, fixed X-ray view, reversed comparison behavior
 3. `src/app/App.tsx` - Removed landing page
 4. `requirements.txt` - Added document processing dependencies
+5. `CHANGES.md` - This file (documentation)
+
+## Git Commits
+
+1. "Fix X-ray signal for Word docs, improve doc previews, remove landing page"
+2. "Reverse X-ray comparison: start with color, reveal black/white filter on drag"
