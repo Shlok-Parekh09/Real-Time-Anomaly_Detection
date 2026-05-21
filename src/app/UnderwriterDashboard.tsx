@@ -283,11 +283,28 @@ function OriginalVersionLayer({ result, kind, file }: { result: AnalysisResult; 
   const fallbackRows = recovered.changes.slice(0, 12).map((change) => `${change.field}: ${change.previous_value}`);
   const rows = originalRows.length ? originalRows : fallbackRows;
 
-  if ((kind === 'word' || kind === 'excel') && file) {
+  // For Word/Excel with recovered content, show the recovered text in a styled view
+  if ((kind === 'word' || kind === 'excel') && rows.length > 0) {
     return (
-      <div className="relative h-full w-full">
-        <DocxExcelPreview file={file} kind={kind} />
-        <div className="absolute inset-0 bg-emerald-500/10 pointer-events-none mix-blend-multiply" />
+      <div className="flex h-full items-center justify-center overflow-auto bg-[#e9f8f1] p-6">
+        <div className="min-h-[86%] w-[min(720px,92%)] rounded-sm border border-emerald-200 bg-white p-8 shadow-2xl">
+          <div className="mb-6 flex items-center justify-between border-b border-emerald-100 pb-4">
+            <div>
+              <p className="text-[10px] font-black uppercase tracking-wide text-emerald-600">Original recovered</p>
+              <p className="mt-1 text-sm font-bold text-slate-900">{recovered.title}</p>
+            </div>
+            <span className="rounded-full bg-emerald-100 px-2 py-1 text-[10px] font-black text-emerald-700">
+              X-ray
+            </span>
+          </div>
+          <div className="space-y-2 font-mono text-xs leading-relaxed text-slate-700">
+            {rows.map((row, index) => (
+              <p key={`${row}-${index}`} className="border-b border-slate-100 pb-2">
+                {row}
+              </p>
+            ))}
+          </div>
+        </div>
       </div>
     );
   }
@@ -396,6 +413,7 @@ function XrayComparison({
   showEvidenceMarkers,
   previewHeight,
   isTrusted,
+  file,
 }: {
   kind: string;
   previewUrl: string;
@@ -662,6 +680,10 @@ function DocumentPreview({
 function DocxExcelPreview({ file, kind, xrayFilter }: { file: File; kind: string; xrayFilter?: boolean }) {
   const [content, setContent] = useState<string>('');
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string>('');
+  const [sheetNames, setSheetNames] = useState<string[]>([]);
+  const [activeSheet, setActiveSheet] = useState<number>(0);
+  const [workbook, setWorkbook] = useState<any>(null);
 
   React.useEffect(() => {
     let active = true;
@@ -670,25 +692,43 @@ function DocxExcelPreview({ file, kind, xrayFilter }: { file: File; kind: string
         const buffer = await file.arrayBuffer();
         if (kind === 'word') {
           const mammoth = await import('mammoth');
-          const result = await mammoth.convertToHtml({ arrayBuffer: buffer });
+          const result = await mammoth.convertToHtml({ 
+            arrayBuffer: buffer,
+            styleMap: [
+              "p[style-name='Heading 1'] => h1:fresh",
+              "p[style-name='Heading 2'] => h2:fresh",
+              "p[style-name='Heading 3'] => h3:fresh",
+              "b => strong",
+              "i => em",
+            ]
+          });
           if (active) {
             setContent(result.value);
             setLoading(false);
+            if (result.messages.length > 0) {
+              console.warn('Mammoth conversion warnings:', result.messages);
+            }
           }
         } else if (kind === 'excel') {
           const XLSX = await import('xlsx');
-          const workbook = XLSX.read(buffer, { type: 'array' });
-          const firstSheetName = workbook.SheetNames[0];
-          const worksheet = workbook.Sheets[firstSheetName];
-          const html = XLSX.utils.sheet_to_html(worksheet);
+          const wb = XLSX.read(buffer, { type: 'array', cellStyles: true });
           if (active) {
+            setWorkbook(wb);
+            setSheetNames(wb.SheetNames);
+            const worksheet = wb.Sheets[wb.SheetNames[0]];
+            const html = XLSX.utils.sheet_to_html(worksheet, { header: '', footer: '' });
             setContent(html);
             setLoading(false);
           }
         }
       } catch (err) {
+        console.error('Document preview error:', err);
         if (active) {
-          setContent('<p class="text-slate-500 text-center mt-10">Error rendering preview.</p>');
+          setError(err instanceof Error ? err.message : 'Unknown error');
+          setContent(`<div class="text-center mt-10 p-6">
+            <p class="text-red-600 font-semibold mb-2">Error rendering preview</p>
+            <p class="text-slate-500 text-sm">${err instanceof Error ? err.message : 'Failed to load document'}</p>
+          </div>`);
           setLoading(false);
         }
       }
@@ -699,6 +739,15 @@ function DocxExcelPreview({ file, kind, xrayFilter }: { file: File; kind: string
     };
   }, [file, kind]);
 
+  const handleSheetChange = async (index: number) => {
+    if (!workbook) return;
+    setActiveSheet(index);
+    const XLSX = await import('xlsx');
+    const worksheet = workbook.Sheets[workbook.SheetNames[index]];
+    const html = XLSX.utils.sheet_to_html(worksheet, { header: '', footer: '' });
+    setContent(html);
+  };
+
   const filterStyle = xrayFilter
     ? { filter: 'invert(0.88) contrast(1.25) hue-rotate(180deg) saturate(0.3) brightness(1.1)' }
     : undefined;
@@ -706,20 +755,105 @@ function DocxExcelPreview({ file, kind, xrayFilter }: { file: File; kind: string
   return (
     <div className="relative h-full w-full overflow-hidden bg-white" style={filterStyle}>
       <style>{`
-        .doc-preview-container table { width: 100%; border-collapse: collapse; font-size: 12px; font-family: monospace; }
-        .doc-preview-container td { border: 1px solid #e2e8f0; padding: 6px 8px; white-space: nowrap; }
-        .doc-preview-container tr:nth-child(even) td { background-color: #f8fafc; }
-        .doc-preview-container p { margin-bottom: 0.5rem; font-size: 13px; line-height: 1.6; }
+        .doc-preview-container table { 
+          width: 100%; 
+          border-collapse: collapse; 
+          font-size: 11px; 
+          font-family: 'Segoe UI', system-ui, sans-serif;
+          box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+        .doc-preview-container th {
+          background-color: #f1f5f9;
+          border: 1px solid #cbd5e1;
+          padding: 8px 10px;
+          font-weight: 600;
+          text-align: left;
+          color: #334155;
+        }
+        .doc-preview-container td { 
+          border: 1px solid #e2e8f0; 
+          padding: 8px 10px; 
+          white-space: pre-wrap;
+          word-wrap: break-word;
+          max-width: 300px;
+        }
+        .doc-preview-container tr:nth-child(even) td { 
+          background-color: #f8fafc; 
+        }
+        .doc-preview-container tr:hover td {
+          background-color: #f1f5f9;
+        }
+        .doc-preview-container p { 
+          margin-bottom: 0.75rem; 
+          font-size: 14px; 
+          line-height: 1.7;
+          color: #1e293b;
+          font-family: 'Segoe UI', system-ui, sans-serif;
+        }
+        .doc-preview-container h1 {
+          font-size: 24px;
+          font-weight: 700;
+          margin: 1.5rem 0 1rem 0;
+          color: #0f172a;
+        }
+        .doc-preview-container h2 {
+          font-size: 20px;
+          font-weight: 600;
+          margin: 1.25rem 0 0.75rem 0;
+          color: #1e293b;
+        }
+        .doc-preview-container h3 {
+          font-size: 16px;
+          font-weight: 600;
+          margin: 1rem 0 0.5rem 0;
+          color: #334155;
+        }
+        .doc-preview-container strong {
+          font-weight: 600;
+          color: #0f172a;
+        }
+        .doc-preview-container em {
+          font-style: italic;
+        }
+        .doc-preview-container ul, .doc-preview-container ol {
+          margin: 0.5rem 0 0.5rem 1.5rem;
+          line-height: 1.7;
+        }
+        .doc-preview-container li {
+          margin-bottom: 0.25rem;
+        }
       `}</style>
       {loading ? (
-        <div className="flex h-full items-center justify-center text-sm font-semibold text-slate-500">
-          Loading document preview...
+        <div className="flex h-full items-center justify-center">
+          <div className="text-center">
+            <div className="inline-block h-8 w-8 animate-spin rounded-full border-4 border-solid border-blue-600 border-r-transparent mb-3"></div>
+            <p className="text-sm font-semibold text-slate-600">Loading document preview...</p>
+          </div>
         </div>
       ) : (
-        <div
-          className="doc-preview-container h-full w-full overflow-auto p-6"
-          dangerouslySetInnerHTML={{ __html: content }}
-        />
+        <>
+          {kind === 'excel' && sheetNames.length > 1 && (
+            <div className="border-b border-slate-200 bg-slate-50 px-4 py-2 flex gap-2 overflow-x-auto">
+              {sheetNames.map((name, index) => (
+                <button
+                  key={index}
+                  onClick={() => handleSheetChange(index)}
+                  className={`px-3 py-1.5 text-xs font-semibold rounded transition-colors whitespace-nowrap ${
+                    activeSheet === index
+                      ? 'bg-blue-600 text-white'
+                      : 'bg-white text-slate-600 hover:bg-slate-100 border border-slate-200'
+                  }`}
+                >
+                  {name}
+                </button>
+              ))}
+            </div>
+          )}
+          <div
+            className="doc-preview-container h-full w-full overflow-auto p-6"
+            dangerouslySetInnerHTML={{ __html: content }}
+          />
+        </>
       )}
     </div>
   );
@@ -759,7 +893,7 @@ function DocxExcelPreview({ file, kind, xrayFilter }: { file: File; kind: string
   );
 }
 
-export default function UnderwriterDashboard({ onBack }: { onBack?: () => void }) {
+export default function UnderwriterDashboard() {
   const [file, setFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
@@ -880,14 +1014,6 @@ export default function UnderwriterDashboard({ onBack }: { onBack?: () => void }
     }
   };
 
-  const handleBack = () => {
-    if (onBack) {
-      onBack();
-      return;
-    }
-    window.history.back();
-  };
-
   const trustScore = result?.trust_score ?? 0;
   const riskLabel = !result ? 'Awaiting Scan' : trustScore >= 70 ? 'Low Risk' : trustScore >= 35 ? 'Review Required' : 'High Risk';
   const decisionLabel = reviewDecision === 'accepted' ? 'Accepted' : reviewDecision === 'rejected' ? 'Rejected' : 'Pending';
@@ -896,9 +1022,6 @@ export default function UnderwriterDashboard({ onBack }: { onBack?: () => void }
     <div className="min-h-screen bg-[#f8f6fb] text-slate-950">
       <header className="sticky top-0 z-30 flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 bg-white px-5 py-2">
         <div className="flex min-w-0 items-center gap-3">
-          <button onClick={handleBack} className="rounded-full p-2 text-slate-500 hover:bg-slate-100" type="button" aria-label="Back">
-            <ChevronRight className="h-5 w-5 rotate-180" />
-          </button>
           <div className="flex h-10 w-10 items-center justify-center rounded-full bg-violet-100 text-violet-700">
             <File className="h-5 w-5" />
           </div>

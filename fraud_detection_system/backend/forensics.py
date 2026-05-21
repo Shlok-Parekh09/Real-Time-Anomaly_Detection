@@ -685,12 +685,165 @@ def _excel_recovered_version(document_bytes: bytes, file_name: str) -> dict[str,
     }
 
 
+def _word_recovered_version(document_bytes: bytes, file_name: str) -> dict[str, Any]:
+    """Recover previous version information from Word documents."""
+    if document_bytes.startswith(OLE_MAGIC):
+        return {
+            "available": False,
+            "title": "Legacy DOC recovery limited",
+            "summary": "The uploaded .doc file is a binary OLE file. Full previous-version recovery requires conversion to .docx.",
+            "method": "Legacy DOC byte scan",
+            "preview_text": "",
+            "sections": [],
+            "changes": [],
+            "confidence": 0.15,
+        }
+
+    try:
+        with zipfile.ZipFile(io.BytesIO(document_bytes)) as archive:
+            names = archive.namelist()
+            
+            # Extract revision tracking information
+            changes: list[dict[str, str]] = []
+            sections: list[dict[str, Any]] = []
+            recovered_text: list[str] = []
+            
+            # Check for tracked changes in document.xml
+            if "word/document.xml" in names:
+                doc_xml = _read_zip_text(archive, "word/document.xml")
+                root = ET.fromstring(doc_xml)
+                
+                # Find deleted text (w:delText or w:del)
+                ns = {"w": "http://schemas.openxmlformats.org/wordprocessingml/2006/main"}
+                deleted_elements = root.findall(".//w:del", ns) + root.findall(".//w:delText", ns)
+                
+                for idx, elem in enumerate(deleted_elements[:20]):
+                    deleted_text = _xml_text(elem)
+                    if deleted_text.strip():
+                        recovered_text.append(deleted_text.strip())
+                        changes.append({
+                            "field": f"Deleted text #{idx + 1}",
+                            "previous_value": _compact_text(deleted_text, 180),
+                            "current_value": "Removed from document",
+                            "type": "removed",
+                        })
+                
+                # Find inserted text (w:ins)
+                inserted_elements = root.findall(".//w:ins", ns)
+                for idx, elem in enumerate(inserted_elements[:20]):
+                    inserted_text = _xml_text(elem)
+                    if inserted_text.strip():
+                        changes.append({
+                            "field": f"Inserted text #{idx + 1}",
+                            "previous_value": "Not in previous version",
+                            "current_value": _compact_text(inserted_text, 180),
+                            "type": "added",
+                        })
+            
+            # Check for comments
+            if "word/comments.xml" in names:
+                comments_xml = _read_zip_text(archive, "word/comments.xml")
+                comment_root = ET.fromstring(comments_xml)
+                ns = {"w": "http://schemas.openxmlformats.org/wordprocessingml/2006/main"}
+                comment_elements = comment_root.findall(".//w:comment", ns)
+                
+                comment_texts = []
+                for comment in comment_elements[:15]:
+                    comment_text = _xml_text(comment)
+                    if comment_text.strip():
+                        comment_texts.append(_compact_text(comment_text, 160))
+                
+                if comment_texts:
+                    sections.append({
+                        "title": "Document comments",
+                        "items": comment_texts
+                    })
+            
+            # Check core properties for revision information
+            if "docProps/core.xml" in names:
+                try:
+                    core_xml = _read_zip_text(archive, "docProps/core.xml")
+                    core_root = ET.fromstring(core_xml)
+                    props_items = []
+                    
+                    for key in ("creator", "lastModifiedBy", "created", "modified", "revision"):
+                        found = core_root.find(f".//{{{CORE_NS.get('cp', '')}|{CORE_NS.get('dc', '')}|{CORE_NS.get('dcterms', '')}}}{key}")
+                        if found is None:
+                            found = core_root.find(f".//{{*}}{key}")
+                        if found is not None and found.text:
+                            props_items.append(f"{key}: {found.text.strip()}")
+                    
+                    if props_items:
+                        sections.append({
+                            "title": "Document properties",
+                            "items": props_items
+                        })
+                except ET.ParseError:
+                    pass
+            
+            # Build result
+            available = bool(changes)
+            if available:
+                if recovered_text:
+                    sections.insert(0, {
+                        "title": "Recovered deleted text",
+                        "items": recovered_text[:30]
+                    })
+                summary = (
+                    f"X-ray recovered tracked changes from the Word document. "
+                    f"Found {len([c for c in changes if c['type'] == 'removed'])} deleted and "
+                    f"{len([c for c in changes if c['type'] == 'added'])} inserted text fragments."
+                )
+                title = "Recovered previous Word document version"
+                confidence = 0.82
+            else:
+                summary = "No tracked changes or deleted text were recovered from the Word document."
+                title = "No previous Word version recovered"
+                confidence = 0.0
+            
+            return {
+                "available": available,
+                "title": title,
+                "summary": summary,
+                "method": "OOXML revision tracking scan",
+                "preview_text": "\n".join(recovered_text[:40]),
+                "sections": sections,
+                "changes": changes,
+                "confidence": confidence,
+            }
+    
+    except zipfile.BadZipFile:
+        return {
+            "available": False,
+            "title": "Invalid Word document",
+            "summary": "The document is not a valid OOXML package.",
+            "method": "X-ray revision scan",
+            "preview_text": "",
+            "sections": [],
+            "changes": [],
+            "confidence": 0.0,
+        }
+    except Exception as exc:
+        return {
+            "available": False,
+            "title": "Word recovery failed",
+            "summary": f"Failed to recover previous version: {exc}",
+            "method": "X-ray revision scan",
+            "preview_text": "",
+            "sections": [],
+            "changes": [],
+            "confidence": 0.0,
+        }
+
+
 def recover_previous_version(document_bytes: bytes, file_name: str, content_type: str = "") -> dict[str, Any]:
     file_type = detect_file_type(file_name, content_type, document_bytes)
     if file_type == "pdf":
         return _pdf_recovered_version(document_bytes)
     if file_type == "excel":
         return _excel_recovered_version(document_bytes, file_name)
+    if file_type == "word":
+        return _word_recovered_version(document_bytes, file_name)
     return {
         "available": False,
         "title": "No previous version recovered",

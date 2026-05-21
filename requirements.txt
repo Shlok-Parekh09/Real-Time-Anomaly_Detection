@@ -14,3 +14,7 @@ plotly==5.18.0
 
 # Optional: For faster computation
 scipy==1.11.4
+
+# Document Processing
+python-docx==1.1.0
+pypdf==3.17.4
