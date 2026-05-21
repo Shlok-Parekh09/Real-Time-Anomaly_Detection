@@ -425,7 +425,7 @@ function XrayComparison({
   isTrusted: boolean;
   file?: File;
 }) {
-  const [reveal, setReveal] = useState(50);
+  const [reveal, setReveal] = useState(0); // Start at 0 (full color view)
   const containerRef = React.useRef<HTMLDivElement | null>(null);
 
   const updateRevealFromClientX = (clientX: number) => {
@@ -460,32 +460,35 @@ function XrayComparison({
 
   return (
     <div ref={containerRef} className={cx('relative select-none overflow-hidden bg-neutral-900', previewHeight)}>
-      {/* Submitted version with X-ray visual filter applied */}
+      {/* Normal colored version (base layer) */}
       <div className="relative h-full w-full">
-        <SubmittedVersionLayer kind={kind} previewUrl={previewUrl} rows={rows} xrayFilter file={file} />
-        {shouldShowHighlights && <EvidenceOverlay regions={regions} />}
+        <SubmittedVersionLayer kind={kind} previewUrl={previewUrl} rows={rows} xrayFilter={false} file={file} />
       </div>
+      
+      {/* X-ray filtered version (revealed from left to right) */}
       <div
         className="pointer-events-none absolute inset-0"
         style={{ clipPath: `inset(0 ${100 - reveal}% 0 0)` }}
       >
-        <OriginalVersionLayer result={result} kind={kind} file={file} />
+        <SubmittedVersionLayer kind={kind} previewUrl={previewUrl} rows={rows} xrayFilter={true} file={file} />
+        {shouldShowHighlights && <EvidenceOverlay regions={regions} />}
       </div>
-      <div className="pointer-events-none absolute left-4 top-4 z-10 rounded-full bg-emerald-600 px-3 py-1 text-[10px] font-black uppercase tracking-wide text-white shadow">
-        Original
-      </div>
-      <div className={cx(
-        'pointer-events-none absolute right-4 top-4 z-10 rounded-full px-3 py-1 text-[10px] font-black uppercase tracking-wide text-white shadow',
-        isTrusted ? 'bg-emerald-600' : 'bg-red-600'
-      )}>
-        {isTrusted ? 'Trusted' : 'Fraud'}
-      </div>
+      
+      {/* Center indicator showing comparison status */}
+      {!isTrusted && (
+        <div className="pointer-events-none absolute left-1/2 top-4 z-10 -translate-x-1/2 rounded-full bg-violet-600/95 px-4 py-1.5 text-xs font-bold text-white shadow-lg backdrop-blur-sm">
+          <Eye className="mr-1.5 inline h-3.5 w-3.5" />
+          X-ray Analysis Active
+        </div>
+      )}
       {isTrusted && (
         <div className="pointer-events-none absolute left-1/2 top-4 z-10 -translate-x-1/2 rounded-full bg-emerald-500/90 px-4 py-1.5 text-xs font-bold text-white shadow-lg backdrop-blur-sm">
           <CheckCircle className="mr-1.5 inline h-3.5 w-3.5" />
           Document is trusted — no severity markers
         </div>
       )}
+      
+      {/* Draggable slider */}
       <button
         type="button"
         role="slider"
@@ -493,7 +496,7 @@ function XrayComparison({
         aria-valuemin={0}
         aria-valuemax={100}
         aria-valuenow={Math.round(reveal)}
-        title="Drag to compare original and submitted versions"
+        title="Drag to reveal X-ray view"
         className="absolute inset-y-0 z-20 w-12 cursor-ew-resize touch-none outline-none focus-visible:ring-2 focus-visible:ring-violet-400"
         style={{ left: `${reveal}%`, transform: 'translateX(-50%)' }}
         onPointerDown={(event) => {
