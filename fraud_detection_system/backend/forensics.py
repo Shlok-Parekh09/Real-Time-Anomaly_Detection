@@ -32,13 +32,23 @@ def detect_file_type(file_name: str, content_type: str, document_bytes: bytes) -
         return "pdf"
     if lower_name.endswith((".xlsx", ".xlsm", ".xltx", ".xltm")):
         return "excel"
-    if lower_name.endswith(".xls") or document_bytes.startswith(OLE_MAGIC):
+    if lower_name.endswith((".docx", ".docm", ".dotx", ".dotm")):
+        return "word"
+    if lower_name.endswith(".doc"):
+        return "word"
+    if lower_name.endswith(".xls"):
+        return "excel"
+    if document_bytes.startswith(OLE_MAGIC):
+        if lower_name.endswith(".doc"):
+            return "word"
         return "excel"
     if lower_type.startswith("image/") or lower_name.endswith((".png", ".jpg", ".jpeg", ".webp", ".bmp", ".tif", ".tiff")):
         return "image"
     if document_bytes.startswith(b"PK\x03\x04"):
         try:
             with zipfile.ZipFile(io.BytesIO(document_bytes)) as archive:
+                if "word/document.xml" in archive.namelist():
+                    return "word"
                 if "xl/workbook.xml" in archive.namelist():
                     return "excel"
         except zipfile.BadZipFile:
@@ -320,6 +330,42 @@ def extract_document_text(document_bytes: bytes, file_name: str, content_type: s
             "source": "local_pdf_parser",
             "notes": pdf_notes,
         }
+
+    if file_type == "word":
+        if document_bytes.startswith(OLE_MAGIC):
+            strings = [_compact_text(s.decode("latin-1", errors="ignore"), 120) for s in re.findall(rb"[\x20-\x7e]{4,}", document_bytes)]
+            text = "\n".join(strings[:300])
+            return {
+                "text": text,
+                "confidence_score": 60.0 if text else 0.0,
+                "source": "legacy_doc_string_scan",
+                "notes": ["Legacy .doc support is limited to safe string extraction. Convert to .docx for better parsing."],
+            }
+        
+        try:
+            from docx import Document
+            doc = Document(io.BytesIO(document_bytes))
+            text = "\n".join(paragraph.text for paragraph in doc.paragraphs if paragraph.text.strip())
+            return {
+                "text": text,
+                "confidence_score": 95.0 if text else 0.0,
+                "source": "docx_parser",
+                "notes": [],
+            }
+        except ImportError:
+            return {
+                "text": "",
+                "confidence_score": 0.0,
+                "source": "error",
+                "notes": ["python-docx is not installed. Text extraction for .docx failed."],
+            }
+        except Exception as exc:
+            return {
+                "text": "",
+                "confidence_score": 0.0,
+                "source": "error",
+                "notes": [f"Word document parsing failed: {exc}"],
+            }
 
     if file_type == "excel":
         if document_bytes.startswith(OLE_MAGIC):
@@ -890,14 +936,60 @@ def analyze_forensic_signals(
         )
 
     for anomaly in validation_anomalies:
+        lowered = anomaly.lower()
+        if "rounding" in lowered or "rounded" in lowered:
+            name = "Rounded Figures"
+            summary = "Suspiciously rounded amounts detected"
+            severity = "high"
+        elif "repeated identical deposit" in lowered:
+            name = "Repeated Deposits"
+            summary = "Multiple identical deposits detected"
+            severity = "high"
+        elif "balance inconsistency" in lowered:
+            name = "Balance Mismatch"
+            summary = "Running balances do not add up correctly"
+            severity = "high"
+        elif "suspicious activity pattern" in lowered or "missing standard expenses" in lowered:
+            name = "Irregular Activity"
+            summary = "Missing standard monthly living expenses"
+            severity = "medium"
+        elif "backdated transactions" in lowered or "weekend" in lowered:
+            name = "Weekend Transactions"
+            summary = "Transactions recorded on bank non-processing days"
+            severity = "medium"
+        elif "vague deposit descriptions" in lowered:
+            name = "Vague Descriptions"
+            summary = "Deposits lack specific employer references"
+            severity = "low"
+        elif "net pay (" in lowered or "exceeds gross" in lowered:
+            name = "Payslip Math"
+            summary = "Net pay is higher than gross pay"
+            severity = "high"
+        elif "deductions:" in lowered:
+            name = "Deduction Anomaly"
+            summary = "Tax and insurance deductions are outside normal ranges"
+            severity = "medium"
+        elif "missing mandatory payslip fields" in lowered:
+            name = "Missing Fields"
+            summary = "Payslip is missing mandatory legal fields"
+            severity = "high"
+        elif "inconsistent account" in lowered or "inconsistent sort" in lowered:
+            name = "Account Details"
+            summary = "Inconsistent account numbers or routing codes"
+            severity = "high"
+        else:
+            name = "Math Validation"
+            summary = "Financial consistency check failed"
+            severity = "high"
+
         signals.append(
             make_signal(
-                "Validation",
-                "high",
-                "Financial consistency check failed",
+                name,
+                severity,
+                summary,
                 anomaly,
                 [anomaly],
-                0.74,
+                0.78 if severity == "high" else 0.65,
             )
         )
 
@@ -936,43 +1028,7 @@ def calculate_risk_score(signals: list[dict[str, Any]]) -> float:
     return round(min(100.0, score), 1)
 
 
-def _local_explanation(
-    file_name: str,
-    risk_score: float,
-    trust_score: float,
-    signals: list[dict[str, Any]],
-    recovered_version: dict[str, Any],
-) -> dict[str, str]:
-    if signals:
-        lead = signals[0]
-        summary = f"{file_name} scored {trust_score:.1f}/100 trust because {lead['summary'].lower()}."
-    else:
-        summary = f"{file_name} scored {trust_score:.1f}/100 trust with no major forensic signals."
-
-    if recovered_version.get("available"):
-        likely = recovered_version.get("summary", "The X-ray scan recovered a previous version from the file internals.")
-    elif signals:
-        likely = "The strongest alteration indicators are: " + "; ".join(signal["summary"] for signal in signals[:3])
-    else:
-        likely = "No clear alteration path was detected from the local forensic checks."
-
-    if risk_score >= 70:
-        action = "Reject or escalate to manual fraud review before accepting the document."
-    elif risk_score >= 30:
-        action = "Hold for underwriter review and compare against source statements or issuer records."
-    else:
-        action = "Accept only after standard identity and source verification."
-
-    return {
-        "summary": summary,
-        "likely_alteration": likely,
-        "recommended_action": action,
-        "limitations": "Local fallback explanation. Set CEREBRAS_API_KEY on the backend to generate richer Cerebras narratives.",
-        "generated_by": "local_fallback",
-    }
-
-
-def generate_cerebras_explanation(
+def generate_openrouter_explanation(
     *,
     file_name: str,
     risk_score: float,
@@ -983,12 +1039,17 @@ def generate_cerebras_explanation(
     extracted_text: str,
     api_key: str | None = None,
 ) -> dict[str, str]:
-    fallback = _local_explanation(file_name, risk_score, trust_score, signals, recovered_version)
-    resolved_api_key = (api_key or os.getenv("CEREBRAS_API_KEY", "")).strip()
+    resolved_api_key = (api_key or os.getenv("OPENROUTER_API_KEY", "")).strip()
     if not resolved_api_key:
-        return fallback
+        return {
+            "summary": "OpenRouter API key is missing.",
+            "likely_alteration": "AI analysis unavailable.",
+            "recommended_action": "Please configure a valid OpenRouter API key to enable AI forensics.",
+            "limitations": "Missing API key.",
+            "generated_by": "error",
+        }
 
-    model = os.getenv("CEREBRAS_MODEL", "gpt-oss-120b").strip() or "gpt-oss-120b"
+    model = os.getenv("OPENROUTER_MODEL", "openai/gpt-oss-120b:free").strip() or "openai/gpt-oss-120b:free"
     prompt = {
         "file_name": file_name,
         "risk_score": risk_score,
@@ -1020,11 +1081,13 @@ def generate_cerebras_explanation(
     }
 
     request = urllib.request.Request(
-        "https://api.cerebras.ai/v1/chat/completions",
+        "https://openrouter.ai/api/v1/chat/completions",
         data=json.dumps(body).encode("utf-8"),
         headers={
             "Content-Type": "application/json",
             "Authorization": f"Bearer {resolved_api_key}",
+            "HTTP-Referer": "http://localhost:5173",
+            "X-Title": "Real-Time Anomaly Detection App",
         },
         method="POST",
     )
@@ -1035,12 +1098,99 @@ def generate_cerebras_explanation(
         match = re.search(r"\{.*\}", content, flags=re.DOTALL)
         parsed = json.loads(match.group(0) if match else content)
         return {
-            "summary": str(parsed.get("summary") or fallback["summary"]),
-            "likely_alteration": str(parsed.get("likely_alteration") or fallback["likely_alteration"]),
-            "recommended_action": str(parsed.get("recommended_action") or fallback["recommended_action"]),
+            "summary": str(parsed.get("summary") or "Failed to parse summary from OpenRouter response."),
+            "likely_alteration": str(parsed.get("likely_alteration") or "Failed to parse alteration details."),
+            "recommended_action": str(parsed.get("recommended_action") or "Manual review required."),
             "limitations": str(parsed.get("limitations") or "Generated from file-level forensic signals; verify against issuer records."),
-            "generated_by": f"cerebras:{model}",
+            "generated_by": f"openrouter:{model}",
         }
     except (urllib.error.URLError, urllib.error.HTTPError, TimeoutError, KeyError, json.JSONDecodeError, ValueError) as exc:
-        fallback["limitations"] = f"{fallback['limitations']} Cerebras call failed: {exc}"
-        return fallback
+        return {
+            "summary": f"OpenRouter API call failed: {exc}",
+            "likely_alteration": "AI analysis failed due to an API error.",
+            "recommended_action": "Check your API key and network connection.",
+            "limitations": f"Error details: {exc}",
+            "generated_by": "error",
+        }
+
+
+def enrich_signal_descriptions(
+    signals: list[dict[str, Any]],
+    *,
+    file_name: str,
+    api_key: str | None = None,
+) -> list[dict[str, Any]]:
+    """Call OpenRouter to generate richer per-signal descriptions.
+
+    When no valid API key is available the signals are returned unchanged.
+    """
+    resolved_api_key = (api_key or os.getenv("OPENROUTER_API_KEY", "")).strip()
+    if not resolved_api_key or not signals:
+        return signals
+
+    model = os.getenv("OPENROUTER_MODEL", "openai/gpt-oss-120b:free").strip() or "openai/gpt-oss-120b:free"
+
+    signal_summaries = [
+        {"id": s.get("id"), "name": s.get("name"), "severity": s.get("severity"),
+         "summary": s.get("summary"), "evidence": s.get("evidence", [])[:4]}
+        for s in signals[:8]
+    ]
+
+    body = {
+        "model": model,
+        "temperature": 0.25,
+        "max_completion_tokens": 800,
+        "messages": [
+            {
+                "role": "system",
+                "content": (
+                    "You are a document fraud forensics analyst writing descriptions for detected fraud signals. "
+                    "For each signal, write a 2-3 sentence expert description explaining what the signal means, "
+                    "why it matters for document authenticity, and what an underwriter should look for. "
+                    "Return ONLY a JSON array of objects with keys: id, description. "
+                    "Keep language professional and non-accusatory."
+                ),
+            },
+            {
+                "role": "user",
+                "content": json.dumps(
+                    {"file_name": file_name, "signals": signal_summaries},
+                    ensure_ascii=True,
+                ),
+            },
+        ],
+    }
+
+    request = urllib.request.Request(
+        "https://openrouter.ai/api/v1/chat/completions",
+        data=json.dumps(body).encode("utf-8"),
+        headers={
+            "Content-Type": "application/json",
+            "Authorization": f"Bearer {resolved_api_key}",
+            "HTTP-Referer": "http://localhost:5173",
+            "X-Title": "Real-Time Anomaly Detection App",
+        },
+        method="POST",
+    )
+
+    try:
+        with urllib.request.urlopen(request, timeout=15) as response:
+            payload = json.loads(response.read().decode("utf-8"))
+        content = payload["choices"][0]["message"]["content"]
+        # Extract JSON array from the response
+        match = re.search(r"\[.*\]", content, flags=re.DOTALL)
+        parsed = json.loads(match.group(0) if match else content)
+        if not isinstance(parsed, list):
+            return signals
+
+        enriched_map = {item["id"]: item.get("description", "") for item in parsed if isinstance(item, dict) and "id" in item}
+        enriched_signals = []
+        for signal in signals:
+            enriched = dict(signal)
+            new_desc = enriched_map.get(signal.get("id", ""))
+            if new_desc and isinstance(new_desc, str) and len(new_desc) > 10:
+                enriched["description"] = new_desc
+            enriched_signals.append(enriched)
+        return enriched_signals
+    except Exception:
+        return signals

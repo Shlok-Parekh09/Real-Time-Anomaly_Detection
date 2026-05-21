@@ -99,9 +99,13 @@ function friendlyType(file: File | null, result: AnalysisResult | null) {
   const type = result?.file_type;
   if (type === 'pdf') return 'PDF';
   if (type === 'image') return 'Image';
+  if (type === 'word') return 'Word';
+  if (type === 'excel') return 'Excel';
   if (!file) return 'Unknown';
   if (file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf')) return 'PDF';
   if (file.type.startsWith('image/')) return 'Image';
+  if (file.name.toLowerCase().endsWith('.doc') || file.name.toLowerCase().endsWith('.docx')) return 'Word';
+  if (file.name.toLowerCase().endsWith('.xls') || file.name.toLowerCase().endsWith('.xlsx')) return 'Excel';
   return 'Document';
 }
 
@@ -111,7 +115,8 @@ function isSupportedUpload(file: File) {
     file.type === 'application/pdf' ||
     file.type.startsWith('image/') ||
     lowerName.endsWith('.pdf') ||
-    /\.(png|jpe?g|webp|bmp|tiff?)$/.test(lowerName)
+    /\.(png|jpe?g|webp|bmp|tiff?)$/.test(lowerName) ||
+    /\.(doc|docx|xls|xlsx)$/.test(lowerName)
   );
 }
 
@@ -165,7 +170,7 @@ const REGION_LAYOUT: Array<Omit<VisualRegion, 'label' | 'severity'>> = [
 ];
 
 function pdfViewerUrl(previewUrl: string) {
-  return `${previewUrl}#toolbar=0&navpanes=0&scrollbar=0&view=Fit`;
+  return `${previewUrl}#toolbar=0&navpanes=0&scrollbar=0&view=FitH`;
 }
 
 function buildVisualRegions(result: AnalysisResult | null): VisualRegion[] {
@@ -185,10 +190,14 @@ function buildVisualRegions(result: AnalysisResult | null): VisualRegion[] {
   }));
 }
 
-function EvidenceOverlay({ regions }: { regions: VisualRegion[] }) {
+function EvidenceOverlay({ regions, containerRef }: { regions: VisualRegion[]; containerRef?: React.RefObject<HTMLDivElement | null> }) {
   if (!regions.length) return null;
+  // Render the overlay as a layer sized to match the content (not the viewport).
+  // By making it absolute and sizing it to 100% of the *scrollable content*
+  // (the parent with position:relative), the rectangles stay anchored to the
+  // document content even when the user scrolls.
   return (
-    <div className="pointer-events-none absolute inset-0">
+    <div className="pointer-events-none absolute inset-0" style={{ width: '100%', height: '100%' }}>
       {regions.map((region, index) => (
         <div
           key={`${region.label}-${index}`}
@@ -242,6 +251,11 @@ function SignalRow({
             )}
           </div>
           <p className="mt-0.5 text-xs leading-snug text-slate-500">{signal.summary}</p>
+          {selected && signal.description && (
+            <p className="mt-2 rounded-md bg-slate-50 p-2 text-xs leading-relaxed text-slate-600 border border-slate-100">
+              {signal.description}
+            </p>
+          )}
         </div>
         <ChevronRight className="mt-1 h-4 w-4 shrink-0 text-slate-300" />
       </div>
@@ -260,7 +274,7 @@ function PdfFrame({ previewUrl, title, className }: { previewUrl: string; title:
   );
 }
 
-function OriginalVersionLayer({ result }: { result: AnalysisResult }) {
+function OriginalVersionLayer({ result, kind, file }: { result: AnalysisResult; kind: string; file?: File }) {
   const recovered = result.recovered_version;
   const originalRows = (recovered.preview_text || '')
     .split('\n')
@@ -268,6 +282,15 @@ function OriginalVersionLayer({ result }: { result: AnalysisResult }) {
     .slice(0, 34);
   const fallbackRows = recovered.changes.slice(0, 12).map((change) => `${change.field}: ${change.previous_value}`);
   const rows = originalRows.length ? originalRows : fallbackRows;
+
+  if ((kind === 'word' || kind === 'excel') && file) {
+    return (
+      <div className="relative h-full w-full">
+        <DocxExcelPreview file={file} kind={kind} />
+        <div className="absolute inset-0 bg-emerald-500/10 pointer-events-none mix-blend-multiply" />
+      </div>
+    );
+  }
 
   return (
     <div className="flex h-full items-center justify-center overflow-auto bg-[#e9f8f1] p-6">
@@ -307,29 +330,46 @@ function SubmittedVersionLayer({
   kind,
   previewUrl,
   rows,
+  xrayFilter,
+  file,
 }: {
   kind: string;
   previewUrl: string;
   rows: string[];
+  xrayFilter?: boolean;
+  file?: File;
 }) {
+  const filterStyle = xrayFilter
+    ? { filter: 'invert(0.88) contrast(1.25) hue-rotate(180deg) saturate(0.3) brightness(1.1)' }
+    : undefined;
+
   if (kind === 'image') {
     return (
-      <div className="flex h-full items-center justify-center overflow-auto bg-neutral-900 p-5">
+      <div className="relative h-full w-full overflow-hidden bg-neutral-900">
         <img
           src={previewUrl}
           alt="Submitted document preview"
-          className="max-h-[calc(100vh-245px)] max-w-full object-contain grayscale contrast-90 brightness-75"
+          className="h-full w-full object-contain"
+          style={filterStyle}
         />
       </div>
     );
   }
 
   if (kind === 'pdf') {
-    return <PdfFrame title="Submitted fraud PDF preview" previewUrl={previewUrl} className="grayscale contrast-90 brightness-75" />;
+    return (
+      <div className="h-full w-full" style={filterStyle}>
+        <PdfFrame title="Submitted fraud PDF preview" previewUrl={previewUrl} />
+      </div>
+    );
+  }
+
+  if ((kind === 'word' || kind === 'excel') && file) {
+    return <DocxExcelPreview file={file} kind={kind} xrayFilter={xrayFilter} />;
   }
 
   return (
-    <div className="h-full overflow-auto bg-neutral-900 p-6 grayscale contrast-90 brightness-75">
+    <div className="h-full overflow-auto bg-neutral-900 p-6" style={filterStyle}>
       <div className="min-w-[760px] rounded bg-white p-4 font-mono text-xs text-slate-800">
         {rows.length > 0 ? (
           rows.map((row, index) => (
@@ -355,6 +395,7 @@ function XrayComparison({
   regions,
   showEvidenceMarkers,
   previewHeight,
+  isTrusted,
 }: {
   kind: string;
   previewUrl: string;
@@ -363,6 +404,8 @@ function XrayComparison({
   regions: VisualRegion[];
   showEvidenceMarkers: boolean;
   previewHeight: string;
+  isTrusted: boolean;
+  file?: File;
 }) {
   const [reveal, setReveal] = useState(50);
   const containerRef = React.useRef<HTMLDivElement | null>(null);
@@ -393,22 +436,38 @@ function XrayComparison({
     }
   };
 
+  // For trusted documents: show X-ray filter but NO red highlights
+  // For untrusted documents: show X-ray filter WITH red highlights
+  const shouldShowHighlights = showEvidenceMarkers && !isTrusted;
+
   return (
     <div ref={containerRef} className={cx('relative select-none overflow-hidden bg-neutral-900', previewHeight)}>
-      <SubmittedVersionLayer kind={kind} previewUrl={previewUrl} rows={rows} />
+      {/* Submitted version with X-ray visual filter applied */}
+      <div className="relative h-full w-full">
+        <SubmittedVersionLayer kind={kind} previewUrl={previewUrl} rows={rows} xrayFilter file={file} />
+        {shouldShowHighlights && <EvidenceOverlay regions={regions} />}
+      </div>
       <div
         className="pointer-events-none absolute inset-0"
         style={{ clipPath: `inset(0 ${100 - reveal}% 0 0)` }}
       >
-        <OriginalVersionLayer result={result} />
+        <OriginalVersionLayer result={result} kind={kind} file={file} />
       </div>
-      {showEvidenceMarkers && <EvidenceOverlay regions={regions} />}
       <div className="pointer-events-none absolute left-4 top-4 z-10 rounded-full bg-emerald-600 px-3 py-1 text-[10px] font-black uppercase tracking-wide text-white shadow">
         Original
       </div>
-      <div className="pointer-events-none absolute right-4 top-4 z-10 rounded-full bg-red-600 px-3 py-1 text-[10px] font-black uppercase tracking-wide text-white shadow">
-        Fraud
+      <div className={cx(
+        'pointer-events-none absolute right-4 top-4 z-10 rounded-full px-3 py-1 text-[10px] font-black uppercase tracking-wide text-white shadow',
+        isTrusted ? 'bg-emerald-600' : 'bg-red-600'
+      )}>
+        {isTrusted ? 'Trusted' : 'Fraud'}
       </div>
+      {isTrusted && (
+        <div className="pointer-events-none absolute left-1/2 top-4 z-10 -translate-x-1/2 rounded-full bg-emerald-500/90 px-4 py-1.5 text-xs font-bold text-white shadow-lg backdrop-blur-sm">
+          <CheckCircle className="mr-1.5 inline h-3.5 w-3.5" />
+          Document is trusted — no severity markers
+        </div>
+      )}
       <button
         type="button"
         role="slider"
@@ -459,6 +518,8 @@ function DocumentPreview({
   );
   const kind = friendlyType(file, result).toLowerCase();
 
+  const isTrusted = (result?.trust_score ?? 0) >= 70;
+
   if (mode === 'xray' && result) {
     const recovered = result.recovered_version;
     const regions = buildVisualRegions(result);
@@ -484,9 +545,16 @@ function DocumentPreview({
               <p className="text-xs font-bold uppercase tracking-wide text-violet-700">X-ray Signal</p>
               <p className="mt-1 text-sm font-semibold text-slate-900">{recovered.title}</p>
             </div>
-            <span className="rounded-full bg-violet-100 px-3 py-1 text-xs font-bold text-violet-700">
-              {Math.round((recovered.confidence || 0) * 100)}% confidence
-            </span>
+            <div className="flex items-center gap-2">
+              {isTrusted && (
+                <span className="rounded-full bg-emerald-100 px-3 py-1 text-xs font-bold text-emerald-700">
+                  Trusted
+                </span>
+              )}
+              <span className="rounded-full bg-violet-100 px-3 py-1 text-xs font-bold text-violet-700">
+                {Math.round((recovered.confidence || 0) * 100)}% confidence
+              </span>
+            </div>
           </div>
 
           <div className="bg-[#e7e5ed] p-4 lg:p-5">
@@ -499,6 +567,8 @@ function DocumentPreview({
                 regions={regions}
                 showEvidenceMarkers={showEvidenceMarkers}
                 previewHeight={previewHeight}
+                isTrusted={isTrusted}
+                file={file}
               />
             </div>
           </div>
@@ -569,41 +639,119 @@ function DocumentPreview({
 
   if (kind === 'image') {
     return (
-      <div className="flex h-full min-h-[520px] items-center justify-center overflow-auto rounded-lg border border-slate-200 bg-white p-6">
-        <img src={previewUrl} alt="Uploaded document" className="max-h-[760px] max-w-full object-contain shadow-sm" />
+      <div className="relative h-full min-h-[520px] overflow-hidden rounded-lg border border-slate-200 bg-neutral-900">
+        <img src={previewUrl} alt="Uploaded document" className="h-full w-full object-contain" />
+        {showEvidenceMarkers && result && !isTrusted && (
+          <EvidenceOverlay regions={buildVisualRegions(result)} />
+        )}
       </div>
     );
   }
 
   if (kind === 'pdf') {
     return (
-      <div className="h-full min-h-[620px] overflow-hidden rounded-lg border border-slate-200 bg-white">
+      <div className="relative h-full min-h-[620px] overflow-hidden rounded-lg border border-slate-200 bg-white">
         <PdfFrame title="PDF preview" previewUrl={previewUrl} className="min-h-[620px]" />
+        {showEvidenceMarkers && result && !isTrusted && (
+          <EvidenceOverlay regions={buildVisualRegions(result)} />
+        )}
       </div>
     );
   }
 
+function DocxExcelPreview({ file, kind, xrayFilter }: { file: File; kind: string; xrayFilter?: boolean }) {
+  const [content, setContent] = useState<string>('');
+  const [loading, setLoading] = useState(true);
+
+  React.useEffect(() => {
+    let active = true;
+    const processFile = async () => {
+      try {
+        const buffer = await file.arrayBuffer();
+        if (kind === 'word') {
+          const mammoth = await import('mammoth');
+          const result = await mammoth.convertToHtml({ arrayBuffer: buffer });
+          if (active) {
+            setContent(result.value);
+            setLoading(false);
+          }
+        } else if (kind === 'excel') {
+          const XLSX = await import('xlsx');
+          const workbook = XLSX.read(buffer, { type: 'array' });
+          const firstSheetName = workbook.SheetNames[0];
+          const worksheet = workbook.Sheets[firstSheetName];
+          const html = XLSX.utils.sheet_to_html(worksheet);
+          if (active) {
+            setContent(html);
+            setLoading(false);
+          }
+        }
+      } catch (err) {
+        if (active) {
+          setContent('<p class="text-slate-500 text-center mt-10">Error rendering preview.</p>');
+          setLoading(false);
+        }
+      }
+    };
+    processFile();
+    return () => {
+      active = false;
+    };
+  }, [file, kind]);
+
+  const filterStyle = xrayFilter
+    ? { filter: 'invert(0.88) contrast(1.25) hue-rotate(180deg) saturate(0.3) brightness(1.1)' }
+    : undefined;
+
+  return (
+    <div className="relative h-full w-full overflow-hidden bg-white" style={filterStyle}>
+      <style>{`
+        .doc-preview-container table { width: 100%; border-collapse: collapse; font-size: 12px; font-family: monospace; }
+        .doc-preview-container td { border: 1px solid #e2e8f0; padding: 6px 8px; white-space: nowrap; }
+        .doc-preview-container tr:nth-child(even) td { background-color: #f8fafc; }
+        .doc-preview-container p { margin-bottom: 0.5rem; font-size: 13px; line-height: 1.6; }
+      `}</style>
+      {loading ? (
+        <div className="flex h-full items-center justify-center text-sm font-semibold text-slate-500">
+          Loading document preview...
+        </div>
+      ) : (
+        <div
+          className="doc-preview-container h-full w-full overflow-auto p-6"
+          dangerouslySetInnerHTML={{ __html: content }}
+        />
+      )}
+    </div>
+  );
+}
+
   return (
     <div className="h-full min-h-[520px] overflow-hidden rounded-lg border border-slate-200 bg-white">
       <div className="border-b border-slate-100 bg-slate-50 px-4 py-3">
-        <p className="text-xs font-bold uppercase tracking-wide text-slate-500">Document Text</p>
+        <p className="text-xs font-bold uppercase tracking-wide text-slate-500">Document Preview</p>
         <p className="mt-1 text-sm font-semibold text-slate-900">{file.name}</p>
       </div>
-      <div className="h-[560px] overflow-auto p-4">
-        {rows.length > 0 ? (
-          <div className="space-y-1 font-mono text-xs text-slate-700">
-            {rows.map((row, index) => (
-              <div key={`${row}-${index}`} className={cx('rounded px-3 py-2', row.startsWith('[') ? 'bg-violet-50 font-bold text-violet-700' : 'bg-slate-50')}>
-                {row}
-              </div>
-            ))}
-          </div>
+      <div className="h-[560px]">
+        {kind === 'word' || kind === 'excel' ? (
+          <DocxExcelPreview file={file} kind={kind} />
         ) : (
-          <div className="flex h-full items-center justify-center text-center text-sm text-slate-500">
-            <div>
-              <Database className="mx-auto mb-3 h-9 w-9 text-slate-300" />
-              <p>Run forensics to render extracted text and X-ray traces.</p>
-            </div>
+          <div className="h-full overflow-auto p-4">
+            {rows.length > 0 ? (
+              <div className="space-y-1 font-mono text-xs text-slate-700">
+                {rows.map((row, index) => (
+                  <div key={`${row}-${index}`} className={cx('rounded px-3 py-2', row.startsWith('[') ? 'bg-violet-50 font-bold text-violet-700' : 'bg-slate-50')}>
+                    {row}
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="flex h-full items-center justify-center text-center text-sm text-slate-500">
+                <div>
+                  <Database className="mx-auto mb-3 h-9 w-9 text-slate-300" />
+                  <p>Run forensics to render extracted text and X-ray traces.</p>
+                </div>
+              </div>
+            )}
           </div>
         )}
       </div>
@@ -627,6 +775,7 @@ export default function UnderwriterDashboard({ onBack }: { onBack?: () => void }
   const [reviewDecision, setReviewDecision] = useState<ReviewDecision | null>(null);
   const [decisionMessage, setDecisionMessage] = useState('');
   const [cerebrasApiKey, setCerebrasApiKey] = useState('');
+  const [isApiKeyEntered, setIsApiKeyEntered] = useState(false);
 
   const selectedSignal = useMemo(() => {
     if (!result?.fraud_signals.length) return null;
@@ -656,7 +805,7 @@ export default function UnderwriterDashboard({ onBack }: { onBack?: () => void }
     if (!selected) return;
     if (!isSupportedUpload(selected)) {
       event.target.value = '';
-      alert('Only PDF and image files are supported.');
+      alert('Only PDF, Image, Word, Excel, Word, and Excel files are supported.');
       return;
     }
     if (previewUrl) URL.revokeObjectURL(previewUrl);
@@ -760,18 +909,25 @@ export default function UnderwriterDashboard({ onBack }: { onBack?: () => void }
             </p>
           </div>
         </div>
-        <label className="order-3 flex w-full min-w-[220px] items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm focus-within:border-violet-300 focus-within:bg-white md:order-none md:mx-4 md:w-auto md:max-w-[430px] md:flex-1">
-          <Bot className="h-4 w-4 shrink-0 text-violet-600" />
-          <input
-            type="password"
-            value={cerebrasApiKey}
-            onChange={(event) => setCerebrasApiKey(event.target.value)}
-            placeholder="Cerebras API key for descriptions"
-            aria-label="Cerebras API key"
-            autoComplete="off"
-            className="min-w-0 flex-1 bg-transparent text-sm font-semibold text-slate-700 outline-none placeholder:text-slate-400"
-          />
-        </label>
+        {!isApiKeyEntered && (
+          <label className="order-3 flex w-full min-w-[220px] items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm focus-within:border-violet-300 focus-within:bg-white md:order-none md:mx-4 md:w-auto md:max-w-[430px] md:flex-1">
+            <Bot className="h-4 w-4 shrink-0 text-violet-600" />
+            <input
+              type="password"
+              value={cerebrasApiKey}
+              onChange={(event) => setCerebrasApiKey(event.target.value)}
+              onBlur={() => {
+                if (cerebrasApiKey.trim().length > 0) {
+                  setIsApiKeyEntered(true);
+                }
+              }}
+              placeholder="OpenRouter API key for descriptions"
+              aria-label="OpenRouter API key"
+              autoComplete="off"
+              className="min-w-0 flex-1 bg-transparent text-sm font-semibold text-slate-700 outline-none placeholder:text-slate-400"
+            />
+          </label>
+        )}
         <div className="flex items-center gap-2">
           {reviewDecision && (
             <span
@@ -926,7 +1082,7 @@ export default function UnderwriterDashboard({ onBack }: { onBack?: () => void }
               />
               <Upload className="mx-auto mb-2 h-8 w-8 text-slate-300" />
               <p className="text-sm font-bold text-slate-700">{file ? 'Replace file' : 'Browse files'}</p>
-              <p className="mt-1 text-xs text-slate-400">PDF, image</p>
+              <p className="mt-1 text-xs text-slate-400">PDF, Image, Word, Excel</p>
             </div>
             <button
               onClick={handleAnalyze}

@@ -13,8 +13,9 @@ from forensics import (
     analyze_forensic_signals,
     calculate_risk_score,
     detect_file_type,
+    enrich_signal_descriptions,
     extract_metadata,
-    generate_cerebras_explanation,
+    generate_openrouter_explanation,
 )
 from local_validation import run_local_validation
 from review_store import init_review_database, store_review_document
@@ -40,6 +41,10 @@ ALLOWED_EXTENSIONS = {
     ".bmp",
     ".tif",
     ".tiff",
+    ".doc",
+    ".docx",
+    ".xls",
+    ".xlsx",
 }
 
 EXCEL_EXTENSIONS = {".xlsx", ".xlsm", ".xltx", ".xltm", ".xls"}
@@ -126,18 +131,14 @@ def startup() -> None:
 def _is_allowed_upload(file_name: str, content_type: str, file_bytes: bytes) -> bool:
     lower_name = (file_name or "").lower()
     lower_type = (content_type or "").lower()
-    if (
-        any(lower_name.endswith(ext) for ext in EXCEL_EXTENSIONS)
-        or lower_type in EXCEL_CONTENT_TYPES
-        or file_bytes.startswith(OLE_MAGIC)
-        or _is_ooxml_workbook(file_bytes)
-    ):
-        return False
+    
     has_allowed_extension = any(lower_name.endswith(ext) for ext in ALLOWED_EXTENSIONS)
     detected_type = detect_file_type(file_name, content_type, file_bytes)
-    return file_bytes.startswith(b"%PDF") or (
-        has_allowed_extension and detected_type == "image" and _looks_like_image(file_bytes, lower_type)
-    )
+    
+    if detected_type in {"pdf", "word", "excel"}:
+        return True
+    
+    return has_allowed_extension and detected_type == "image" and _looks_like_image(file_bytes, lower_type)
 
 
 def _is_ooxml_workbook(file_bytes: bytes) -> bool:
@@ -173,7 +174,7 @@ async def analyze_document(file: UploadFile = File(...), cerebras_api_key: str |
     if not _is_allowed_upload(file_name, content_type, file_bytes):
         raise HTTPException(
             status_code=400,
-            detail="Invalid file type. Upload PDF or image files.",
+            detail="Invalid file type. Upload PDF, Word, Excel, or image files.",
         )
 
     file_type = detect_file_type(file_name, content_type, file_bytes)
@@ -194,7 +195,7 @@ async def analyze_document(file: UploadFile = File(...), cerebras_api_key: str |
     trust_score = round(max(0.0, 100.0 - risk_score), 1)
     anomalies = [signal["summary"] for signal in fraud_signals]
 
-    ai_explanation = generate_cerebras_explanation(
+    ai_explanation = generate_openrouter_explanation(
         file_name=file_name,
         risk_score=risk_score,
         trust_score=trust_score,
@@ -202,6 +203,13 @@ async def analyze_document(file: UploadFile = File(...), cerebras_api_key: str |
         recovered_version=recovered_version,
         validation_status=validation_results.get("validation_status", ""),
         extracted_text=validation_results.get("extracted_text", ""),
+        api_key=cerebras_api_key,
+    )
+
+    # Enrich per-signal descriptions via Cerebras when an API key is available
+    fraud_signals = enrich_signal_descriptions(
+        fraud_signals,
+        file_name=file_name,
         api_key=cerebras_api_key,
     )
 

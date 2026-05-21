@@ -10,12 +10,14 @@
     "preview": "vite preview"
   },
   "dependencies": {
-    "react": "^18.2.0",
-    "react-dom": "^18.2.0",
-    "lucide-react": "^0.292.0",
     "axios": "^1.6.0",
     "clsx": "^2.0.0",
-    "tailwind-merge": "^2.0.0"
+    "lucide-react": "^0.292.0",
+    "mammoth": "^1.12.0",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "tailwind-merge": "^2.0.0",
+    "xlsx": "^0.18.5"
   },
   "devDependencies": {
     "@types/react": "^18.2.37",

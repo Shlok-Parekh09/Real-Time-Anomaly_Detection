@@ -2,10 +2,13 @@ import { spawn } from 'node:child_process';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
+import { existsSync } from 'node:fs';
+
 const rootDir = dirname(dirname(fileURLToPath(import.meta.url)));
 const backendDir = join(rootDir, 'fraud_detection_system', 'backend');
+const venvPython = join(rootDir, 'venv', process.platform === 'win32' ? 'Scripts\\python.exe' : 'bin/python');
+const pythonBin = existsSync(venvPython) ? venvPython : (process.platform === 'win32' ? 'python' : 'python3');
 const viteBin = join(rootDir, 'node_modules', '.bin', process.platform === 'win32' ? 'vite.cmd' : 'vite');
-const pythonBin = process.platform === 'win32' ? 'python' : 'python3';
 const frontendCommand = process.platform === 'win32' ? 'cmd.exe' : viteBin;
 const frontendArgs = process.platform === 'win32'
   ? ['/d', '/s', '/c', 'node_modules\\.bin\\vite.cmd --host 127.0.0.1 --port 5173 --strictPort']
