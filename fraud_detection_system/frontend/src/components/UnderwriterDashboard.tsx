@@ -370,10 +370,10 @@ export default function UnderwriterDashboard() {
       
       const context = contextResponse.data;
       
-      // Step 2: Use Puter.js for AI analysis (in browser)
-      const { analyzeDocumentWithPuter } = await import('../utils/puterAI');
+      // Step 2: Use OpenRouter for AI analysis (free Gemma 4 31B)
+      const { analyzeDocumentWithAI } = await import('../utils/openrouterAI');
       
-      const aiResult = await analyzeDocumentWithPuter(context);
+      const aiResult = await analyzeDocumentWithAI(context);
       
       // Step 3: Format result to match expected structure
       const analysisResult: AnalysisResult = {
@@ -395,8 +395,8 @@ export default function UnderwriterDashboard() {
         recovered_version: {
           available: false,
           title: 'No recovery needed',
-          summary: 'AI analysis performed in browser',
-          method: 'Puter.js + Gemma4',
+          summary: 'AI analysis performed via OpenRouter',
+          method: 'OpenRouter + Gemma 4 31B',
           preview_text: '',
           sections: [],
           changes: [],
@@ -406,8 +406,8 @@ export default function UnderwriterDashboard() {
           summary: aiResult.ai_explanation.summary,
           likely_alteration: aiResult.ai_explanation.likely_alteration,
           recommended_action: aiResult.ai_explanation.recommended_action,
-          limitations: 'Analysis performed by Gemma4 31B via Puter.js',
-          generated_by: 'gemma4-puter-browser',
+          limitations: 'Analysis performed by Gemma 4 31B via OpenRouter',
+          generated_by: 'gemma4-openrouter-free',
         },
         metadata: context.metadata,
         feature_summary: {
@@ -426,7 +426,7 @@ export default function UnderwriterDashboard() {
       setSelectedSignalId(analysisResult.fraud_signals[0]?.id ?? null);
     } catch (error) {
       console.error('Error analyzing document:', error);
-      alert('Failed to analyze document. Make sure you sign in to Puter when prompted.');
+      alert('Failed to analyze document. Please try again.');
     } finally {
       setIsAnalyzing(false);
     }
@@ -678,7 +678,7 @@ export default function UnderwriterDashboard() {
               </div>
             ) : (
               <div className="rounded-lg bg-slate-50 p-4 text-sm text-slate-500">
-                Cerebras-generated descriptions appear here when the backend has CEREBRAS_API_KEY set.
+                AI-generated fraud analysis will appear here after running forensics.
               </div>
             )}
           </section>
