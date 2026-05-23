@@ -363,17 +363,72 @@ export default function UnderwriterDashboard() {
     formData.append('file', file);
 
     try {
-      const response = await axios.post<AnalysisResult>(`${API_BASE_URL}/api/v1/analyze`, formData, {
+      // Step 1: Upload to backend to get file context
+      const contextResponse = await axios.post(`${API_BASE_URL}/api/v1/extract-context`, formData, {
         headers: { 'Content-Type': 'multipart/form-data' },
       });
-      setResult(response.data);
-      setSelectedSignalId(response.data.fraud_signals[0]?.id ?? null);
-      if (response.data.recovered_version.available) {
-        setViewMode('xray');
-      }
+      
+      const context = contextResponse.data;
+      
+      // Step 2: Use Puter.js for AI analysis (in browser)
+      const { analyzeDocumentWithPuter } = await import('../utils/puterAI');
+      
+      const aiResult = await analyzeDocumentWithPuter(context);
+      
+      // Step 3: Format result to match expected structure
+      const analysisResult: AnalysisResult = {
+        file_name: context.file_name,
+        file_type: context.file_type,
+        risk_score: aiResult.risk_score,
+        trust_score: aiResult.trust_score,
+        anomalies: aiResult.fraud_signals.map(s => s.summary),
+        fraud_signals: aiResult.fraud_signals.map(signal => ({
+          id: signal.id,
+          name: signal.name,
+          severity: signal.severity,
+          summary: signal.summary,
+          description: signal.description,
+          evidence: signal.evidence,
+          confidence: signal.confidence,
+          recovered_version_available: false,
+        })),
+        recovered_version: {
+          available: false,
+          title: 'No recovery needed',
+          summary: 'AI analysis performed in browser',
+          method: 'Puter.js + Gemma4',
+          preview_text: '',
+          sections: [],
+          changes: [],
+          confidence: 0,
+        },
+        ai_explanation: {
+          summary: aiResult.ai_explanation.summary,
+          likely_alteration: aiResult.ai_explanation.likely_alteration,
+          recommended_action: aiResult.ai_explanation.recommended_action,
+          limitations: 'Analysis performed by Gemma4 31B via Puter.js',
+          generated_by: 'gemma4-puter-browser',
+        },
+        metadata: context.metadata,
+        feature_summary: {
+          total_signals: aiResult.fraud_signals.length,
+          high_severity: aiResult.fraud_signals.filter(s => s.severity === 'high').length,
+          medium_severity: aiResult.fraud_signals.filter(s => s.severity === 'medium').length,
+          low_severity: aiResult.fraud_signals.filter(s => s.severity === 'low').length,
+        },
+        extracted_text: context.text_sample,
+        validation_status: 'completed',
+        validation_checks: ['AI analysis completed'],
+        ocr_confidence: null,
+        converted_to_pdf: false,
+        pdf_data_base64: null,
+      };
+      
+      setResult(analysisResult);
+      setSelectedSignalId(analysisResult.fraud_signals[0]?.id ?? null);
     } catch (error) {
       console.error('Error analyzing document:', error);
-      alert('Failed to analyze document. Make sure the backend is running and CORS is enabled.');
+      alert('Failed to analyze document. Make sure you sign in to Puter when prompted.');
     } finally {
       setIsAnalyzing(false);
     }
