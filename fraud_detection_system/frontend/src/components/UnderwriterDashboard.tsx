@@ -429,7 +429,18 @@ export default function UnderwriterDashboard() {
       setSelectedSignalId(analysisResult.fraud_signals[0]?.id ?? null);
     } catch (error) {
       console.error('Error analyzing document:', error);
-      alert('Failed to analyze document. Please try again.');
+      
+      // Show detailed error message
+      let errorMessage = 'Failed to analyze document. ';
+      if (error instanceof Error) {
+        errorMessage += error.message;
+      } else if (typeof error === 'string') {
+        errorMessage += error;
+      } else {
+        errorMessage += 'Please try again.';
+      }
+      
+      alert(errorMessage);
     } finally {
       setIsAnalyzing(false);
     }

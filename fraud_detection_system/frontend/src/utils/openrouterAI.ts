@@ -93,12 +93,13 @@ Rules:
       headers['Authorization'] = `Bearer ${apiKey}`;
     }
     
-    // Call OpenRouter API with free Gemma 4 31B model
+    // Call OpenRouter API with free Gemma model
+    // Note: Free tier may have limitations, consider adding API key for better reliability
     const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
       method: 'POST',
       headers,
       body: JSON.stringify({
-        model: 'google/gemma-4-31b-it:free',
+        model: apiKey ? 'google/gemma-2-9b-it:free' : 'google/gemma-2-9b-it:free',
         messages: [
           {
             role: 'system',
