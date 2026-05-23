@@ -93,22 +93,24 @@ Rules:
   const userPrompt = `Analyze for fraud and return JSON:\n\n${JSON.stringify(documentContext, null, 2)}`;
 
   try {
-    console.log('[PUTER] Calling Gemma4 via Puter.js in browser...');
+    console.log('[PUTER] Calling Gemma via Puter.js in browser...');
+    console.log('[PUTER] Document context:', documentContext);
     
-    // Call Puter AI with Gemma4 31B model (most accurate, not fast model)
-    // DO NOT use fast models - accuracy is critical for fraud detection
+    // Call Puter AI with Gemma 4 model
+    // Using google/gemma-4-31b-it which is available on Puter
     const response = await window.puter.ai.chat(
       `${systemPrompt}\n\n${userPrompt}`,
       {
-        model: 'google/gemma-4-31b-it', // Gemma4 31B - Most accurate model
-        temperature: 0.3, // Lower temperature for more accurate, deterministic results
+        model: 'google/gemma-4-31b-it', // Gemma 4 31B - Available on Puter
+        temperature: 0.1, // Low temperature for accuracy
       }
     );
 
-    console.log('[PUTER] Received response from Gemma');
+    console.log('[PUTER] Received response:', response);
 
     // Extract JSON from response
-    const content = response.message?.content || response;
+    const content = response.message?.content || response.content || response;
+    console.log('[PUTER] Response content:', content);
     
     // Try to extract JSON from markdown code blocks
     let jsonStr = content;
@@ -123,6 +125,7 @@ Rules:
       }
     }
 
+    console.log('[PUTER] Extracted JSON string:', jsonStr);
     const result = JSON.parse(jsonStr);
 
     // Validate structure
@@ -135,6 +138,7 @@ Rules:
     return result;
   } catch (error) {
     console.error('[PUTER] Error analyzing document:', error);
+    console.error('[PUTER] Error details:', error instanceof Error ? error.message : String(error));
     throw error;
   }
 }
