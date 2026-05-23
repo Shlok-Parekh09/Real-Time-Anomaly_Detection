@@ -93,8 +93,14 @@ Rules:
   const userPrompt = `Analyze for fraud and return JSON:\n\n${JSON.stringify(documentContext, null, 2)}`;
 
   try {
-    console.log('[PUTER] Calling Gemma via Puter.js in browser...');
+    console.log('[PUTER] Calling Gemma 4 31B via Puter.js in browser...');
     console.log('[PUTER] Document context:', documentContext);
+    
+    // Ensure user is authenticated with Puter
+    // Puter will automatically prompt for sign-in if needed
+    if (!window.puter.authToken) {
+      console.log('[PUTER] No auth token found, user may need to sign in...');
+    }
     
     // Call Puter AI with Gemma 4 model
     // Using google/gemma-4-31b-it which is available on Puter
@@ -139,6 +145,17 @@ Rules:
   } catch (error) {
     console.error('[PUTER] Error analyzing document:', error);
     console.error('[PUTER] Error details:', error instanceof Error ? error.message : String(error));
+    
+    // Provide helpful error messages
+    if (error instanceof Error) {
+      if (error.message.includes('auth') || error.message.includes('401') || error.message.includes('Unauthorized')) {
+        throw new Error('Please sign in to Puter when prompted. Puter.js requires authentication to use AI features.');
+      }
+      if (error.message.includes('model')) {
+        throw new Error('AI model not available. Please try again or contact support.');
+      }
+    }
+    
     throw error;
   }
 }
