@@ -1,2 +1,5 @@
 fastapi
 python-multipart
+pypdf2
+pillow
+python-magic-bin
