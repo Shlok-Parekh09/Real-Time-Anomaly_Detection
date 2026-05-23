@@ -39,7 +39,8 @@ export async function analyzeDocumentWithAI(
     metadata: any;
     forensic_data: any;
     text_sample: string;
-  }
+  },
+  apiKey?: string
 ): Promise<FraudAnalysisResult> {
   const systemPrompt = `You are a fraud detection AI. Analyze documents and return JSON.
 
@@ -78,15 +79,24 @@ Rules:
   try {
     console.log('[OPENROUTER] Calling Gemma 4 31B via OpenRouter...');
     console.log('[OPENROUTER] Document context:', documentContext);
+    console.log('[OPENROUTER] Using API key:', apiKey ? 'Yes (custom)' : 'No (free tier)');
+    
+    // Build headers
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json',
+      'HTTP-Referer': window.location.origin,
+      'X-Title': 'Fraud Detection System',
+    };
+    
+    // Add API key if provided
+    if (apiKey) {
+      headers['Authorization'] = `Bearer ${apiKey}`;
+    }
     
     // Call OpenRouter API with free Gemma 4 31B model
     const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'HTTP-Referer': window.location.origin,
-        'X-Title': 'Fraud Detection System',
-      },
+      headers,
       body: JSON.stringify({
         model: 'google/gemma-4-31b-it:free',
         messages: [

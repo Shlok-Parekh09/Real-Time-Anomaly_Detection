@@ -11,6 +11,7 @@ import {
   Eye,
   File,
   FileText,
+  Key,
   Layers,
   RotateCcw,
   Search,
@@ -320,6 +321,8 @@ export default function UnderwriterDashboard() {
   const [result, setResult] = useState<AnalysisResult | null>(null);
   const [selectedSignalId, setSelectedSignalId] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<'document' | 'xray'>('document');
+  const [apiKey, setApiKey] = useState<string>('');
+  const [showApiKeyInput, setShowApiKeyInput] = useState<boolean>(false);
 
   const selectedSignal = useMemo(() => {
     if (!result?.fraud_signals.length) return null;
@@ -373,7 +376,7 @@ export default function UnderwriterDashboard() {
       // Step 2: Use OpenRouter for AI analysis (free Gemma 4 31B)
       const { analyzeDocumentWithAI } = await import('../utils/openrouterAI');
       
-      const aiResult = await analyzeDocumentWithAI(context);
+      const aiResult = await analyzeDocumentWithAI(context, apiKey || undefined);
       
       // Step 3: Format result to match expected structure
       const analysisResult: AnalysisResult = {
@@ -437,6 +440,83 @@ export default function UnderwriterDashboard() {
 
   return (
     <div className="min-h-screen bg-[#f8f6fb] text-slate-950">
+      {/* API Key Bar */}
+      <div className="border-b border-slate-200 bg-gradient-to-r from-violet-50 to-purple-50">
+        <div className="mx-auto max-w-7xl px-5 py-3">
+          <div className="flex items-center justify-between gap-4">
+            <div className="flex items-center gap-3">
+              <Key className="h-5 w-5 text-violet-600" />
+              <div>
+                <p className="text-sm font-bold text-slate-900">OpenRouter API Key (Optional)</p>
+                <p className="text-xs text-slate-600">Add your key for higher rate limits, or use free tier</p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
+              {showApiKeyInput ? (
+                <>
+                  <input
+                    type="password"
+                    value={apiKey}
+                    onChange={(e) => setApiKey(e.target.value)}
+                    placeholder="sk-or-v1-..."
+                    className="w-64 rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-violet-500 focus:outline-none focus:ring-2 focus:ring-violet-200"
+                  />
+                  <button
+                    onClick={() => setShowApiKeyInput(false)}
+                    className="rounded-lg bg-violet-600 px-4 py-2 text-sm font-semibold text-white hover:bg-violet-700"
+                    type="button"
+                  >
+                    Save
+                  </button>
+                  <button
+                    onClick={() => {
+                      setApiKey('');
+                      setShowApiKeyInput(false);
+                    }}
+                    className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-100"
+                    type="button"
+                  >
+                    Cancel
+                  </button>
+                </>
+              ) : (
+                <>
+                  {apiKey ? (
+                    <div className="flex items-center gap-2">
+                      <span className="rounded-full bg-green-100 px-3 py-1 text-xs font-bold text-green-700">
+                        ✓ API Key Set
+                      </span>
+                      <button
+                        onClick={() => setShowApiKeyInput(true)}
+                        className="text-sm font-semibold text-violet-600 hover:text-violet-700"
+                        type="button"
+                      >
+                        Edit
+                      </button>
+                      <button
+                        onClick={() => setApiKey('')}
+                        className="text-sm font-semibold text-slate-600 hover:text-slate-700"
+                        type="button"
+                      >
+                        Remove
+                      </button>
+                    </div>
+                  ) : (
+                    <button
+                      onClick={() => setShowApiKeyInput(true)}
+                      className="rounded-lg border border-violet-300 bg-white px-4 py-2 text-sm font-semibold text-violet-700 hover:bg-violet-50"
+                      type="button"
+                    >
+                      Add API Key
+                    </button>
+                  )}
+                </>
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
+
       <header className="sticky top-0 z-30 flex h-[62px] items-center justify-between border-b border-slate-200 bg-white px-5">
         <div className="flex min-w-0 items-center gap-3">
           <button className="rounded-full p-2 text-slate-500 hover:bg-slate-100" type="button" aria-label="Back">
