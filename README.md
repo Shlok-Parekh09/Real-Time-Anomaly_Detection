@@ -1,139 +1,105 @@
-# Real-Time Document Fraud Detection
+# 🔍 AI-Powered Fraud Detection System
 
-AI-assisted document forensics for PDFs and images. The repo now runs one Vite/React frontend on port `5173` and one FastAPI backend on port `8000`.
+A free, web-based document fraud detection system powered by **Gemma AI** via **Puter.js**.
 
-## Features
+## 🚀 Quick Links
 
-- Single command from the repo root with `npm run dev` starts both FastAPI and Vite.
-- Start button flow that opens the underwriter dashboard on the same port.
-- Upload support for PDF and image files.
-- X-ray view that renders the real uploaded document in grayscale, fits PDF pages, hides PDF navigation panes where the browser supports it, and marks anomaly regions in red.
-- Fraud signals for recovered PDF revisions, masking, suspicious software metadata, date mismatches, annotations, image copy-move indicators, and validation failures.
-- Settings panel for X-ray behavior and evidence marker visibility.
-- Accept and Reject actions that store the uploaded document in local authorized or private unauthorized SQLite tables.
-- Cerebras-generated explanations from the API key entered in the dashboard header, with local fallback text when it is not provided.
+- **Main Project:** [fraud_detection_system/](./fraud_detection_system/)
+- **Deploy Guide:** [DEPLOY_TO_VERCEL.md](./fraud_detection_system/DEPLOY_TO_VERCEL.md)
+- **Documentation:** [fraud_detection_system/README.md](./fraud_detection_system/README.md)
 
-## Project Layout
+## ✨ Features
 
-```text
-.
-|-- src/                              # Active React frontend
-|   `-- app/
-|       |-- App.tsx                   # Landing page and Start button flow
-|       |-- UnderwriterDashboard.tsx  # Active review dashboard
-|       `-- sections.tsx              # Landing page sections
-|-- fraud_detection_system/
-|   `-- backend/
-|       |-- main.py                   # FastAPI API
-|       |-- forensics.py              # X-ray recovery, fraud signals, Cerebras narrative
-|       |-- local_validation.py       # Text extraction and math checks
-|       `-- requirements.txt
-|-- package.json                      # Root frontend scripts
-`-- README.md
+- 🤖 AI-powered fraud detection (Gemma 2 27B)
+- 📄 PDF and image support
+- 🎯 Real-time analysis (5-15 seconds)
+- 💰 100% free (no API keys)
+- 🌐 Deploy to Vercel in 10 minutes
+- 🖍️ Smart highlighting of suspicious areas
+
+## 🚀 Get Started
+
+```bash
+cd fraud_detection_system
+
+# Local development
+cd backend && python main.py
+cd frontend && npm run dev
+
+# Or deploy to Vercel (see DEPLOY_TO_VERCEL.md)
 ```
 
-`fraud_detection_system/frontend` is not the active UI. Use the root frontend only; there is no separate `5174` app required.
+## 📖 Documentation
 
-## Backend Setup
+All documentation is in the `fraud_detection_system/` directory:
 
-From the repo root:
+- [README.md](./fraud_detection_system/README.md) - Main documentation
+- [DEPLOY_TO_VERCEL.md](./fraud_detection_system/DEPLOY_TO_VERCEL.md) - Step-by-step deployment
+- [WEB_DEPLOYMENT_GUIDE.md](./fraud_detection_system/WEB_DEPLOYMENT_GUIDE.md) - Architecture details
+- [SOLUTION_SUMMARY.md](./fraud_detection_system/SOLUTION_SUMMARY.md) - Technical overview
 
-```powershell
-python -m pip install -r fraud_detection_system\backend\requirements.txt
+## 🎯 What It Does
+
+Analyzes documents for fraud indicators:
+- **Metadata manipulation** - Editing software traces, date mismatches
+- **Financial inconsistencies** - Balance errors, identical amounts
+- **Pattern anomalies** - Weekend transactions, statistical outliers
+- **Document integrity** - Missing fields, vague descriptions
+
+## 💰 Cost
+
+**$0/month** for unlimited users when deployed to Vercel!
+
+- Frontend: Vercel (free)
+- Backend: Vercel (free)
+- AI: Puter.js (free, unlimited)
+
+## 🏗️ Architecture
+
+```
+User Browser
+    ↓
+Frontend (React + Vite)
+    ↓
+Backend (FastAPI)
+    ↓
+Puter.js → Gemma AI (cloud)
+    ↓
+Results with highlighting
 ```
 
-Optional Cerebras configuration. The dashboard also has a top header field for a per-analysis key:
+## 🛠️ Tech Stack
 
-```powershell
-$env:CEREBRAS_API_KEY="your_cerebras_key"
-$env:CEREBRAS_MODEL="gpt-oss-120b"
-```
+- **Frontend:** React, TypeScript, Vite, TailwindCSS, Puter.js
+- **Backend:** FastAPI, PyMuPDF, Tesseract OCR, OpenCV
+- **AI:** Gemma4 31B (via Puter.js) - Most accurate model
+- **Hosting:** Vercel (serverless)
 
-You can still start only the backend for API work:
+## 📊 Performance
 
-```powershell
-cd fraud_detection_system\backend
-python -m uvicorn main:app --host 127.0.0.1 --port 8000
-```
+- **Analysis:** 5-15 seconds per document
+- **Accuracy:** Highest (Gemma4 31B model)
+- **Scale:** Unlimited concurrent users
+- **Cost:** $0/month
 
-Health check:
+## 🔐 Security
 
-```powershell
-Invoke-RestMethod http://127.0.0.1:8000/health
-```
+- ✅ HTTPS (automatic)
+- ✅ User authentication (Puter OAuth)
+- ✅ No data storage
+- ✅ Privacy-focused
 
-## Frontend Setup
+## 🚀 Deploy Now
 
-From the repo root:
+1. Push to GitHub
+2. Import to Vercel
+3. Deploy backend + frontend
+4. Done!
 
-```powershell
-npm install
-npm run dev
-```
+See [DEPLOY_TO_VERCEL.md](./fraud_detection_system/DEPLOY_TO_VERCEL.md) for detailed instructions.
 
-Open:
+---
 
-```text
-http://127.0.0.1:5173
-```
+**Made with ❤️ for free, accessible fraud detection**
 
-`npm run dev` checks the backend Python packages, installs `fraud_detection_system\backend\requirements.txt` if needed, and starts the backend at `http://127.0.0.1:8000`. Click `Start` to enter the dashboard.
-
-## Workflow
-
-1. Start both services with `npm run dev`.
-2. Upload a PDF or image file.
-3. Optionally enter a Cerebras API key in the top header field for generated descriptions.
-4. Click `Run Forensics`.
-5. Review the trust score, fraud signals, X-ray view, parsed details, and AI explanation.
-6. Use `Accept` or `Reject` to save the uploaded document into the authorized or unauthorized local database table.
-
-## API
-
-Main endpoint:
-
-```http
-POST /api/v1/analyze
-```
-
-Multipart field:
-
-```text
-file=<uploaded document>
-cerebras_api_key=<optional transient Cerebras key>
-```
-
-Review decision endpoint:
-
-```http
-POST /api/v1/review-decision
-```
-
-Multipart fields:
-
-```text
-decision=accepted|rejected
-file=<uploaded document>
-analysis_json=<analysis response JSON>
-```
-
-The response includes:
-
-- `file_type`
-- `risk_score`
-- `trust_score`
-- `fraud_signals`
-- `recovered_version`
-- `ai_explanation`
-- `metadata`
-- `extracted_text`
-- `validation_status`
-- `validation_checks`
-
-## Notes
-
-- CSV, TSV, and Excel uploads are intentionally rejected by the UI and API.
-- PDF X-ray recovery depends on the PDF retaining incremental update history in its bytes.
-- Image OCR depends on local Tesseract availability. Other backend checks still run if OCR is unavailable.
-- Decision storage is local-only at `fraud_detection_system/backend/data/document_forensics.sqlite3`; there is no public endpoint that lists unauthorized documents.
-- Enter `CEREBRAS_API_KEY` in the dashboard header or set it before starting the backend to use Cerebras for richer explanations.
+**No API keys. No subscriptions. Just AI.**

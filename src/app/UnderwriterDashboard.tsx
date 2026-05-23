@@ -76,11 +76,34 @@ interface AnalysisResult {
   recovered_version: RecoveredVersion;
   ai_explanation: AiExplanation;
   metadata: Record<string, unknown>;
-  feature_summary: Record<string, unknown>;
+  feature_summary: {
+    file_type: string;
+    signal_count: number;
+    high_severity: number;
+    medium_severity: number;
+    low_severity: number;
+    highlight_coordinates?: HighlightCoordinate[];
+  };
   extracted_text: string;
   validation_status: string;
   validation_checks: string[];
   ocr_confidence?: number | null;
+  converted_to_pdf?: boolean;
+  pdf_data_base64?: string | null;
+}
+
+interface HighlightCoordinate {
+  page: number;
+  bbox: {
+    x: number;  // percentage
+    y: number;  // percentage
+    width: number;  // percentage
+    height: number;  // percentage
+  };
+  severity: 'high' | 'medium' | 'low';
+  signal_name: string;
+  signal_id: string;
+  texts: string[];
 }
 
 type ReviewDecision = 'accepted' | 'rejected';
@@ -115,8 +138,7 @@ function isSupportedUpload(file: File) {
     file.type === 'application/pdf' ||
     file.type.startsWith('image/') ||
     lowerName.endsWith('.pdf') ||
-    /\.(png|jpe?g|webp|bmp|tiff?)$/.test(lowerName) ||
-    /\.(doc|docx|xls|xlsx)$/.test(lowerName)
+    /\.(png|jpe?g|webp|bmp|tiff?)$/.test(lowerName)
   );
 }
 
@@ -170,10 +192,26 @@ const REGION_LAYOUT: Array<Omit<VisualRegion, 'label' | 'severity'>> = [
 ];
 
 function pdfViewerUrl(previewUrl: string) {
-  return `${previewUrl}#toolbar=0&navpanes=0&scrollbar=0&view=FitH`;
+  // Disable zoom, fit to page width, hide toolbar and navigation
+  return `${previewUrl}#toolbar=0&navpanes=0&scrollbar=1&view=FitH&zoom=page-fit&pagemode=none`;
 }
 
 function buildVisualRegions(result: AnalysisResult | null): VisualRegion[] {
+  // Use actual coordinates from backend if available
+  const coordinates = result?.feature_summary?.highlight_coordinates || [];
+  
+  if (coordinates.length > 0) {
+    return coordinates.map((coord) => ({
+      label: coord.signal_name || 'Fraud Signal',
+      severity: coord.severity,
+      top: `${coord.bbox.y}%`,
+      left: `${coord.bbox.x}%`,
+      width: `${coord.bbox.width}%`,
+      height: `${coord.bbox.height}%`,
+    }));
+  }
+
+  // Fallback to changes if no coordinates
   const changes = result?.recovered_version?.changes ?? [];
   if (changes.length) {
     return changes.slice(0, REGION_LAYOUT.length).map((change, index) => ({
@@ -183,6 +221,7 @@ function buildVisualRegions(result: AnalysisResult | null): VisualRegion[] {
     }));
   }
 
+  // Fallback to fraud signals with predefined layout
   return (result?.fraud_signals ?? []).slice(0, REGION_LAYOUT.length).map((signal, index) => ({
     ...REGION_LAYOUT[index],
     label: signal.name,
@@ -192,28 +231,47 @@ function buildVisualRegions(result: AnalysisResult | null): VisualRegion[] {
 
 function EvidenceOverlay({ regions, containerRef }: { regions: VisualRegion[]; containerRef?: React.RefObject<HTMLDivElement | null> }) {
   if (!regions.length) return null;
-  // Render the overlay as a layer sized to match the content (not the viewport).
-  // By making it absolute and sizing it to 100% of the *scrollable content*
-  // (the parent with position:relative), the rectangles stay anchored to the
-  // document content even when the user scrolls.
+  
   return (
     <div className="pointer-events-none absolute inset-0" style={{ width: '100%', height: '100%' }}>
-      {regions.map((region, index) => (
-        <div
-          key={`${region.label}-${index}`}
-          className="absolute rounded-sm border-2 border-red-500 bg-red-500/18 shadow-[0_0_0_9999px_rgba(0,0,0,0.02)]"
-          style={{
-            top: region.top,
-            left: region.left,
-            width: region.width,
-            height: region.height,
-          }}
-        >
-          <span className="absolute -top-6 left-0 max-w-48 truncate rounded-sm bg-red-600 px-2 py-1 text-[10px] font-black uppercase tracking-wide text-white shadow">
-            {region.label}
-          </span>
-        </div>
-      ))}
+      {regions.map((region, index) => {
+        // Determine colors based on severity - using semi-transparent highlights
+        const isHighSeverity = region.severity === 'high';
+        const isMediumSeverity = region.severity === 'medium';
+        
+        // Use highlight-style colors (more transparent, no borders)
+        const bgColor = isHighSeverity 
+          ? 'bg-red-400/40' 
+          : isMediumSeverity 
+            ? 'bg-yellow-300/50' 
+            : 'bg-slate-300/30';
+        
+        const labelBg = isHighSeverity ? 'bg-red-600' : isMediumSeverity ? 'bg-yellow-600' : 'bg-slate-600';
+        
+        return (
+          <div
+            key={`${region.label}-${index}`}
+            className={`absolute ${bgColor}`}
+            style={{
+              top: region.top,
+              left: region.left,
+              width: region.width,
+              height: region.height,
+              mixBlendMode: 'multiply',  // Blend with underlying content
+              borderRadius: '2px',
+            }}
+            title={region.label}
+          >
+            {/* Small label indicator */}
+            <span 
+              className={`absolute -top-5 left-0 max-w-32 truncate rounded px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide text-white shadow-sm ${labelBg}`}
+              style={{ fontSize: '8px' }}
+            >
+              {region.label}
+            </span>
+          </div>
+        );
+      })}
     </div>
   );
 }
@@ -270,6 +328,11 @@ function PdfFrame({ previewUrl, title, className }: { previewUrl: string; title:
       src={pdfViewerUrl(previewUrl)}
       className={cx('h-full w-full border-0 bg-white', className)}
       loading="lazy"
+      style={{
+        pointerEvents: 'auto',
+        touchAction: 'pan-y pan-x',
+        overflow: 'hidden',
+      }}
     />
   );
 }
@@ -349,18 +412,24 @@ function SubmittedVersionLayer({
   rows,
   xrayFilter,
   file,
+  result,
 }: {
   kind: string;
   previewUrl: string;
   rows: string[];
   xrayFilter?: boolean;
   file?: File;
+  result?: AnalysisResult | null;
 }) {
   const filterStyle = xrayFilter
     ? { filter: 'invert(0.88) contrast(1.25) hue-rotate(180deg) saturate(0.3) brightness(1.1)' }
     : undefined;
 
-  if (kind === 'image') {
+  // If Word document was converted to PDF, treat it as PDF
+  const isConvertedPdf = result?.converted_to_pdf || false;
+  const effectiveKind = isConvertedPdf ? 'pdf' : kind;
+
+  if (effectiveKind === 'image') {
     return (
       <div className="relative h-full w-full overflow-hidden bg-neutral-900">
         <img
@@ -373,7 +442,7 @@ function SubmittedVersionLayer({
     );
   }
 
-  if (kind === 'pdf') {
+  if (effectiveKind === 'pdf') {
     return (
       <div className="h-full w-full" style={filterStyle}>
         <PdfFrame title="Submitted fraud PDF preview" previewUrl={previewUrl} />
@@ -381,8 +450,8 @@ function SubmittedVersionLayer({
     );
   }
 
-  if ((kind === 'word' || kind === 'excel') && file) {
-    return <DocxExcelPreview file={file} kind={kind} xrayFilter={xrayFilter} />;
+  if ((effectiveKind === 'word' || effectiveKind === 'excel') && file) {
+    return <DocxPreview file={file} xrayFilter={xrayFilter} />;
   }
 
   return (
@@ -412,7 +481,6 @@ function XrayComparison({
   regions,
   showEvidenceMarkers,
   previewHeight,
-  isTrusted,
   file,
 }: {
   kind: string;
@@ -422,11 +490,29 @@ function XrayComparison({
   regions: VisualRegion[];
   showEvidenceMarkers: boolean;
   previewHeight: string;
-  isTrusted: boolean;
   file?: File;
 }) {
   const [reveal, setReveal] = useState(0); // Start at 0 (full color view)
   const containerRef = React.useRef<HTMLDivElement | null>(null);
+  const normalLayerRef = React.useRef<HTMLDivElement | null>(null);
+  const xrayLayerRef = React.useRef<HTMLDivElement | null>(null);
+
+  // Synchronize scroll between both layers
+  const handleScroll = (event: React.UIEvent<HTMLDivElement>) => {
+    const source = event.currentTarget;
+    const scrollTop = source.scrollTop;
+    const scrollLeft = source.scrollLeft;
+
+    // Sync to the other layer
+    if (normalLayerRef.current && source !== normalLayerRef.current) {
+      normalLayerRef.current.scrollTop = scrollTop;
+      normalLayerRef.current.scrollLeft = scrollLeft;
+    }
+    if (xrayLayerRef.current && source !== xrayLayerRef.current) {
+      xrayLayerRef.current.scrollTop = scrollTop;
+      xrayLayerRef.current.scrollLeft = scrollLeft;
+    }
+  };
 
   const updateRevealFromClientX = (clientX: number) => {
     const rect = containerRef.current?.getBoundingClientRect();
@@ -454,39 +540,36 @@ function XrayComparison({
     }
   };
 
-  // For trusted documents: show X-ray filter but NO red highlights
-  // For untrusted documents: show X-ray filter WITH red highlights
-  const shouldShowHighlights = showEvidenceMarkers && !isTrusted;
-
   return (
-    <div ref={containerRef} className={cx('relative select-none overflow-hidden bg-neutral-900', previewHeight)}>
-      {/* Normal colored version (base layer) */}
-      <div className="relative h-full w-full">
-        <SubmittedVersionLayer kind={kind} previewUrl={previewUrl} rows={rows} xrayFilter={false} file={file} />
-      </div>
-      
-      {/* X-ray filtered version (revealed from left to right) */}
-      <div
-        className="pointer-events-none absolute inset-0"
-        style={{ clipPath: `inset(0 ${100 - reveal}% 0 0)` }}
+    <div ref={containerRef} className={cx('relative overflow-hidden bg-neutral-900', previewHeight)}>
+      {/* Normal colored version (base layer) - scrollable - NO HIGHLIGHTS */}
+      <div 
+        ref={normalLayerRef}
+        className="relative h-full w-full overflow-auto"
+        onScroll={handleScroll}
       >
-        <SubmittedVersionLayer kind={kind} previewUrl={previewUrl} rows={rows} xrayFilter={true} file={file} />
-        {shouldShowHighlights && <EvidenceOverlay regions={regions} />}
+        <SubmittedVersionLayer kind={kind} previewUrl={previewUrl} rows={rows} xrayFilter={false} file={file} result={result} />
       </div>
       
-      {/* Center indicator showing comparison status */}
-      {!isTrusted && (
-        <div className="pointer-events-none absolute left-1/2 top-4 z-10 -translate-x-1/2 rounded-full bg-violet-600/95 px-4 py-1.5 text-xs font-bold text-white shadow-lg backdrop-blur-sm">
-          <Eye className="mr-1.5 inline h-3.5 w-3.5" />
-          X-ray Analysis Active
-        </div>
-      )}
-      {isTrusted && (
-        <div className="pointer-events-none absolute left-1/2 top-4 z-10 -translate-x-1/2 rounded-full bg-emerald-500/90 px-4 py-1.5 text-xs font-bold text-white shadow-lg backdrop-blur-sm">
-          <CheckCircle className="mr-1.5 inline h-3.5 w-3.5" />
-          Document is trusted — no severity markers
-        </div>
-      )}
+      {/* X-ray filtered version with highlights (revealed from left to right) - scrollable */}
+      <div
+        ref={xrayLayerRef}
+        className="absolute inset-0 overflow-auto"
+        style={{ 
+          clipPath: `inset(0 ${100 - reveal}% 0 0)`,
+          pointerEvents: reveal > 0 ? 'auto' : 'none'
+        }}
+        onScroll={handleScroll}
+      >
+        <SubmittedVersionLayer kind={kind} previewUrl={previewUrl} rows={rows} xrayFilter={true} file={file} result={result} />
+        {/* NOTE: Highlights are now embedded in the document itself from backend, not overlaid */}
+      </div>
+      
+      {/* Center indicator showing X-ray analysis is active */}
+      <div className="pointer-events-none absolute left-1/2 top-4 z-10 -translate-x-1/2 rounded-full bg-violet-600/95 px-4 py-1.5 text-xs font-bold text-white shadow-lg backdrop-blur-sm">
+        <Eye className="mr-1.5 inline h-3.5 w-3.5" />
+        X-ray Analysis Active
+      </div>
       
       {/* Draggable slider */}
       <button
@@ -539,8 +622,6 @@ function DocumentPreview({
   );
   const kind = friendlyType(file, result).toLowerCase();
 
-  const isTrusted = (result?.trust_score ?? 0) >= 70;
-
   if (mode === 'xray' && result) {
     const recovered = result.recovered_version;
     const regions = buildVisualRegions(result);
@@ -567,11 +648,6 @@ function DocumentPreview({
               <p className="mt-1 text-sm font-semibold text-slate-900">{recovered.title}</p>
             </div>
             <div className="flex items-center gap-2">
-              {isTrusted && (
-                <span className="rounded-full bg-emerald-100 px-3 py-1 text-xs font-bold text-emerald-700">
-                  Trusted
-                </span>
-              )}
               <span className="rounded-full bg-violet-100 px-3 py-1 text-xs font-bold text-violet-700">
                 {Math.round((recovered.confidence || 0) * 100)}% confidence
               </span>
@@ -588,7 +664,6 @@ function DocumentPreview({
                 regions={regions}
                 showEvidenceMarkers={showEvidenceMarkers}
                 previewHeight={previewHeight}
-                isTrusted={isTrusted}
                 file={file}
               />
             </div>
@@ -662,9 +737,7 @@ function DocumentPreview({
     return (
       <div className="relative h-full min-h-[520px] overflow-hidden rounded-lg border border-slate-200 bg-neutral-900">
         <img src={previewUrl} alt="Uploaded document" className="h-full w-full object-contain" />
-        {showEvidenceMarkers && result && !isTrusted && (
-          <EvidenceOverlay regions={buildVisualRegions(result)} />
-        )}
+        {/* Highlights are now embedded in the image from backend */}
       </div>
     );
   }
@@ -673,55 +746,37 @@ function DocumentPreview({
     return (
       <div className="relative h-full min-h-[620px] overflow-hidden rounded-lg border border-slate-200 bg-white">
         <PdfFrame title="PDF preview" previewUrl={previewUrl} className="min-h-[620px]" />
-        {showEvidenceMarkers && result && !isTrusted && (
-          <EvidenceOverlay regions={buildVisualRegions(result)} />
-        )}
+        {/* Highlights are now embedded in the PDF from backend */}
       </div>
     );
   }
 
-function DocxExcelPreview({ file, kind, xrayFilter }: { file: File; kind: string; xrayFilter?: boolean }) {
+function DocxPreview({ file, xrayFilter }: { file: File; xrayFilter?: boolean }) {
   const [content, setContent] = useState<string>('');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string>('');
-  const [sheetNames, setSheetNames] = useState<string[]>([]);
-  const [activeSheet, setActiveSheet] = useState<number>(0);
-  const [workbook, setWorkbook] = useState<any>(null);
 
   React.useEffect(() => {
     let active = true;
     const processFile = async () => {
       try {
         const buffer = await file.arrayBuffer();
-        if (kind === 'word') {
-          const mammoth = await import('mammoth');
-          const result = await mammoth.convertToHtml({ 
-            arrayBuffer: buffer,
-            styleMap: [
-              "p[style-name='Heading 1'] => h1:fresh",
-              "p[style-name='Heading 2'] => h2:fresh",
-              "p[style-name='Heading 3'] => h3:fresh",
-              "b => strong",
-              "i => em",
-            ]
-          });
-          if (active) {
-            setContent(result.value);
-            setLoading(false);
-            if (result.messages.length > 0) {
-              console.warn('Mammoth conversion warnings:', result.messages);
-            }
-          }
-        } else if (kind === 'excel') {
-          const XLSX = await import('xlsx');
-          const wb = XLSX.read(buffer, { type: 'array', cellStyles: true });
-          if (active) {
-            setWorkbook(wb);
-            setSheetNames(wb.SheetNames);
-            const worksheet = wb.Sheets[wb.SheetNames[0]];
-            const html = XLSX.utils.sheet_to_html(worksheet, { header: '', footer: '' });
-            setContent(html);
-            setLoading(false);
+        const mammoth = await import('mammoth');
+        const result = await mammoth.convertToHtml({ 
+          arrayBuffer: buffer,
+          styleMap: [
+            "p[style-name='Heading 1'] => h1:fresh",
+            "p[style-name='Heading 2'] => h2:fresh",
+            "p[style-name='Heading 3'] => h3:fresh",
+            "b => strong",
+            "i => em",
+          ]
+        });
+        if (active) {
+          setContent(result.value);
+          setLoading(false);
+          if (result.messages.length > 0) {
+            console.warn('Mammoth conversion warnings:', result.messages);
           }
         }
       } catch (err) {
@@ -731,6 +786,7 @@ function DocxExcelPreview({ file, kind, xrayFilter }: { file: File; kind: string
           setContent(`<div class="text-center mt-10 p-6">
             <p class="text-red-600 font-semibold mb-2">Error rendering preview</p>
             <p class="text-slate-500 text-sm">${err instanceof Error ? err.message : 'Failed to load document'}</p>
+            <p class="text-slate-400 text-xs mt-2">Note: Word documents are converted to PDF for X-ray analysis</p>
           </div>`);
           setLoading(false);
         }
@@ -740,16 +796,7 @@ function DocxExcelPreview({ file, kind, xrayFilter }: { file: File; kind: string
     return () => {
       active = false;
     };
-  }, [file, kind]);
-
-  const handleSheetChange = async (index: number) => {
-    if (!workbook) return;
-    setActiveSheet(index);
-    const XLSX = await import('xlsx');
-    const worksheet = workbook.Sheets[workbook.SheetNames[index]];
-    const html = XLSX.utils.sheet_to_html(worksheet, { header: '', footer: '' });
-    setContent(html);
-  };
+  }, [file]);
 
   const filterStyle = xrayFilter
     ? { filter: 'invert(0.88) contrast(1.25) hue-rotate(180deg) saturate(0.3) brightness(1.1)' }
@@ -758,34 +805,6 @@ function DocxExcelPreview({ file, kind, xrayFilter }: { file: File; kind: string
   return (
     <div className="relative h-full w-full overflow-hidden bg-white" style={filterStyle}>
       <style>{`
-        .doc-preview-container table { 
-          width: 100%; 
-          border-collapse: collapse; 
-          font-size: 11px; 
-          font-family: 'Segoe UI', system-ui, sans-serif;
-          box-shadow: 0 1px 3px rgba(0,0,0,0.1);
-        }
-        .doc-preview-container th {
-          background-color: #f1f5f9;
-          border: 1px solid #cbd5e1;
-          padding: 8px 10px;
-          font-weight: 600;
-          text-align: left;
-          color: #334155;
-        }
-        .doc-preview-container td { 
-          border: 1px solid #e2e8f0; 
-          padding: 8px 10px; 
-          white-space: pre-wrap;
-          word-wrap: break-word;
-          max-width: 300px;
-        }
-        .doc-preview-container tr:nth-child(even) td { 
-          background-color: #f8fafc; 
-        }
-        .doc-preview-container tr:hover td {
-          background-color: #f1f5f9;
-        }
         .doc-preview-container p { 
           margin-bottom: 0.75rem; 
           font-size: 14px; 
@@ -831,32 +850,14 @@ function DocxExcelPreview({ file, kind, xrayFilter }: { file: File; kind: string
           <div className="text-center">
             <div className="inline-block h-8 w-8 animate-spin rounded-full border-4 border-solid border-blue-600 border-r-transparent mb-3"></div>
             <p className="text-sm font-semibold text-slate-600">Loading document preview...</p>
+            <p className="text-xs text-slate-400 mt-2">Converting to PDF for analysis...</p>
           </div>
         </div>
       ) : (
-        <>
-          {kind === 'excel' && sheetNames.length > 1 && (
-            <div className="border-b border-slate-200 bg-slate-50 px-4 py-2 flex gap-2 overflow-x-auto">
-              {sheetNames.map((name, index) => (
-                <button
-                  key={index}
-                  onClick={() => handleSheetChange(index)}
-                  className={`px-3 py-1.5 text-xs font-semibold rounded transition-colors whitespace-nowrap ${
-                    activeSheet === index
-                      ? 'bg-blue-600 text-white'
-                      : 'bg-white text-slate-600 hover:bg-slate-100 border border-slate-200'
-                  }`}
-                >
-                  {name}
-                </button>
-              ))}
-            </div>
-          )}
-          <div
-            className="doc-preview-container h-full w-full overflow-auto p-6"
-            dangerouslySetInnerHTML={{ __html: content }}
-          />
-        </>
+        <div
+          className="doc-preview-container h-full w-full overflow-auto p-6"
+          dangerouslySetInnerHTML={{ __html: content }}
+        />
       )}
     </div>
   );
@@ -869,8 +870,8 @@ function DocxExcelPreview({ file, kind, xrayFilter }: { file: File; kind: string
         <p className="mt-1 text-sm font-semibold text-slate-900">{file.name}</p>
       </div>
       <div className="h-[560px]">
-        {kind === 'word' || kind === 'excel' ? (
-          <DocxExcelPreview file={file} kind={kind} />
+        {kind === 'word' ? (
+          <DocxPreview file={file} />
         ) : (
           <div className="h-full overflow-auto p-4">
             {rows.length > 0 ? (
@@ -942,7 +943,7 @@ export default function UnderwriterDashboard() {
     if (!selected) return;
     if (!isSupportedUpload(selected)) {
       event.target.value = '';
-      alert('Only PDF, Image, Word, Excel, Word, and Excel files are supported.');
+      alert('Only PDF and image files are supported. Word and Excel files are not accepted.');
       return;
     }
     if (previewUrl) URL.revokeObjectURL(previewUrl);
@@ -978,6 +979,47 @@ export default function UnderwriterDashboard() {
       setReviewDecision(null);
       setDecisionMessage('');
       setSelectedSignalId(data.fraud_signals[0]?.id ?? null);
+      
+      // Fetch highlighted document if we have coordinates
+      const coordinates = data.feature_summary?.highlight_coordinates;
+      console.log('Highlight coordinates:', coordinates);
+      
+      if (coordinates && coordinates.length > 0) {
+        console.log(`Found ${coordinates.length} highlight regions, fetching highlighted document...`);
+        try {
+          const highlightFormData = new FormData();
+          highlightFormData.append('file', file);
+          highlightFormData.append('highlight_regions', JSON.stringify(coordinates));
+          
+          const highlightResponse = await fetch(`${API_BASE_URL}/api/v1/highlighted-document`, {
+            method: 'POST',
+            body: highlightFormData,
+          });
+          
+          if (highlightResponse.ok) {
+            console.log('Successfully fetched highlighted document');
+            const highlightedBlob = await highlightResponse.blob();
+            
+            // Revoke old preview URL
+            if (previewUrl) {
+              URL.revokeObjectURL(previewUrl);
+            }
+            
+            // Create new URL from highlighted document
+            const highlightedUrl = URL.createObjectURL(highlightedBlob);
+            setPreviewUrl(highlightedUrl);
+            console.log('Preview URL updated with highlighted document');
+          } else {
+            console.error('Failed to fetch highlighted document:', await highlightResponse.text());
+          }
+        } catch (error) {
+          console.error('Failed to fetch highlighted document:', error);
+          // Continue with original document if highlighting fails
+        }
+      } else {
+        console.log('No highlight coordinates found in analysis result');
+      }
+      
       if (settings.autoOpenXray && data.recovered_version.available) {
         setViewMode('xray');
       }
@@ -1208,7 +1250,7 @@ export default function UnderwriterDashboard() {
               />
               <Upload className="mx-auto mb-2 h-8 w-8 text-slate-300" />
               <p className="text-sm font-bold text-slate-700">{file ? 'Replace file' : 'Browse files'}</p>
-              <p className="mt-1 text-xs text-slate-400">PDF, Image, Word, Excel</p>
+              <p className="mt-1 text-xs text-slate-400">PDF and Image files only</p>
             </div>
             <button
               onClick={handleAnalyze}

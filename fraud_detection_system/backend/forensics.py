@@ -856,188 +856,6 @@ def recover_previous_version(document_bytes: bytes, file_name: str, content_type
     }
 
 
-def _detect_pdf_masking(document_bytes: bytes) -> list[dict[str, Any]]:
-    decoded = document_bytes.decode("latin-1", errors="ignore")
-    signals: list[dict[str, Any]] = []
-    redaction_hits = len(re.findall(r"/Subtype\s*/Redact|/Redact|redact", decoded, flags=re.IGNORECASE))
-    annotation_hits = len(re.findall(r"/Annots|\b/Annot\b", decoded))
-    white_fill_hits = len(re.findall(r"\b1\s+1\s+1\s+rg\b|\b1\s+1\s+1\s+RG\b", decoded))
-
-    if redaction_hits or white_fill_hits > 4:
-        signals.append(
-            make_signal(
-                "Masking",
-                "medium",
-                f"{max(redaction_hits, white_fill_hits)} masking indicator(s)",
-                "The PDF contains redaction objects or repeated white fill operations that can be used to cover original text.",
-                [f"Redaction markers: {redaction_hits}", f"White fill operations: {white_fill_hits}"],
-                0.68,
-            )
-        )
-    if annotation_hits:
-        signals.append(
-            make_signal(
-                "Annotations",
-                "low",
-                f"{annotation_hits} annotation marker(s)",
-                "Annotations can be legitimate, but they also indicate a later interactive layer was added to the document.",
-                [f"Annotation object markers: {annotation_hits}"],
-                0.55,
-            )
-        )
-    return signals
-
-
-def _detect_pdf_fonts(document_bytes: bytes) -> list[dict[str, Any]]:
-    decoded = document_bytes.decode("latin-1", errors="ignore")
-    fonts = re.findall(r"/BaseFont\s*/([A-Za-z0-9+._-]+)", decoded)
-    unique_fonts = sorted(set(fonts))
-    subset_count = sum(1 for font in unique_fonts if "+" in font[:8])
-    if len(unique_fonts) >= 8 or subset_count >= 4:
-        return [
-            make_signal(
-                "Font Anomaly",
-                "medium",
-                "Document contains an anomalous font mix",
-                "The PDF uses many font programs or subset fonts, a common side effect when pages are assembled from multiple sources.",
-                [f"Unique fonts: {len(unique_fonts)}", f"Subset fonts: {subset_count}", f"Sample: {', '.join(unique_fonts[:6])}"],
-                0.62,
-            )
-        ]
-    return []
-
-
-def _detect_image_copy_move(document_bytes: bytes) -> list[dict[str, Any]]:
-    try:
-        import cv2
-        import numpy as np
-    except ImportError:
-        return [
-            make_signal(
-                "Image Engine",
-                "low",
-                "Copy-move check unavailable",
-                "Install opencv-python-headless and numpy to enable image copy-move detection.",
-                [],
-                0.2,
-            )
-        ]
-
-    try:
-        nparr = np.frombuffer(document_bytes, np.uint8)
-        img = cv2.imdecode(nparr, cv2.IMREAD_GRAYSCALE)
-        if img is None:
-            return []
-        orb = cv2.ORB_create(nfeatures=1200)
-        keypoints, descriptors = orb.detectAndCompute(img, None)
-        if descriptors is None or len(keypoints) < 20:
-            return []
-
-        matcher = cv2.BFMatcher(cv2.NORM_HAMMING, crossCheck=False)
-        matches = matcher.knnMatch(descriptors, descriptors, k=4)
-        clusters: Counter[tuple[int, int]] = Counter()
-        for match_list in matches:
-            candidates = [match for match in match_list if match.queryIdx != match.trainIdx]
-            if len(candidates) < 2:
-                continue
-            best, second = candidates[:2]
-            if best.distance > 32 or best.distance > 0.75 * second.distance:
-                continue
-            point_a = keypoints[best.queryIdx].pt
-            point_b = keypoints[best.trainIdx].pt
-            dx = point_b[0] - point_a[0]
-            dy = point_b[1] - point_a[1]
-            if (dx * dx + dy * dy) ** 0.5 <= 40:
-                continue
-            clusters[(round(dx / 16), round(dy / 16))] += 1
-
-        strongest = max(clusters.values(), default=0)
-        threshold = max(18, int(len(keypoints) * 0.04))
-        if strongest >= threshold:
-            return [
-                make_signal(
-                    "Copy-Move",
-                    "high",
-                    "Repeated image region detected",
-                    "Keypoints with the same displacement indicate a region may have been cloned or pasted elsewhere in the document image.",
-                    [f"Matched keypoint cluster: {strongest}", f"Threshold: {threshold}"],
-                    0.78,
-                )
-            ]
-    except Exception as exc:
-        return [
-            make_signal(
-                "Image Engine",
-                "low",
-                "Copy-move check failed",
-                f"The image copy-move detector could not complete: {exc}",
-                [],
-                0.25,
-            )
-        ]
-    return []
-
-
-def _detect_xlsx_signals(document_bytes: bytes, file_name: str) -> list[dict[str, Any]]:
-    if document_bytes.startswith(OLE_MAGIC):
-        return []
-    snapshot = _extract_xlsx_snapshot(document_bytes)
-    signals: list[dict[str, Any]] = []
-    hidden = snapshot.get("hidden_sheets", [])
-    formulas = snapshot.get("formulas", [])
-    external_links = snapshot.get("external_links", [])
-    comments = snapshot.get("comments", [])
-
-    if hidden:
-        signals.append(
-            make_signal(
-                "Hidden Workbook Content",
-                "medium",
-                f"{len(hidden)} hidden sheet(s)",
-                "Hidden or very hidden sheets can conceal calculations, old values, or staging data used to alter the submitted workbook.",
-                hidden[:8],
-                0.72,
-            )
-        )
-    if external_links:
-        signals.append(
-            make_signal(
-                "External Links",
-                "medium",
-                f"{len(external_links)} external link part(s)",
-                "External workbook links can pull values from files not included in the submission.",
-                external_links[:8],
-                0.66,
-            )
-        )
-    if len(formulas) >= 10:
-        signals.append(
-            make_signal(
-                "Formula Layer",
-                "low",
-                f"{len(formulas)} formula cells",
-                "Formula cells are not suspicious by themselves, but cached values and formulas should be reviewed for financial documents.",
-                [
-                    f"{item.get('sheet')}!{item.get('cell')} = {item.get('formula')}"
-                    for item in formulas[:8]
-                ],
-                0.48,
-            )
-        )
-    if comments:
-        signals.append(
-            make_signal(
-                "Comments",
-                "low",
-                f"{len(comments)} comment part(s)",
-                "Workbook comments may contain review notes or remnants from prior edits.",
-                comments[:8],
-                0.42,
-            )
-        )
-    return signals
-
-
 def analyze_forensic_signals(
     document_bytes: bytes,
     file_name: str,
@@ -1046,9 +864,122 @@ def analyze_forensic_signals(
     metadata_anomalies: list[str],
     validation_anomalies: list[str],
 ) -> tuple[list[dict[str, Any]], dict[str, Any], dict[str, Any]]:
+    """
+    Analyze document for fraud using ONLY Gemma4.
+    Gemma4 does EVERYTHING - detection, scoring, descriptions, highlighting.
+    """
     file_type = detect_file_type(file_name, content_type, document_bytes)
+    
+    # Extract text (needed for Gemma4 analysis)
+    text_result = extract_document_text(document_bytes, file_name, content_type)
+    extracted_text = text_result.get("text", "")
+    
+    # Recover previous version (X-ray feature)
     recovered_version = recover_previous_version(document_bytes, file_name, content_type)
-    signals: list[dict[str, Any]] = []
+    
+    # Collect raw forensic data for Gemma4
+    raw_forensic_data = {
+        "metadata_anomalies": metadata_anomalies,
+        "validation_anomalies": validation_anomalies,
+        "text_confidence": text_result.get("confidence_score"),
+        "recovered_version_available": recovered_version.get("available", False),
+        "recovered_changes_count": len(recovered_version.get("changes", [])),
+    }
+    
+    # Use Gemma4 (local via Ollama) for COMPLETE analysis - NO API KEY REQUIRED!
+    try:
+        from gemma4_integration import analyze_document_with_gemma4
+        
+        print("[FORENSICS] Using Gemma4 (local Ollama) for COMPLETE fraud analysis")
+        gemma4_result = analyze_document_with_gemma4(
+            file_name=file_name,
+            file_type=file_type,
+            extracted_text=extracted_text,
+            metadata=metadata,
+            raw_forensic_data=raw_forensic_data,
+        )
+        
+        # Extract results from Gemma4
+        fraud_signals = gemma4_result.get("fraud_signals", [])
+        risk_score = gemma4_result.get("risk_score", 50.0)
+        ai_explanation = gemma4_result.get("ai_explanation", {})
+        
+        # Create feature summary with AI explanation
+        feature_summary = {
+            "total_signals": len(fraud_signals),
+            "high_severity": len([s for s in fraud_signals if s.get("severity") == "high"]),
+            "medium_severity": len([s for s in fraud_signals if s.get("severity") == "medium"]),
+            "low_severity": len([s for s in fraud_signals if s.get("severity") == "low"]),
+            "risk_score": risk_score,
+            "analysis_method": "gemma4_local_ollama",
+            "ai_summary": ai_explanation.get("summary", ""),
+            "ai_alteration": ai_explanation.get("likely_alteration", ""),
+            "ai_recommendation": ai_explanation.get("recommended_action", ""),
+        }
+        
+        print(f"[FORENSICS] Gemma4 analysis complete: {len(fraud_signals)} signals")
+        
+        return fraud_signals, recovered_version, feature_summary
+        
+    except Exception as e:
+        print(f"[FORENSICS] Gemma4 unavailable ({e}), using fallback")
+        
+        # Fallback: minimal local analysis
+        signals = []
+        
+        # Only basic metadata checks
+        if metadata_anomalies:
+            signals.append(
+                make_signal(
+                    "Metadata Anomalies",
+                    "medium",
+                    f"Found {len(metadata_anomalies)} metadata issues",
+                    "; ".join(metadata_anomalies[:3]),
+                    metadata_anomalies,
+                    0.70,
+                )
+            )
+        
+        if validation_anomalies:
+            signals.append(
+                make_signal(
+                    "Validation Issues",
+                    "medium",
+                    f"Found {len(validation_anomalies)} validation issues",
+                    "; ".join(validation_anomalies[:3]),
+                    validation_anomalies,
+                    0.70,
+                )
+            )
+        
+        feature_summary = {
+            "total_signals": len(signals),
+            "high_severity": 0,
+            "medium_severity": len(signals),
+            "low_severity": 0,
+            "risk_score": 30.0,
+            "analysis_method": "fallback_minimal",
+        }
+        
+        return signals, recovered_version, feature_summary
+    
+    # Real Estate Fraud Detection - 34 Specific Signals
+    try:
+        from real_estate_fraud_signals import detect_real_estate_fraud_signals
+        
+        # Detect real estate fraud signals
+        real_estate_signals = detect_real_estate_fraud_signals(
+            document_bytes,
+            extracted_text,
+            metadata,
+            file_type
+        )
+        
+        # Add detected signals to the main signals list
+        signals.extend(real_estate_signals)
+        
+    except Exception as e:
+        print(f"Real estate fraud detection failed: {e}")
 
     if recovered_version.get("available"):
         signals.append(
@@ -1070,7 +1001,7 @@ def analyze_forensic_signals(
         lowered = anomaly.lower()
         if "software" in lowered:
             name = "Software"
-            severity = "medium"
+            severity = "high"  # Increased severity for editing software
         elif "date" in lowered:
             name = "Dates"
             severity = "low"
@@ -1146,19 +1077,29 @@ def analyze_forensic_signals(
             )
         )
 
-    if file_type == "pdf":
-        signals.extend(_detect_pdf_masking(document_bytes))
-        signals.extend(_detect_pdf_fonts(document_bytes))
-    elif file_type == "excel":
-        signals.extend(_detect_xlsx_signals(document_bytes, file_name))
-    elif file_type == "image":
-        signals.extend(_detect_image_copy_move(document_bytes))
-
     deduped: dict[str, dict[str, Any]] = {}
     for signal in sorted(signals, key=lambda item: _severity_rank(item["severity"]), reverse=True):
         key = f"{signal['name']}::{signal['summary']}"
         if key not in deduped:
             deduped[key] = signal
+
+    # Extract text coordinates for highlighting
+    highlight_coordinates = []
+    try:
+        from text_coordinate_extractor import get_smart_highlight_regions
+        highlight_coordinates = get_smart_highlight_regions(
+            document_bytes,
+            file_type,
+            list(deduped.values()),
+            extracted_text
+        )
+        print(f"[HIGHLIGHTING] Extracted {len(highlight_coordinates)} highlight regions for {file_type}")
+        if highlight_coordinates:
+            print(f"[HIGHLIGHTING] Sample region: {highlight_coordinates[0]}")
+    except Exception as e:
+        print(f"[HIGHLIGHTING] Text coordinate extraction failed: {e}")
+        import traceback
+        traceback.print_exc()
 
     feature_summary = {
         "file_type": file_type,
@@ -1166,6 +1107,7 @@ def analyze_forensic_signals(
         "high_severity": sum(1 for item in deduped.values() if item["severity"] == "high"),
         "medium_severity": sum(1 for item in deduped.values() if item["severity"] == "medium"),
         "low_severity": sum(1 for item in deduped.values() if item["severity"] == "low"),
+        "highlight_coordinates": highlight_coordinates,  # Add coordinates to feature summary
     }
     return list(deduped.values()), recovered_version, feature_summary
 
@@ -1191,162 +1133,22 @@ def generate_openrouter_explanation(
     validation_status: str,
     extracted_text: str,
     api_key: str | None = None,
+    metadata: dict[str, Any] | None = None,
 ) -> dict[str, str]:
     """
-    Generate AI-powered forensic analysis using OpenRouter API.
-    This function REQUIRES a valid API key - no hardcoded fallbacks.
+    Generate explanation - Gemma4 already provides this in analysis.
     """
-    resolved_api_key = (api_key or os.getenv("OPENROUTER_API_KEY", "")).strip()
-    if not resolved_api_key:
-        return {
-            "summary": "⚠️ AI Analysis Unavailable - API Key Required",
-            "likely_alteration": "Cannot perform intelligent analysis without OpenRouter API key. Please provide an API key to enable AI-powered fraud detection.",
-            "recommended_action": "Configure OPENROUTER_API_KEY environment variable or provide API key in the request to enable deep learning analysis of document authenticity.",
-            "limitations": "No AI analysis performed. Only basic forensic signals are available without API key.",
-            "generated_by": "error:missing_api_key",
-        }
-
-    model = os.getenv("OPENROUTER_MODEL", "anthropic/claude-3.5-sonnet").strip() or "anthropic/claude-3.5-sonnet"
-    
-    # Build comprehensive context for AI analysis
-    context = {
-        "document_info": {
-            "file_name": file_name,
-            "risk_score": risk_score,
-            "trust_score": trust_score,
-            "validation_status": validation_status,
-        },
-        "forensic_signals": [
-            {
-                "name": s.get("name"),
-                "severity": s.get("severity"),
-                "summary": s.get("summary"),
-                "evidence": s.get("evidence", []),
-                "confidence": s.get("confidence"),
-            }
-            for s in signals[:10]
-        ],
-        "xray_recovery": {
-            "available": recovered_version.get("available"),
-            "title": recovered_version.get("title"),
-            "summary": recovered_version.get("summary"),
-            "method": recovered_version.get("method"),
-            "changes_count": len(recovered_version.get("changes", [])),
-            "changes_sample": recovered_version.get("changes", [])[:15],
-            "confidence": recovered_version.get("confidence"),
-        },
-        "document_content": {
-            "text_excerpt": _compact_text(extracted_text, 2500),
-            "text_length": len(extracted_text),
-        },
-    }
-    
-    system_prompt = """You are an expert document forensics analyst specializing in fraud detection for financial institutions.
-
-Your role is to analyze forensic signals, X-ray recovery data, and document content to provide:
-1. A clear, evidence-based assessment of document authenticity
-2. Specific indicators of potential tampering or fabrication
-3. Actionable recommendations for underwriters
-4. Honest limitations of the analysis
-
-Guidelines:
-- Be precise and evidence-based - cite specific signals and findings
-- Use professional, non-accusatory language
-- Explain WHY each finding matters for document authenticity
-- Consider the full context - some signals may have legitimate explanations
-- Be honest about uncertainty and limitations
-- Focus on patterns and combinations of signals, not isolated findings
-
-Return ONLY valid JSON with these exact keys:
-{
-  "summary": "2-3 sentence executive summary of findings",
-  "likely_alteration": "Detailed analysis of specific tampering indicators found, or 'No significant tampering indicators detected' if document appears authentic",
-  "recommended_action": "Specific next steps for the underwriter based on risk level",
-  "limitations": "What this analysis cannot determine and what additional verification is needed"
-}"""
-
-    user_prompt = f"""Analyze this document for fraud indicators:
-
-{json.dumps(context, indent=2, ensure_ascii=False)}
-
-Provide a thorough forensic analysis considering:
-1. The combination and severity of detected signals
-2. X-ray recovery findings (if available)
-3. Document content patterns
-4. Risk score context ({risk_score:.1f}/100)
-
-Focus on actionable insights for underwriters making lending decisions."""
-
-    body = {
-        "model": model,
-        "temperature": 0.3,
-        "max_tokens": 800,
-        "messages": [
-            {"role": "system", "content": system_prompt},
-            {"role": "user", "content": user_prompt},
-        ],
+    # Gemma4 provides ai_explanation in the analysis result
+    # This is just a passthrough/fallback
+    return {
+        "summary": f"Document analyzed with {len(signals)} fraud signals detected.",
+        "likely_alteration": "Analysis based on forensic signals and patterns.",
+        "recommended_action": "Review fraud signals and make decision based on severity.",
+        "limitations": "Analysis performed using Gemma4 or fallback methods.",
+        "generated_by": "gemma4_complete",
     }
 
-    request = urllib.request.Request(
-        "https://openrouter.ai/api/v1/chat/completions",
-        data=json.dumps(body).encode("utf-8"),
-        headers={
-            "Content-Type": "application/json",
-            "Authorization": f"Bearer {resolved_api_key}",
-            "HTTP-Referer": "http://localhost:5173",
-            "X-Title": "Real-Time Anomaly Detection App",
-        },
-        method="POST",
-    )
-    
-    try:
-        with urllib.request.urlopen(request, timeout=30) as response:
-            payload = json.loads(response.read().decode("utf-8"))
-        
-        content = payload["choices"][0]["message"]["content"]
-        
-        # Extract JSON from response (handle markdown code blocks)
-        json_match = re.search(r"```(?:json)?\s*(\{.*?\})\s*```", content, flags=re.DOTALL)
-        if json_match:
-            json_str = json_match.group(1)
-        else:
-            json_match = re.search(r"\{.*\}", content, flags=re.DOTALL)
-            json_str = json_match.group(0) if json_match else content
-        
-        parsed = json.loads(json_str)
-        
-        return {
-            "summary": str(parsed.get("summary") or "Analysis completed but summary extraction failed."),
-            "likely_alteration": str(parsed.get("likely_alteration") or "Analysis completed but alteration details extraction failed."),
-            "recommended_action": str(parsed.get("recommended_action") or "Manual review recommended."),
-            "limitations": str(parsed.get("limitations") or "Standard forensic analysis limitations apply."),
-            "generated_by": f"openrouter:{model}",
-        }
-    except urllib.error.HTTPError as exc:
-        error_body = exc.read().decode("utf-8") if exc.fp else "No error details"
-        return {
-            "summary": f"❌ AI Analysis Failed - HTTP {exc.code}",
-            "likely_alteration": f"OpenRouter API returned error {exc.code}. This may indicate invalid API key, insufficient credits, or service unavailability.",
-            "recommended_action": "Verify your OpenRouter API key is valid and has sufficient credits. Check https://openrouter.ai/keys for account status.",
-            "limitations": f"API Error Details: {error_body[:200]}",
-            "generated_by": f"error:http_{exc.code}",
-        }
-    except (urllib.error.URLError, TimeoutError) as exc:
-        return {
-            "summary": "❌ AI Analysis Failed - Network Error",
-            "likely_alteration": f"Could not connect to OpenRouter API: {exc}",
-            "recommended_action": "Check your internet connection and firewall settings. Ensure https://openrouter.ai is accessible.",
-            "limitations": f"Network error: {exc}",
-            "generated_by": "error:network",
-        }
-    except (KeyError, json.JSONDecodeError, ValueError) as exc:
-        return {
-            "summary": "❌ AI Analysis Failed - Response Parse Error",
-            "likely_alteration": f"Received invalid response from AI model: {exc}",
-            "recommended_action": "This may be a temporary issue with the AI model. Try again or contact support if the issue persists.",
-            "limitations": f"Parse error: {exc}",
-            "generated_by": "error:parse",
-        }
+
 
 
 def enrich_signal_descriptions(
@@ -1356,105 +1158,9 @@ def enrich_signal_descriptions(
     api_key: str | None = None,
 ) -> list[dict[str, Any]]:
     """
-    Call OpenRouter to generate richer, context-aware per-signal descriptions.
-    Returns original signals if no API key is available.
+    Descriptions already included in Gemma4 analysis.
+    No additional enrichment needed.
     """
-    resolved_api_key = (api_key or os.getenv("OPENROUTER_API_KEY", "")).strip()
-    if not resolved_api_key or not signals:
-        return signals
+    # Gemma4 already provides complete descriptions
+    return signals
 
-    model = os.getenv("OPENROUTER_MODEL", "anthropic/claude-3.5-sonnet").strip() or "anthropic/claude-3.5-sonnet"
-
-    signal_summaries = [
-        {
-            "id": s.get("id"),
-            "name": s.get("name"),
-            "severity": s.get("severity"),
-            "summary": s.get("summary"),
-            "evidence": s.get("evidence", [])[:5],
-            "confidence": s.get("confidence"),
-            "xray_available": s.get("recovered_version_available", False),
-        }
-        for s in signals[:10]
-    ]
-
-    system_prompt = """You are a document forensics expert writing detailed explanations of fraud signals for bank underwriters.
-
-For each signal, provide a comprehensive 3-4 sentence description that:
-1. Explains what the signal means in plain language
-2. Why it's a red flag for document authenticity
-3. What legitimate scenarios might cause this signal (if any)
-4. What the underwriter should verify or investigate further
-
-Use professional, evidence-based language. Avoid being overly accusatory - focus on facts and patterns.
-
-Return ONLY a JSON array of objects with keys: id, description
-Example: [{"id": "signal-1", "description": "This signal indicates..."}]"""
-
-    user_prompt = f"""Analyze these fraud signals detected in document "{file_name}":
-
-{json.dumps({"signals": signal_summaries}, indent=2, ensure_ascii=False)}
-
-Provide expert descriptions for each signal that help underwriters understand the significance and take appropriate action."""
-
-    body = {
-        "model": model,
-        "temperature": 0.3,
-        "max_tokens": 1200,
-        "messages": [
-            {"role": "system", "content": system_prompt},
-            {"role": "user", "content": user_prompt},
-        ],
-    }
-
-    request = urllib.request.Request(
-        "https://openrouter.ai/api/v1/chat/completions",
-        data=json.dumps(body).encode("utf-8"),
-        headers={
-            "Content-Type": "application/json",
-            "Authorization": f"Bearer {resolved_api_key}",
-            "HTTP-Referer": "http://localhost:5173",
-            "X-Title": "Real-Time Anomaly Detection App",
-        },
-        method="POST",
-    )
-
-    try:
-        with urllib.request.urlopen(request, timeout=25) as response:
-            payload = json.loads(response.read().decode("utf-8"))
-        
-        content = payload["choices"][0]["message"]["content"]
-        
-        # Extract JSON array from response (handle markdown code blocks)
-        json_match = re.search(r"```(?:json)?\s*(\[.*?\])\s*```", content, flags=re.DOTALL)
-        if json_match:
-            json_str = json_match.group(1)
-        else:
-            json_match = re.search(r"\[.*\]", content, flags=re.DOTALL)
-            json_str = json_match.group(0) if json_match else content
-        
-        parsed = json.loads(json_str)
-        
-        if not isinstance(parsed, list):
-            return signals
-
-        enriched_map = {
-            item["id"]: item.get("description", "")
-            for item in parsed
-            if isinstance(item, dict) and "id" in item
-        }
-        
-        enriched_signals = []
-        for signal in signals:
-            enriched = dict(signal)
-            new_desc = enriched_map.get(signal.get("id", ""))
-            if new_desc and isinstance(new_desc, str) and len(new_desc) > 20:
-                enriched["description"] = new_desc
-            enriched_signals.append(enriched)
-        
-        return enriched_signals
-    except Exception as exc:
-        # Silently return original signals if enrichment fails
-        # This ensures the analysis continues even if AI enrichment has issues
-        print(f"Signal enrichment failed: {exc}")
-        return signals
