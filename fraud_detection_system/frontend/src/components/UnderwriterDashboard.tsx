@@ -420,8 +420,6 @@ export default function UnderwriterDashboard() {
         validation_status: 'completed',
         validation_checks: ['AI analysis completed'],
         ocr_confidence: null,
-        converted_to_pdf: false,
-        pdf_data_base64: null,
       };
       
       setResult(analysisResult);
