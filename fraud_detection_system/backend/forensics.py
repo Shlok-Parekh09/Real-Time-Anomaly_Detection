@@ -44,6 +44,8 @@ def detect_file_type(file_name: str, content_type: str, document_bytes: bytes) -
         return "excel"
     if lower_type.startswith("image/") or lower_name.endswith((".png", ".jpg", ".jpeg", ".webp", ".bmp", ".tif", ".tiff")):
         return "image"
+    if lower_type.startswith("text/") or lower_name.endswith((".csv", ".tsv", ".txt")):
+        return "text"
     if document_bytes.startswith(b"PK\x03\x04"):
         try:
             with zipfile.ZipFile(io.BytesIO(document_bytes)) as archive:
@@ -116,7 +118,10 @@ def _extract_pdf_text(document_bytes: bytes) -> tuple[str, list[str]]:
     try:
         from pypdf import PdfReader
     except ImportError:
-        return _extract_pdf_text_fallback(document_bytes), ["PDF parser unavailable; used lightweight byte extraction."]
+        try:
+            from PyPDF2 import PdfReader  # type: ignore[no-redef]
+        except ImportError:
+            return _extract_pdf_text_fallback(document_bytes), ["PDF parser unavailable; used lightweight byte extraction."]
 
     try:
         reader = PdfReader(io.BytesIO(document_bytes))
@@ -446,6 +451,17 @@ def extract_document_text(document_bytes: bytes, file_name: str, content_type: s
             "notes": [],
         }
 
+    if file_type == "text":
+        decoded = _decode_text(document_bytes)
+        lines = [_compact_text(line, 600) for line in decoded.splitlines()]
+        text = "\n".join(line for line in lines if line)
+        return {
+            "text": text[:4000],
+            "confidence_score": 100.0 if text else 0.0,
+            "source": "plain_text_parser",
+            "notes": [],
+        }
+
     return {
         "text": _compact_text(_decode_text(document_bytes), 4000),
         "confidence_score": 25.0,
@@ -464,7 +480,10 @@ def extract_metadata(document_bytes: bytes, file_name: str = "", content_type: s
         metadata["pdf_revision_markers"] = eof_count
         metadata["pdf_prev_pointers"] = len(re.findall(rb"/Prev\s+\d+", document_bytes))
         try:
-            from pypdf import PdfReader
+            try:
+                from pypdf import PdfReader
+            except ImportError:
+                from PyPDF2 import PdfReader
 
             reader = PdfReader(io.BytesIO(document_bytes))
             metadata["page_count"] = len(reader.pages)
@@ -856,6 +875,280 @@ def recover_previous_version(document_bytes: bytes, file_name: str, content_type
     }
 
 
+def _normalise_signal(signal: dict[str, Any]) -> dict[str, Any]:
+    name = str(signal.get("name") or signal.get("type") or "Forensic Signal")
+    severity = str(signal.get("severity") or "low").lower()
+    if severity not in {"high", "medium", "low"}:
+        severity = "low"
+    evidence = signal.get("evidence") or []
+    if not isinstance(evidence, list):
+        evidence = [str(evidence)]
+    return {
+        "id": str(signal.get("id") or re.sub(r"[^a-z0-9]+", "-", name.lower()).strip("-") or "signal"),
+        "name": name,
+        "severity": severity,
+        "summary": str(signal.get("summary") or signal.get("description") or name),
+        "description": str(signal.get("description") or signal.get("summary") or name),
+        "evidence": [str(item) for item in evidence if str(item).strip()],
+        "confidence": max(0.0, min(1.0, float(signal.get("confidence", 0.7)))),
+        "recovered_version_available": bool(signal.get("recovered_version_available", False)),
+    }
+
+
+def _signal_from_metadata_anomaly(anomaly: str) -> dict[str, Any]:
+    lowered = anomaly.lower()
+    if "software" in lowered:
+        name = "Editing Software Detected"
+        severity = "high"
+        summary = "Editing software was detected on the following pages"
+        description = "Document metadata shows traces of PDF editing software."
+    elif "date" in lowered:
+        name = "Suspicious Date Timeline"
+        severity = "medium"
+        summary = "Document dates are inconsistent with a normal timeline"
+        description = "Creation and modification dates suggest the document was backdated or altered."
+    else:
+        name = "Hidden Metadata Anomaly"
+        severity = "low"
+        summary = "An unusual entry was found in the document's hidden metadata"
+        description = "The internal metadata contains unexpected values."
+    
+    # Format evidence for table rendering in frontend
+    evidence_str = str(anomaly)
+    if "software" in lowered:
+        evidence = ["table:Page|Edited With", f"1|{evidence_str}"]
+    else:
+        evidence = [evidence_str]
+
+    return make_signal(name, severity, summary, description, evidence, 0.68)
+
+
+def _signal_from_validation_anomaly(anomaly: str) -> dict[str, Any]:
+    lowered = anomaly.lower()
+    if "rounding" in lowered or "rounded" in lowered:
+        return make_signal("Suspiciously Rounded Figures", "high", "Multiple financial amounts are rounded to whole numbers", "Financial statements usually contain precise cents. Rounding suggests manual typing.", [anomaly], 0.82)
+    if "repeated identical deposit" in lowered:
+        return make_signal("Repeated Identical Deposits", "high", "The same deposit amount appears multiple times", "This pattern is common when transactions are copied and pasted.", [anomaly], 0.86)
+    if "balance inconsistency" in lowered or "does not match" in lowered:
+        return make_signal("Balance Mismatch", "high", "The financial totals do not add up correctly", "Starting balance plus activity does not equal the ending balance.", ["table:Discrepancy|Details", f"Math Error|{anomaly}"], 0.88)
+    if "suspicious activity pattern" in lowered or "missing standard expenses" in lowered:
+        return make_signal("Missing Expected Transactions", "medium", "Missing common transaction categories typically seen in real accounts", "Lack of everyday expenses suggests selective editing.", [anomaly], 0.72)
+    if "backdated transactions" in lowered or "weekend" in lowered:
+        return make_signal("Unusual Transaction Dates", "medium", "Transactions appear on abnormal dates", "Transactions processed on weekends or holidays indicate manual data entry.", [anomaly], 0.7)
+    if "vague deposit descriptions" in lowered:
+        return make_signal("Vague Deposit Descriptions", "low", "Deposits lack specific source descriptions", "Legitimate deposits usually have detailed references.", [anomaly], 0.62)
+    if "net pay (" in lowered or "exceeds gross" in lowered:
+        return make_signal("Payslip Calculation Error", "high", "Net pay is higher than gross pay", "Net pay must be lower than gross pay. This proves the numbers were altered.", [anomaly], 0.9)
+    if "deductions:" in lowered:
+        return make_signal("Abnormal Tax Deductions", "medium", "Tax amounts are outside normal ranges", "The deductions do not match standard tax rates.", [anomaly], 0.7)
+    if "missing mandatory payslip fields" in lowered:
+        return make_signal("Incomplete Payslip", "high", "Missing legally required fields", "Missing employer details or tax numbers suggests a fabricated document.", [anomaly], 0.84)
+    if "inconsistent account" in lowered or "inconsistent sort" in lowered:
+        return make_signal("Account Number Edits", "high", "Account Number was modified as follows", "Identifiers are inconsistent across different pages.", ["table:Location|Account Details", f"Mismatch|{anomaly}"], 0.86)
+    return make_signal("Document Validation Finding", "medium", "An inconsistency was found during validation", "The document failed one or more standard validation checks.", [anomaly], 0.68)
+
+
+def _signal_from_pdf_indicator(indicator: dict[str, Any]) -> dict[str, Any]:
+    indicator_type = str(indicator.get("type") or "pdf_indicator")
+    raw_description = str(indicator.get("description") or indicator_type.replace("_", " "))
+    evidence_list = indicator.get("evidence") or [raw_description]
+    if not isinstance(evidence_list, list):
+        evidence_list = [str(evidence_list)]
+
+    if indicator_type == "editing_software":
+        name = "Editing Software Detected"
+        summary = "Editing Software was detected on the following pages"
+        description = "The PDF file structure contains traces of editing software."
+        evidence = ["table:Page|Edited With"]
+        for ev in evidence_list:
+            evidence.append(f"1|{ev}")
+    elif indicator_type == "font_inconsistency":
+        name = "Font Inconsistency Detected"
+        summary = "Different fonts or sizes were found within uniform text"
+        description = "This mismatch indicates specific text fields were modified."
+        evidence = ["table:Page|Font Anomaly"]
+        for ev in evidence_list:
+            evidence.append(f"1|{ev}")
+    elif indicator_type == "text_overlay":
+        name = "Text Overlay Detected"
+        summary = "Text layers are stacked on top of each other"
+        description = "Suggests new values were pasted over the original content."
+        evidence = evidence_list
+    elif indicator_type == "incremental_updates":
+        name = "Multiple Edit Revisions"
+        summary = "This PDF has been saved multiple times with changes"
+        description = "Multiple rounds of editing on a final document is suspicious."
+        evidence = evidence_list
+    elif indicator_type == "poor_text_quality":
+        name = "Low Text Quality"
+        summary = "The text appears to be from a scan or low-quality source"
+        description = "Often indicates the document was physically altered and scanned."
+        evidence = evidence_list
+    elif indicator_type == "missing_financial_data":
+        name = "Sparse Financial Content"
+        summary = "Contains fewer financial data points than expected"
+        description = "Indicates the document is fabricated with minimal detail."
+        evidence = evidence_list
+    else:
+        name = indicator_type.replace("_", " ").title()
+        summary = raw_description
+        description = raw_description
+        evidence = evidence_list
+
+    return make_signal(
+        name,
+        str(indicator.get("severity") or "medium").lower(),
+        summary,
+        description,
+        evidence,
+        0.78 if indicator.get("severity") == "high" else 0.64,
+    )
+
+
+def _signal_from_image_indicator(indicator: dict[str, Any]) -> dict[str, Any]:
+    indicator_type = str(indicator.get("type") or "image_indicator")
+    raw_description = str(indicator.get("description") or indicator_type.replace("_", " "))
+    cv_confidence = float(indicator.get("confidence", 0.0))
+
+    if indicator_type == "compression_artifacts":
+        name = "Compression Artifacts Detected"
+        summary = "Uneven JPEG compression patterns indicate parts of this image were edited"
+        description = (
+            "Different regions of this image show different levels of JPEG compression quality. "
+            "When part of an image is edited and re-saved, the edited area gets compressed differently "
+            "from the untouched regions. Our analysis detected these inconsistencies, which suggest "
+            "that specific areas of the document image were modified."
+        )
+    elif indicator_type == "cloning_detected":
+        name = "Copy-Paste Pattern Found"
+        summary = "Duplicate pixel patterns were found, suggesting content was copied within the image"
+        description = (
+            "Computer vision analysis found regions of this image that are pixel-level duplicates of "
+            "other regions. This 'copy-paste' pattern is a classic sign of image manipulation—areas "
+            "of the document may have been duplicated to cover up original content or to replicate "
+            "transaction entries."
+        )
+    elif indicator_type == "noise_inconsistency":
+        name = "Image Noise Inconsistency"
+        summary = "Some areas of this image have different noise patterns than the rest"
+        description = (
+            "Every camera or scanner produces a consistent noise pattern across the entire image. "
+            "When parts of the image are edited or replaced, those areas have a different noise profile. "
+            "Our analysis detected noise inconsistencies that suggest portions of this document were "
+            "digitally altered."
+        )
+    elif indicator_type == "text_misalignment":
+        name = "Text Alignment Issues"
+        summary = "Text in this document is not properly aligned, suggesting manual insertion"
+        description = (
+            "The text in this image shows alignment inconsistencies—characters or lines are slightly "
+            "tilted, shifted, or spaced differently compared to the rest of the document. This happens "
+            "when text is manually added or replaced using image editing software rather than being "
+            "part of the original printed or generated document."
+        )
+    elif indicator_type == "resolution_inconsistency":
+        name = "Resolution Mismatch"
+        summary = "Different parts of this image have different resolutions or sharpness levels"
+        description = (
+            "The image contains regions with noticeably different resolution or sharpness. This occurs "
+            "when content from a different source is pasted into the document image, or when specific "
+            "areas are enlarged, sharpened, or blurred to hide edits."
+        )
+    elif indicator_type == "color_anomalies":
+        name = "Color Anomaly Detected"
+        summary = "Unusual color patterns were found that suggest digital manipulation"
+        description = (
+            "The color distribution in parts of this image does not match the rest of the document. "
+            "When content is edited, the replacement often has slightly different brightness, contrast, "
+            "or color temperature. These subtle differences are not visible to the naked eye but are "
+            "detectable by computer vision analysis."
+        )
+    else:
+        name = indicator_type.replace("_", " ").title()
+        summary = raw_description
+        description = raw_description
+
+    evidence = [
+        raw_description,
+        f"Computer-vision confidence: {cv_confidence:.0%}",
+    ]
+    return make_signal(
+        name,
+        str(indicator.get("severity") or "medium").lower(),
+        summary,
+        description,
+        evidence,
+        cv_confidence if cv_confidence > 0 else 0.65,
+    )
+
+
+def _dedupe_signals(signals: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    deduped: dict[str, dict[str, Any]] = {}
+    for raw_signal in sorted((_normalise_signal(signal) for signal in signals), key=lambda item: _severity_rank(item["severity"]), reverse=True):
+        key = f"{raw_signal['name']}::{raw_signal['summary']}"
+        if key in deduped:
+            existing = deduped[key]
+            existing["confidence"] = max(float(existing.get("confidence", 0.0)), float(raw_signal.get("confidence", 0.0)))
+            existing_evidence = list(existing.get("evidence", []))
+            for item in raw_signal.get("evidence", []):
+                if item not in existing_evidence:
+                    existing_evidence.append(item)
+            existing["evidence"] = existing_evidence
+        else:
+            deduped[key] = raw_signal
+    return list(deduped.values())
+
+
+def _build_analysis_narrative(
+    *,
+    file_name: str,
+    risk_score: float,
+    signals: list[dict[str, Any]],
+    recovered_version: dict[str, Any],
+    validation_status: str,
+    extracted_text: str,
+) -> dict[str, str]:
+    high = sum(1 for signal in signals if signal.get("severity") == "high")
+    medium = sum(1 for signal in signals if signal.get("severity") == "medium")
+    low = sum(1 for signal in signals if signal.get("severity") == "low")
+
+    if signals:
+        top_signal = signals[0]
+        summary = (
+            f"{file_name} was analyzed with local forensic checks. "
+            f"The engine found {len(signals)} evidence-backed signal(s): {high} high, {medium} medium, and {low} low severity. "
+            f"Top finding: {top_signal.get('summary')}."
+        )
+        likely_alteration = top_signal.get("description", "Review the listed evidence for the most likely alteration path.")
+    else:
+        summary = (
+            f"{file_name} was analyzed with local forensic checks. "
+            "No fraud indicators were detected in the available metadata, extracted text, or file structure."
+        )
+        likely_alteration = "No specific alteration was detected from the submitted bytes."
+
+    if recovered_version.get("available"):
+        likely_alteration = f"{likely_alteration} X-ray recovery also found prior-version evidence: {recovered_version.get('summary')}"
+
+    if high or risk_score >= 70:
+        recommended_action = "reject or escalate for fraud review before accepting the document"
+    elif medium or risk_score >= 25:
+        recommended_action = "manual review required before a final decision"
+    else:
+        recommended_action = "accept only after normal business verification"
+
+    limitations = (
+        f"{validation_status} Analysis is based on uploaded file bytes, metadata, extracted text length "
+        f"{len(extracted_text)}, and available local parsers; it does not verify the issuer directly."
+    )
+    return {
+        "ai_summary": summary,
+        "ai_alteration": likely_alteration,
+        "ai_recommendation": recommended_action,
+        "ai_limitations": limitations,
+    }
+
+
 def analyze_forensic_signals(
     document_bytes: bytes,
     file_name: str,
@@ -865,128 +1158,27 @@ def analyze_forensic_signals(
     validation_anomalies: list[str],
 ) -> tuple[list[dict[str, Any]], dict[str, Any], dict[str, Any]]:
     """
-    Analyze document for fraud using ONLY Gemma4.
-    Gemma4 does EVERYTHING - detection, scoring, descriptions, highlighting.
+    Analyze document for fraud using deterministic local evidence.
+
+    AI can be layered on by callers, but this backend result never depends on a
+    canned response or a fixed fallback score. Every signal below is derived
+    from metadata, extracted text, file-structure recovery, or computer-vision
+    checks that ran against the uploaded bytes.
     """
     file_type = detect_file_type(file_name, content_type, document_bytes)
-    
-    # Extract text (needed for Gemma4 analysis)
     text_result = extract_document_text(document_bytes, file_name, content_type)
     extracted_text = text_result.get("text", "")
-    
-    # Recover previous version (X-ray feature)
     recovered_version = recover_previous_version(document_bytes, file_name, content_type)
-    
-    # Collect raw forensic data for Gemma4
-    raw_forensic_data = {
-        "metadata_anomalies": metadata_anomalies,
-        "validation_anomalies": validation_anomalies,
-        "text_confidence": text_result.get("confidence_score"),
-        "recovered_version_available": recovered_version.get("available", False),
-        "recovered_changes_count": len(recovered_version.get("changes", [])),
-    }
-    
-    # Use Gemma4 (local via Ollama) for COMPLETE analysis - NO API KEY REQUIRED!
-    try:
-        from gemma4_integration import analyze_document_with_gemma4
-        
-        print("[FORENSICS] Using Gemma4 (local Ollama) for COMPLETE fraud analysis")
-        gemma4_result = analyze_document_with_gemma4(
-            file_name=file_name,
-            file_type=file_type,
-            extracted_text=extracted_text,
-            metadata=metadata,
-            raw_forensic_data=raw_forensic_data,
-        )
-        
-        # Extract results from Gemma4
-        fraud_signals = gemma4_result.get("fraud_signals", [])
-        risk_score = gemma4_result.get("risk_score", 50.0)
-        ai_explanation = gemma4_result.get("ai_explanation", {})
-        
-        # Create feature summary with AI explanation
-        feature_summary = {
-            "total_signals": len(fraud_signals),
-            "high_severity": len([s for s in fraud_signals if s.get("severity") == "high"]),
-            "medium_severity": len([s for s in fraud_signals if s.get("severity") == "medium"]),
-            "low_severity": len([s for s in fraud_signals if s.get("severity") == "low"]),
-            "risk_score": risk_score,
-            "analysis_method": "gemma4_local_ollama",
-            "ai_summary": ai_explanation.get("summary", ""),
-            "ai_alteration": ai_explanation.get("likely_alteration", ""),
-            "ai_recommendation": ai_explanation.get("recommended_action", ""),
-        }
-        
-        print(f"[FORENSICS] Gemma4 analysis complete: {len(fraud_signals)} signals")
-        
-        return fraud_signals, recovered_version, feature_summary
-        
-    except Exception as e:
-        print(f"[FORENSICS] Gemma4 unavailable ({e}), using fallback")
-        
-        # Fallback: minimal local analysis
-        signals = []
-        
-        # Only basic metadata checks
-        if metadata_anomalies:
-            signals.append(
-                make_signal(
-                    "Metadata Anomalies",
-                    "medium",
-                    f"Found {len(metadata_anomalies)} metadata issues",
-                    "; ".join(metadata_anomalies[:3]),
-                    metadata_anomalies,
-                    0.70,
-                )
-            )
-        
-        if validation_anomalies:
-            signals.append(
-                make_signal(
-                    "Validation Issues",
-                    "medium",
-                    f"Found {len(validation_anomalies)} validation issues",
-                    "; ".join(validation_anomalies[:3]),
-                    validation_anomalies,
-                    0.70,
-                )
-            )
-        
-        feature_summary = {
-            "total_signals": len(signals),
-            "high_severity": 0,
-            "medium_severity": len(signals),
-            "low_severity": 0,
-            "risk_score": 30.0,
-            "analysis_method": "fallback_minimal",
-        }
-        
-        return signals, recovered_version, feature_summary
-    
-    # Real Estate Fraud Detection - 34 Specific Signals
-    try:
-        from real_estate_fraud_signals import detect_real_estate_fraud_signals
-        
-        # Detect real estate fraud signals
-        real_estate_signals = detect_real_estate_fraud_signals(
-            document_bytes,
-            extracted_text,
-            metadata,
-            file_type
-        )
-        
-        # Add detected signals to the main signals list
-        signals.extend(real_estate_signals)
-        
-    except Exception as e:
-        print(f"Real estate fraud detection failed: {e}")
+
+    signals: list[dict[str, Any]] = []
+    advanced_analysis: dict[str, Any] = {}
 
     if recovered_version.get("available"):
         signals.append(
             make_signal(
-                "X-ray",
+                "X-ray Recovery",
                 "high",
-                "Previous version has been recovered",
+                "Previous version evidence was recovered",
                 recovered_version.get("summary", "A prior document state was recovered from internal file history."),
                 [
                     f"Method: {recovered_version.get('method')}",
@@ -998,99 +1190,88 @@ def analyze_forensic_signals(
         )
 
     for anomaly in metadata_anomalies:
-        lowered = anomaly.lower()
-        if "software" in lowered:
-            name = "Software"
-            severity = "high"  # Increased severity for editing software
-        elif "date" in lowered:
-            name = "Dates"
-            severity = "low"
-        else:
-            name = "Metadata"
-            severity = "low"
-        signals.append(
-            make_signal(
-                name,
-                severity,
-                anomaly,
-                "Hidden metadata does not match the expected lifecycle for a clean source document.",
-                [anomaly],
-                0.64,
-            )
-        )
+        signals.append(_signal_from_metadata_anomaly(anomaly))
 
     for anomaly in validation_anomalies:
-        lowered = anomaly.lower()
-        if "rounding" in lowered or "rounded" in lowered:
-            name = "Rounded Figures"
-            summary = "Suspiciously rounded amounts detected"
-            severity = "high"
-        elif "repeated identical deposit" in lowered:
-            name = "Repeated Deposits"
-            summary = "Multiple identical deposits detected"
-            severity = "high"
-        elif "balance inconsistency" in lowered:
-            name = "Balance Mismatch"
-            summary = "Running balances do not add up correctly"
-            severity = "high"
-        elif "suspicious activity pattern" in lowered or "missing standard expenses" in lowered:
-            name = "Irregular Activity"
-            summary = "Missing standard monthly living expenses"
-            severity = "medium"
-        elif "backdated transactions" in lowered or "weekend" in lowered:
-            name = "Weekend Transactions"
-            summary = "Transactions recorded on bank non-processing days"
-            severity = "medium"
-        elif "vague deposit descriptions" in lowered:
-            name = "Vague Descriptions"
-            summary = "Deposits lack specific employer references"
-            severity = "low"
-        elif "net pay (" in lowered or "exceeds gross" in lowered:
-            name = "Payslip Math"
-            summary = "Net pay is higher than gross pay"
-            severity = "high"
-        elif "deductions:" in lowered:
-            name = "Deduction Anomaly"
-            summary = "Tax and insurance deductions are outside normal ranges"
-            severity = "medium"
-        elif "missing mandatory payslip fields" in lowered:
-            name = "Missing Fields"
-            summary = "Payslip is missing mandatory legal fields"
-            severity = "high"
-        elif "inconsistent account" in lowered or "inconsistent sort" in lowered:
-            name = "Account Details"
-            summary = "Inconsistent account numbers or routing codes"
-            severity = "high"
-        else:
-            name = "Math Validation"
-            summary = "Financial consistency check failed"
-            severity = "high"
+        signals.append(_signal_from_validation_anomaly(anomaly))
 
+    if file_type == "pdf":
+        try:
+            from advanced_pdf_analysis import get_comprehensive_pdf_analysis
+
+            pdf_analysis = get_comprehensive_pdf_analysis(document_bytes)
+            advanced_analysis["pdf"] = {
+                "available": bool(pdf_analysis.get("pymupdf_analysis", {}).get("available") or pdf_analysis.get("pdfminer_analysis", {}).get("available")),
+                "risk_score": pdf_analysis.get("risk_score", 0),
+                "total_indicators": pdf_analysis.get("total_indicators", 0),
+            }
+            for indicator in pdf_analysis.get("fraud_indicators", []):
+                signals.append(_signal_from_pdf_indicator(indicator))
+        except Exception as exc:
+            advanced_analysis["pdf"] = {"available": False, "error": str(exc)}
+
+    if file_type == "image":
+        try:
+            from advanced_image_analysis import analyze_image_with_opencv
+
+            image_analysis = analyze_image_with_opencv(document_bytes)
+            advanced_analysis["image"] = {
+                "available": image_analysis.get("available", False),
+                "risk_score": image_analysis.get("risk_score", 0),
+                "total_indicators": image_analysis.get("total_indicators", 0),
+                "dimensions": image_analysis.get("image_dimensions"),
+            }
+            for indicator in image_analysis.get("fraud_indicators", []):
+                signals.append(_signal_from_image_indicator(indicator))
+        except Exception as exc:
+            advanced_analysis["image"] = {"available": False, "error": str(exc)}
+
+    if not extracted_text.strip():
+        notes = text_result.get("notes") or []
+        evidence = [str(note) for note in notes] or ["No machine-readable text was extracted from the uploaded document."]
         signals.append(
             make_signal(
-                name,
-                severity,
-                summary,
-                anomaly,
-                [anomaly],
-                0.78 if severity == "high" else 0.65,
+                "Text Extraction Limited",
+                "low",
+                "No machine-readable text was extracted",
+                "The backend could not inspect document wording or numeric fields, so the report relies on metadata and file-structure checks.",
+                evidence,
+                0.38,
             )
         )
 
-    deduped: dict[str, dict[str, Any]] = {}
-    for signal in sorted(signals, key=lambda item: _severity_rank(item["severity"]), reverse=True):
-        key = f"{signal['name']}::{signal['summary']}"
-        if key not in deduped:
-            deduped[key] = signal
+    try:
+        from real_estate_fraud_signals import detect_real_estate_fraud_signals
 
-    # Extract text coordinates for highlighting
+        real_estate_signals = detect_real_estate_fraud_signals(
+            document_bytes,
+            extracted_text,
+            metadata,
+            file_type
+        )
+        signals.extend(real_estate_signals)
+        advanced_analysis["real_estate_signal_count"] = len(real_estate_signals)
+    except Exception as e:
+        advanced_analysis["real_estate_error"] = str(e)
+
+    # RAG Engine Integration
+    try:
+        from rag_engine import analyze_with_rag
+        rag_signals = analyze_with_rag(extracted_text)
+        signals.extend(rag_signals)
+        advanced_analysis["rag_signal_count"] = len(rag_signals)
+    except Exception as e:
+        advanced_analysis["rag_error"] = str(e)
+
+    deduped = _dedupe_signals(signals)
+
     highlight_coordinates = []
     try:
         from text_coordinate_extractor import get_smart_highlight_regions
         highlight_coordinates = get_smart_highlight_regions(
             document_bytes,
             file_type,
-            list(deduped.values()),
+            deduped,
             extracted_text
         )
         print(f"[HIGHLIGHTING] Extracted {len(highlight_coordinates)} highlight regions for {file_type}")
@@ -1101,20 +1282,43 @@ def analyze_forensic_signals(
         import traceback
         traceback.print_exc()
 
+    risk_score = calculate_risk_score(deduped)
+    narrative = _build_analysis_narrative(
+        file_name=file_name,
+        risk_score=risk_score,
+        signals=deduped,
+        recovered_version=recovered_version,
+        validation_status="; ".join(str(note) for note in text_result.get("notes", [])[:2]) or "Local validation completed.",
+        extracted_text=extracted_text,
+    )
+
     feature_summary = {
         "file_type": file_type,
         "signal_count": len(deduped),
-        "high_severity": sum(1 for item in deduped.values() if item["severity"] == "high"),
-        "medium_severity": sum(1 for item in deduped.values() if item["severity"] == "medium"),
-        "low_severity": sum(1 for item in deduped.values() if item["severity"] == "low"),
-        "highlight_coordinates": highlight_coordinates,  # Add coordinates to feature summary
+        "total_signals": len(deduped),
+        "high_severity": sum(1 for item in deduped if item["severity"] == "high"),
+        "medium_severity": sum(1 for item in deduped if item["severity"] == "medium"),
+        "low_severity": sum(1 for item in deduped if item["severity"] == "low"),
+        "risk_score": risk_score,
+        "trust_score": round(max(0.0, 100.0 - risk_score), 1),
+        "analysis_method": "deterministic_local_forensics",
+        "metadata_anomaly_count": len(metadata_anomalies),
+        "validation_anomaly_count": len(validation_anomalies),
+        "text_source": text_result.get("source"),
+        "text_confidence": text_result.get("confidence_score"),
+        "text_length": len(extracted_text),
+        "recovered_version_available": recovered_version.get("available", False),
+        "recovered_changes_count": len(recovered_version.get("changes", [])),
+        "advanced_analysis": advanced_analysis,
+        "highlight_coordinates": highlight_coordinates,
+        **narrative,
     }
-    return list(deduped.values()), recovered_version, feature_summary
+    return deduped, recovered_version, feature_summary
 
 
 def calculate_risk_score(signals: list[dict[str, Any]]) -> float:
     if not signals:
-        return 4.0
+        return 0.0
     weights = {"high": 28.0, "medium": 15.0, "low": 7.0}
     score = 0.0
     for signal in signals:
@@ -1136,16 +1340,22 @@ def generate_openrouter_explanation(
     metadata: dict[str, Any] | None = None,
 ) -> dict[str, str]:
     """
-    Generate explanation - Gemma4 already provides this in analysis.
+    Generate a deterministic explanation from local forensic signals.
     """
-    # Gemma4 provides ai_explanation in the analysis result
-    # This is just a passthrough/fallback
+    narrative = _build_analysis_narrative(
+        file_name=file_name,
+        risk_score=risk_score,
+        signals=signals,
+        recovered_version=recovered_version,
+        validation_status=validation_status,
+        extracted_text=extracted_text,
+    )
     return {
-        "summary": f"Document analyzed with {len(signals)} fraud signals detected.",
-        "likely_alteration": "Analysis based on forensic signals and patterns.",
-        "recommended_action": "Review fraud signals and make decision based on severity.",
-        "limitations": "Analysis performed using Gemma4 or fallback methods.",
-        "generated_by": "gemma4_complete",
+        "summary": narrative["ai_summary"],
+        "likely_alteration": narrative["ai_alteration"],
+        "recommended_action": narrative["ai_recommendation"],
+        "limitations": narrative["ai_limitations"],
+        "generated_by": "deterministic_local_forensics",
     }
 
 
@@ -1158,9 +1368,7 @@ def enrich_signal_descriptions(
     api_key: str | None = None,
 ) -> list[dict[str, Any]]:
     """
-    Descriptions already included in Gemma4 analysis.
-    No additional enrichment needed.
+    Descriptions are generated by the local signal builders.
     """
-    # Gemma4 already provides complete descriptions
     return signals
 

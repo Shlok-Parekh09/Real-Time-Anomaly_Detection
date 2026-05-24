@@ -158,6 +158,7 @@ def analyze_pdf_with_pymupdf(pdf_bytes: bytes) -> dict[str, Any]:
         xref_count = doc.xref_length()
         has_incremental_updates = xref_count > 100  # High xref count suggests modifications
         
+        page_count = len(doc)
         doc.close()
         
         return {
@@ -173,7 +174,7 @@ def analyze_pdf_with_pymupdf(pdf_bytes: bytes) -> dict[str, Any]:
             "images_analysis": images_analysis[:10],  # First 10 images
             "xref_count": xref_count,
             "has_incremental_updates": has_incremental_updates,
-            "page_count": len(doc),
+            "page_count": page_count,
         }
         
     except Exception as e:

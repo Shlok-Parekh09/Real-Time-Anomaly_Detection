@@ -20,16 +20,14 @@ except ImportError:
 def get_severity_color_bgr(severity: str) -> tuple[int, int, int]:
     """
     Get BGR color for severity level (OpenCV uses BGR format).
-    
-    Returns:
-        BGR tuple (0-255 range)
     """
     if severity == "high":
-        return (0, 0, 255)  # Red (BGR)
+        # Pink color matching UI (#ff4d6a) in BGR
+        return (106, 77, 255)
     elif severity == "medium":
         return (0, 215, 255)  # Yellow/Gold (BGR)
     else:
-        return (180, 180, 180)  # Gray (BGR)
+        return (178, 178, 178)  # Gray (BGR)
 
 
 def add_highlights_to_image(

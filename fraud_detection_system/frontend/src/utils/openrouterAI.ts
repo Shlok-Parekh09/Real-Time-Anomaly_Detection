@@ -1,8 +1,8 @@
 /**
  * OpenRouter AI Integration
- * Free Gemma 4 31B model via OpenRouter
- * 
- * NO API KEY REQUIRED - Using free tier
+ * Model: google/gemma-4-31b-it:free
+ *
+ * API key is REQUIRED — user provides it via the top bar.
  */
 
 export interface FraudSignal {
@@ -29,22 +29,10 @@ export interface FraudAnalysisResult {
   ai_explanation: AIExplanation;
 }
 
-/**
- * Analyze document for fraud using OpenRouter's free Gemma 4 31B model
- */
-export async function analyzeDocumentWithAI(
-  documentContext: {
-    file_name: string;
-    file_type: string;
-    metadata: any;
-    forensic_data: any;
-    text_sample: string;
-  },
-  apiKey?: string
-): Promise<FraudAnalysisResult> {
-  const systemPrompt = `You are a fraud detection AI. Analyze documents and return JSON.
+const SYSTEM_PROMPT = `You are a fraud detection AI specialising in document forensics.
+Analyse the provided document context and return ONLY valid JSON — no markdown, no preamble.
 
-Return ONLY valid JSON with this structure:
+Required JSON structure:
 {
   "risk_score": 75.0,
   "trust_score": 25.0,
@@ -53,121 +41,151 @@ Return ONLY valid JSON with this structure:
       "id": "signal-1",
       "name": "Signal Name",
       "severity": "high",
-      "summary": "Brief summary",
+      "summary": "One-line summary",
       "description": "Detailed explanation in 1-2 sentences.",
-      "evidence": ["Evidence 1", "Evidence 2"],
+      "evidence": ["Evidence item 1", "Evidence item 2"],
       "confidence": 0.9,
-      "highlight_values": ["$1000", "2024-01-15"]
+      "highlight_values": ["suspicious value", "another value"]
     }
   ],
   "ai_explanation": {
-    "summary": "Brief overview in 1-2 sentences.",
-    "likely_alteration": "What was altered.",
+    "summary": "Overall assessment in 1-2 sentences.",
+    "likely_alteration": "What was most likely altered or fabricated.",
     "recommended_action": "accept or reject"
   }
 }
 
 Rules:
-- risk_score + trust_score = 100
-- Include 3-7 fraud signals
-- highlight_values = specific suspicious values only
-- Be thorough and accurate in your analysis
-- Provide detailed evidence for each signal`;
+- risk_score + trust_score must equal 100
+- Include 3-7 fraud signals covering different aspects
+- highlight_values must be specific strings found in the document
+- Severity: high = likely fraud, medium = suspicious, low = minor anomaly
+- Be thorough; justify each signal with concrete evidence`;
 
-  const userPrompt = `Analyze for fraud and return JSON:\n\n${JSON.stringify(documentContext, null, 2)}`;
+/**
+ * Analyze document for fraud using OpenRouter's Gemma 4 31B model.
+ * @param documentContext  Context extracted by the backend
+ * @param apiKey           OpenRouter API key (required)
+ */
+export async function analyzeDocumentWithAI(
+  documentContext: {
+    file_name: string;
+    file_type: string;
+    metadata: any;
+    forensic_data: any;
+    text_sample: string;
+    image_base64?: string;
+  },
+  apiKey: string | undefined
+): Promise<FraudAnalysisResult> {
+  if (!apiKey?.trim()) {
+    throw new Error('OpenRouter API key is required for browser-side AI analysis.');
+  }
 
-  try {
-    console.log('[OPENROUTER] Calling Gemma 4 31B via OpenRouter...');
-    console.log('[OPENROUTER] Document context:', documentContext);
-    console.log('[OPENROUTER] Using API key:', apiKey ? 'Yes (custom)' : 'No (free tier)');
-    
-    // Build headers
-    const headers: Record<string, string> = {
+  // Build the user message — include image inline if available
+  const contextForAI = {
+    file_name: documentContext.file_name,
+    file_type: documentContext.file_type,
+    metadata: documentContext.metadata,
+    forensic_data: documentContext.forensic_data,
+    text_sample: documentContext.text_sample,
+  };
+
+  // Build message content — multimodal for images
+  let userContent: any;
+  if (documentContext.file_type === 'image' && documentContext.image_base64) {
+    userContent = [
+      {
+        type: 'text',
+        text: `Analyze this document image for fraud. Context:\n${JSON.stringify(contextForAI, null, 2)}\n\nReturn ONLY the JSON fraud analysis.`,
+      },
+      {
+        type: 'image_url',
+        image_url: {
+          url: `data:image/jpeg;base64,${documentContext.image_base64}`,
+        },
+      },
+    ];
+  } else {
+    userContent = `Analyze for fraud and return ONLY JSON:\n\n${JSON.stringify(contextForAI, null, 2)}`;
+  }
+
+  console.log('[OPENROUTER] Calling google/gemma-4-31b-it:free...');
+
+  const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+    method: 'POST',
+    headers: {
       'Content-Type': 'application/json',
+      'Authorization': `Bearer ${apiKey.trim()}`,
       'HTTP-Referer': window.location.origin,
       'X-Title': 'Fraud Detection System',
-    };
-    
-    // Add API key if provided
-    if (apiKey) {
-      headers['Authorization'] = `Bearer ${apiKey}`;
+    },
+    body: JSON.stringify({
+      model: 'google/gemma-4-31b-it:free',
+      messages: [
+        { role: 'system', content: SYSTEM_PROMPT },
+        { role: 'user',   content: userContent },
+      ],
+      temperature: 0.1,
+      max_tokens: 4000,
+    }),
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    console.error('[OPENROUTER] Error:', response.status, errorText);
+
+    if (response.status === 401) {
+      throw new Error('Invalid API key. Please check your OpenRouter API key in the top bar.');
     }
-    
-    // Call OpenRouter API with free Gemma 2 27B model
-    const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
-      method: 'POST',
-      headers,
-      body: JSON.stringify({
-        model: 'google/gemma-2-27b-it:free',
-        messages: [
-          {
-            role: 'system',
-            content: systemPrompt
-          },
-          {
-            role: 'user',
-            content: userPrompt
-          }
-        ],
-        temperature: 0.1, // Low temperature for accuracy
-        max_tokens: 4000,
-      }),
-    });
-
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error('[OPENROUTER] API Error:', response.status, errorText);
-      throw new Error(`OpenRouter API error: ${response.status} - ${errorText}`);
+    if (response.status === 429) {
+      throw new Error('Rate limit reached. Please wait a moment and try again.');
     }
-
-    const data = await response.json();
-    console.log('[OPENROUTER] Received response:', data);
-
-    const content = data.choices?.[0]?.message?.content;
-    if (!content) {
-      throw new Error('No content in OpenRouter response');
+    if (response.status === 404) {
+      throw new Error(
+        'Model google/gemma-4-31b-it:free not found. ' +
+        'It may be temporarily unavailable — please try again in a few minutes.'
+      );
     }
-
-    console.log('[OPENROUTER] Response content:', content);
-    
-    // Try to extract JSON from markdown code blocks
-    let jsonStr = content;
-    const jsonMatch = content.match(/```(?:json)?\s*(\{[\s\S]*?\})\s*```/);
-    if (jsonMatch) {
-      jsonStr = jsonMatch[1];
-    } else {
-      // Try to find JSON object
-      const objMatch = content.match(/\{[\s\S]*\}/);
-      if (objMatch) {
-        jsonStr = objMatch[0];
-      }
-    }
-
-    console.log('[OPENROUTER] Extracted JSON string:', jsonStr);
-    const result = JSON.parse(jsonStr);
-
-    // Validate structure
-    if (!result.risk_score || !result.trust_score || !result.fraud_signals || !result.ai_explanation) {
-      throw new Error('Invalid response structure from AI');
-    }
-
-    console.log('[OPENROUTER] Analysis complete:', result.fraud_signals.length, 'signals');
-
-    return result;
-  } catch (error) {
-    console.error('[OPENROUTER] Error analyzing document:', error);
-    console.error('[OPENROUTER] Error details:', error instanceof Error ? error.message : String(error));
-    
-    // Provide helpful error messages
-    if (error instanceof Error) {
-      if (error.message.includes('rate limit') || error.message.includes('429')) {
-        throw new Error('Rate limit reached. Please wait a moment and try again.');
-      }
-      if (error.message.includes('model')) {
-        throw new Error('AI model not available. Please try again later.');
-      }
-    }
-    
-    throw error;
+    throw new Error(`OpenRouter API error: ${response.status} — ${errorText}`);
   }
+
+  const data = await response.json();
+  const content: string | undefined = data.choices?.[0]?.message?.content;
+
+  if (!content) {
+    throw new Error('Empty response from OpenRouter. Please try again.');
+  }
+
+  console.log('[OPENROUTER] Raw response:', content.slice(0, 300));
+
+  // Extract JSON — handle markdown fences or raw objects
+  let jsonStr = content.trim();
+  const fenceMatch = content.match(/```(?:json)?\s*(\{[\s\S]*?\})\s*```/);
+  if (fenceMatch) {
+    jsonStr = fenceMatch[1];
+  } else {
+    const objMatch = content.match(/\{[\s\S]*\}/);
+    if (objMatch) jsonStr = objMatch[0];
+  }
+
+  let result: FraudAnalysisResult;
+  try {
+    result = JSON.parse(jsonStr);
+  } catch {
+    throw new Error('AI returned malformed JSON. Please try again.');
+  }
+
+  // Validate required fields
+  if (
+    result.risk_score === undefined ||
+    result.trust_score === undefined ||
+    !Array.isArray(result.fraud_signals) ||
+    !result.ai_explanation
+  ) {
+    throw new Error('AI response is missing required fields. Please try again.');
+  }
+
+  console.log('[OPENROUTER] Analysis complete:', result.fraud_signals.length, 'signals detected');
+  return result;
 }

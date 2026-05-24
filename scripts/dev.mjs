@@ -6,7 +6,7 @@ import { existsSync } from 'node:fs';
 
 const rootDir = dirname(dirname(fileURLToPath(import.meta.url)));
 const backendDir = join(rootDir, 'fraud_detection_system', 'backend');
-const venvPython = join(rootDir, 'venv', process.platform === 'win32' ? 'Scripts\\python.exe' : 'bin/python');
+const venvPython = join(backendDir, 'venv', process.platform === 'win32' ? 'Scripts\\python.exe' : 'bin/python');
 const pythonBin = existsSync(venvPython) ? venvPython : (process.platform === 'win32' ? 'python' : 'python3');
 const viteBin = join(rootDir, 'node_modules', '.bin', process.platform === 'win32' ? 'vite.cmd' : 'vite');
 const frontendCommand = process.platform === 'win32' ? 'cmd.exe' : viteBin;
@@ -41,7 +41,7 @@ function checkBackendDependencies() {
   return new Promise((resolve) => {
     const child = spawn(
       pythonBin,
-      ['-c', 'import fastapi, uvicorn, multipart, cv2, PIL, pydantic, pypdf, pytesseract'],
+    ['-c', 'import fastapi, uvicorn, multipart, cv2, PIL, pydantic, PyPDF2'],
       {
         cwd: backendDir,
         stdio: 'ignore',

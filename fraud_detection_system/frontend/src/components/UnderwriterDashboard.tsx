@@ -22,7 +22,7 @@ import {
 } from 'lucide-react';
 import axios from 'axios';
 
-const API_BASE_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:8000';
+const API_BASE_URL = import.meta.env.VITE_API_URL ?? 'http://127.0.0.1:8000';
 const ACCEPTED_FILES = '.pdf,.png,.jpg,.jpeg,.webp,.bmp,.tif,.tiff,.xlsx,.xlsm,.xltx,.xltm,.xls,.csv,.tsv,application/pdf,image/*,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel,text/csv,text/tab-separated-values';
 
 interface FraudSignal {
@@ -366,64 +366,11 @@ export default function UnderwriterDashboard() {
     formData.append('file', file);
 
     try {
-      // Step 1: Upload to backend to get file context
-      const contextResponse = await axios.post(`${API_BASE_URL}/api/v1/extract-context`, formData, {
+      const analysisResponse = await axios.post(`${API_BASE_URL}/api/v1/analyze`, formData, {
         headers: { 'Content-Type': 'multipart/form-data' },
       });
-      
-      const context = contextResponse.data;
-      
-      // Step 2: Use OpenRouter for AI analysis (free Gemma 4 31B)
-      const { analyzeDocumentWithAI } = await import('../utils/openrouterAI');
-      
-      const aiResult = await analyzeDocumentWithAI(context, apiKey || undefined);
-      
-      // Step 3: Format result to match expected structure
-      const analysisResult: AnalysisResult = {
-        file_name: context.file_name,
-        file_type: context.file_type,
-        risk_score: aiResult.risk_score,
-        trust_score: aiResult.trust_score,
-        anomalies: aiResult.fraud_signals.map(s => s.summary),
-        fraud_signals: aiResult.fraud_signals.map(signal => ({
-          id: signal.id,
-          name: signal.name,
-          severity: signal.severity,
-          summary: signal.summary,
-          description: signal.description,
-          evidence: signal.evidence,
-          confidence: signal.confidence,
-          recovered_version_available: false,
-        })),
-        recovered_version: {
-          available: false,
-          title: 'No recovery needed',
-          summary: 'AI analysis performed via OpenRouter',
-          method: 'OpenRouter + Gemma 4 31B',
-          preview_text: '',
-          sections: [],
-          changes: [],
-          confidence: 0,
-        },
-        ai_explanation: {
-          summary: aiResult.ai_explanation.summary,
-          likely_alteration: aiResult.ai_explanation.likely_alteration,
-          recommended_action: aiResult.ai_explanation.recommended_action,
-          limitations: 'Analysis performed by Gemma 4 31B via OpenRouter',
-          generated_by: 'gemma4-openrouter-free',
-        },
-        metadata: context.metadata,
-        feature_summary: {
-          total_signals: aiResult.fraud_signals.length,
-          high_severity: aiResult.fraud_signals.filter(s => s.severity === 'high').length,
-          medium_severity: aiResult.fraud_signals.filter(s => s.severity === 'medium').length,
-          low_severity: aiResult.fraud_signals.filter(s => s.severity === 'low').length,
-        },
-        extracted_text: context.text_sample,
-        validation_status: 'completed',
-        validation_checks: ['AI analysis completed'],
-        ocr_confidence: null,
-      };
+
+      const analysisResult = analysisResponse.data as AnalysisResult;
       
       setResult(analysisResult);
       setSelectedSignalId(analysisResult.fraud_signals[0]?.id ?? null);
@@ -451,19 +398,23 @@ export default function UnderwriterDashboard() {
 
   return (
     <div className="min-h-screen bg-[#f8f6fb] text-slate-950">
-      {/* API Key Bar */}
+      {/* Backend status bar */}
       <div className="border-b border-slate-200 bg-gradient-to-r from-violet-50 to-purple-50">
         <div className="mx-auto max-w-7xl px-5 py-3">
           <div className="flex items-center justify-between gap-4">
             <div className="flex items-center gap-3">
               <Key className="h-5 w-5 text-violet-600" />
               <div>
-                <p className="text-sm font-bold text-slate-900">OpenRouter API Key (Optional)</p>
-                <p className="text-xs text-slate-600">Add your key for higher rate limits, or use free tier</p>
+                <p className="text-sm font-bold text-slate-900">Backend forensic engine</p>
+                <p className="text-xs text-slate-600">Deterministic local analysis with no browser-side mock output</p>
               </div>
             </div>
             <div className="flex items-center gap-2">
-              {showApiKeyInput ? (
+              <span className="rounded-full bg-green-100 px-3 py-1 text-xs font-bold text-green-700">
+                Ready
+              </span>
+              {false && (
+              showApiKeyInput ? (
                 <>
                   <input
                     type="password"
@@ -522,6 +473,7 @@ export default function UnderwriterDashboard() {
                     </button>
                   )}
                 </>
+              )
               )}
             </div>
           </div>

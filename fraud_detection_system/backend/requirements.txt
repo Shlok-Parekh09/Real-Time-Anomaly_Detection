@@ -1,4 +1,14 @@
 fastapi
+uvicorn[standard]
 python-multipart
-pypdf2
+PyPDF2
 pillow
+numpy
+opencv-python-headless
+PyMuPDF
+pytesseract
+pdfminer.six
+python-docx
+sentence-transformers
+faiss-cpu
+torch

@@ -1,3 +1,4 @@
 __pycache__/
 *.pyc
 fraud_detection_system/backend/data/
+node_modules

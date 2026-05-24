@@ -15,73 +15,73 @@ from typing import Any
 HIGH_SEVERITY_SIGNALS = {
     "altered_bank_math": {
         "name": "Altered Bank Statement Math",
-        "description": "Running daily balances do not mathematically align with listed debits and credits",
+        "description": "The account balance numbers don't add up correctly based on the deposits and withdrawals shown.",
         "severity": "high",
         "weight": 40,
     },
     "pdf_metadata_anomalies": {
         "name": "PDF Metadata Anomalies",
-        "description": "File created/modified using editing software (Adobe Illustrator, Photoshop) rather than native bank export",
+        "description": "The document was edited using image software like Photoshop instead of being a direct download from the bank.",
         "severity": "high",
         "weight": 40,
     },
     "phantom_rental_income": {
         "name": "Phantom Rental Income",
-        "description": "Gross rental income claimed on rent roll is absent from actual bank account deposits",
+        "description": "The claimed rental income does not appear in the actual bank account deposits.",
         "severity": "high",
         "weight": 38,
     },
     "forged_tax_transcripts": {
         "name": "Forged Tax Transcripts",
-        "description": "Tax returns provided do not match official IRS transcripts (Form 4506-C)",
+        "description": "The provided tax returns do not match the official IRS records.",
         "severity": "high",
         "weight": 40,
     },
     "reverse_occupancy": {
         "name": "Reverse Occupancy",
-        "description": "Investment property claimed as primary residence while owning superior home nearby",
+        "description": "An investment property is falsely claimed as a primary home to get a better loan rate.",
         "severity": "high",
         "weight": 35,
     },
     "undisclosed_mortgages": {
         "name": "Undisclosed Mortgages",
-        "description": "Credit report shows recent hard inquiries/tradelines omitted from Personal Financial Statement",
+        "description": "Hidden loans or recent credit checks were left off the financial statement.",
         "severity": "high",
         "weight": 38,
     },
     "fabricated_leases": {
         "name": "Fabricated Leases",
-        "description": "Leases feature non-existent tenants, vacant units, or signatures dated on legal holidays",
+        "description": "Lease agreements look fake, featuring non-existent tenants or impossible signature dates.",
         "severity": "high",
         "weight": 40,
     },
     "shell_company_concealment": {
         "name": "Shell Company Concealment",
-        "description": "Complex layered LLCs hiding massive off-balance-sheet liabilities or past bankruptcies",
+        "description": "Fake companies are used to hide massive debts or past bankruptcies.",
         "severity": "high",
         "weight": 38,
     },
     "collusive_appraisals": {
         "name": "Collusive Appraisals",
-        "description": "Buyer, seller, broker, and appraiser share business interests, artificially inflating property value",
+        "description": "The buyer, seller, and appraiser are working together to fake a high property value.",
         "severity": "high",
         "weight": 40,
     },
     "straw_buyers": {
         "name": "Straw Buyers",
-        "description": "Stated borrower has no real connection to property/down payment, masking true unqualified investor",
+        "description": "A fake buyer is used to hide the true, unqualified investor.",
         "severity": "high",
         "weight": 40,
     },
     "bogus_earnest_money": {
         "name": "Bogus Earnest Money",
-        "description": "Deposit traced back to seller, suggesting non-arm's length transaction to fake borrower equity",
+        "description": "The deposit money actually came from the seller to fake the buyer's financial strength.",
         "severity": "high",
         "weight": 40,
     },
     "identity_tampering": {
         "name": "Identity Document Tampering",
-        "description": "Altered driver's licenses, mismatched SSNs across credit bureaus, or use of deceased person's identity",
+        "description": "Fake IDs or stolen social security numbers were detected.",
         "severity": "high",
         "weight": 40,
     },
@@ -91,67 +91,67 @@ HIGH_SEVERITY_SIGNALS = {
 MEDIUM_SEVERITY_SIGNALS = {
     "sudden_account_seasoning": {
         "name": "Sudden Account Seasoning",
-        "description": "Massive unexplainable deposits 30-60 days before loan application to fake liquid reserves",
+        "description": "Large, unexplained deposits were made right before the application to fake having more cash.",
         "severity": "medium",
         "weight": 25,
     },
     "inflated_market_rent": {
         "name": "Inflated Market Rent",
-        "description": "Leases claim rental rates 30%+ above verified local market average for comparable units",
+        "description": "The claimed rent is much higher than what normal apartments in the area charge.",
         "severity": "medium",
         "weight": 28,
     },
     "non_arms_length_leases": {
         "name": "Non-Arm's Length Leases",
-        "description": "Tenants share same last name as landlord or are officers of landlord's other businesses",
+        "description": "The tenants seem to be family members or business partners of the landlord.",
         "severity": "medium",
         "weight": 25,
     },
     "orphaned_property_expenses": {
         "name": "Orphaned Property Expenses",
-        "description": "Bank statements show recurring debits for properties not listed on Schedule of Real Estate Owned",
+        "description": "The bank statements show payments for properties that the borrower didn't claim to own.",
         "severity": "medium",
         "weight": 25,
     },
     "hidden_down_payment_loans": {
         "name": "Hidden Down Payment Loans",
-        "description": "Hard-money or undisclosed personal loan funding down payment, fraudulently documented as 'gift'",
+        "description": "The down payment appears to be a hidden loan instead of a legitimate gift.",
         "severity": "medium",
         "weight": 28,
     },
     "unjustified_property_flipping": {
         "name": "Unjustified Property Flipping",
-        "description": "Rapid title transfers (6-12 months) with significant value spikes without renovation permits",
+        "description": "The property was bought and quickly sold for much more without any clear improvements.",
         "severity": "medium",
         "weight": 25,
     },
     "unverifiable_liquidity": {
         "name": "Unverifiable Liquidity",
-        "description": "Large reserves in cryptocurrency, overseas accounts, or private vaults untraceable to fiat currency",
+        "description": "Cash reserves are hidden in crypto or foreign accounts that can't be easily verified.",
         "severity": "medium",
         "weight": 22,
     },
     "commingled_funds": {
         "name": "Commingled Funds",
-        "description": "Extensive mixing of business revenues and personal expenses to artificially inflate personal liquidity",
+        "description": "Personal and business money are mixed together, making it hard to see true finances.",
         "severity": "medium",
         "weight": 20,
     },
     "geographic_inconsistencies": {
         "name": "Geographic Inconsistencies",
-        "description": "Multi-family property claimed as primary residence, but W-2 employer located three states away",
+        "description": "The claimed primary home is located far away from where the person actually works.",
         "severity": "medium",
         "weight": 25,
     },
     "pfs_tax_discrepancies": {
         "name": "PFS vs. Tax Discrepancies",
-        "description": "Net worth/business income on PFS vastly exceeds IRS figures, suggesting tax evasion or loan fraud",
+        "description": "The claimed income is much higher than what was reported to the IRS.",
         "severity": "medium",
         "weight": 28,
     },
     "frequent_address_hopping": {
         "name": "Frequent Address Hopping",
-        "description": "Credit report shows chaotic address changes every few months, hallmark of dodging creditors",
+        "description": "The credit report shows moving very often, which can be a sign of avoiding debt collectors.",
         "severity": "medium",
         "weight": 20,
     },
@@ -161,67 +161,67 @@ MEDIUM_SEVERITY_SIGNALS = {
 LOW_SEVERITY_SIGNALS = {
     "inconsistent_name_variations": {
         "name": "Inconsistent Name Variations",
-        "description": "Minor spelling errors, omitted suffixes (Jr., Sr.), or varied uses of maiden names",
+        "description": "Minor name differences across documents, like missing middle initials or varied maiden names.",
         "severity": "low",
         "weight": 8,
     },
     "missing_statement_pages": {
         "name": "Missing Statement Pages",
-        "description": "Bank statement submitted with missing pages (could be scanning error or hiding withdrawals)",
+        "description": "The bank statement is missing pages, which could be an accident or a way to hide withdrawals.",
         "severity": "low",
         "weight": 12,
     },
     "sloppy_pfs_formatting": {
         "name": "Sloppy PFS Formatting",
-        "description": "Personal Financial Statement contains broken Excel formulas, missing dates, or unsigned signature blocks",
+        "description": "The financial statement is poorly filled out, with missing dates or broken Excel formulas.",
         "severity": "low",
         "weight": 8,
     },
     "irregular_rent_deposits": {
         "name": "Irregular Rent Deposits",
-        "description": "Tenants pay rent in cash or via peer-to-peer apps (Venmo, Zelle) at random times",
+        "description": "Rent is paid in cash or through apps like Venmo at random times instead of a regular schedule.",
         "severity": "low",
         "weight": 10,
     },
     "stale_documentation": {
         "name": "Stale Documentation",
-        "description": "Pay stubs, bank statements, or rent rolls are over 60-90 days old",
+        "description": "The provided pay stubs or bank statements are too old (over 60-90 days).",
         "severity": "low",
         "weight": 10,
     },
     "handwritten_lease_corrections": {
         "name": "Handwritten Lease Corrections",
-        "description": "Lease agreements feature handwritten crossed-out amounts/dates without proper countersignatures",
+        "description": "The lease has handwritten changes crossed out without proper initials from both parties.",
         "severity": "low",
         "weight": 12,
     },
     "unexplained_micro_debits": {
         "name": "Unexplained Micro-Debits",
-        "description": "Small recurring monthly debits ($50-$150) suggesting undisclosed minor liability",
+        "description": "Small, regular monthly charges that might indicate an undisclosed hidden debt.",
         "severity": "low",
         "weight": 8,
     },
     "newly_minted_llcs": {
         "name": "Newly Minted LLCs",
-        "description": "LLC listed as holding company for massive portfolio, but incorporated less than 30 days ago",
+        "description": "A company claiming to own many properties was just created less than 30 days ago.",
         "severity": "low",
         "weight": 12,
     },
     "po_box_business_addresses": {
         "name": "PO Box Business Addresses",
-        "description": "Landlord lists PO Box or UPS Store as primary corporate headquarters without physical address",
+        "description": "The business uses a PO Box or UPS Store instead of a real office location.",
         "severity": "low",
         "weight": 10,
     },
     "misaligned_job_titles": {
         "name": "Misaligned Job Titles",
-        "description": "Generic low-level job title but reports massive salary contradicting industry norms",
+        "description": "The person's job title does not match the massive salary they claim to make.",
         "severity": "low",
         "weight": 12,
     },
     "verbal_omissions": {
         "name": "Verbal Omissions",
-        "description": "Borrower 'forgets' to mention minor derogatory marks/late payments during initial interview",
+        "description": "The borrower 'forgot' to mention some late payments or minor debts during the interview.",
         "severity": "low",
         "weight": 8,
     },
@@ -455,28 +455,33 @@ def _check_stale_documentation(text: str) -> dict[str, Any] | None:
     """Check for outdated documents (LOW severity)."""
     signal_def = LOW_SEVERITY_SIGNALS["stale_documentation"]
     
-    # Look for dates in the document
     date_pattern = r'(\d{1,2}[/-]\d{1,2}[/-]\d{2,4})'
     matches = re.findall(date_pattern, text)
     
     if matches:
-        try:
-            # Parse first date found
-            date_str = matches[0]
-            # Simple check: if year is more than 1 year old
-            if '2022' in date_str or '2021' in date_str or '2020' in date_str:
+        parsed_dates = []
+        for date_str in matches:
+            for date_format in ("%d/%m/%Y", "%m/%d/%Y", "%d-%m-%Y", "%m-%d-%Y", "%d/%m/%y", "%m/%d/%y"):
+                try:
+                    parsed_dates.append(datetime.strptime(date_str, date_format))
+                    break
+                except ValueError:
+                    continue
+
+        if parsed_dates:
+            oldest_relevant_date = min(parsed_dates)
+            age_days = (datetime.now() - oldest_relevant_date).days
+            if age_days > 90:
                 return {
                     "id": "stale-documentation",
                     "name": signal_def["name"],
                     "severity": signal_def["severity"],
-                    "summary": "Document appears to be over 60-90 days old",
+                    "summary": f"Document date is {age_days} days old",
                     "description": signal_def["description"],
-                    "evidence": [f"Date found: {date_str}"],
+                    "evidence": [f"Oldest parsed date: {oldest_relevant_date.date().isoformat()}", f"Age: {age_days} days"],
                     "confidence": 0.65,
                     "weight": signal_def["weight"],
                 }
-        except:
-            pass
     
     return None
 
