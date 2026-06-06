@@ -1,0 +1,37 @@
+---
+import { TrendingUp, TrendingDown } from "lucide-astro";
+
+interface Props {
+  title: string;
+  value: string | number;
+  trend?: string;
+  trendType?: 'up' | 'down' | 'neutral';
+  icon: any;
+  colorClass: string;
+}
+
+const { title, value, trend, trendType, icon: Icon, colorClass } = Astro.props;
+---
+
+<div class="investigation-card p-6 flex flex-col justify-between">
+  <div class="flex items-start justify-between">
+    <div>
+      <p class="text-sm font-medium text-slate-500 uppercase tracking-wider">{title}</p>
+      <p class="text-3xl font-bold text-slate-900 mt-1">{value}</p>
+    </div>
+    <div class={`p-3 rounded-lg ${colorClass}`}>
+      <Icon class="w-6 h-6" />
+    </div>
+  </div>
+  
+  {trend && (
+    <div class="mt-4 flex items-center gap-2">
+      <span class={`flex items-center text-xs font-semibold ${trendType === 'up' ? 'text-emerald-600' : trendType === 'down' ? 'text-rose-600' : 'text-slate-500'}`}>
+        {trendType === 'up' && <TrendingUp class="w-3 h-3 mr-1" />}
+        {trendType === 'down' && <TrendingDown class="w-3 h-3 mr-1" />}
+        {trend}
+      </span>
+      <span class="text-xs text-slate-400 font-medium">vs last month</span>
+    </div>
+  )}
+</div>

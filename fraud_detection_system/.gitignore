@@ -68,3 +68,24 @@ htmlcov/
 tmp/
 temp/
 *.tmp
+
+# AI agent configs
+.agents/
+.gemini/
+
+# Agent docs
+AGENTS.md
+DESIGN.md
+skills-lock.json
+
+# VS Code
+.vscode/
+
+# Build outputs
+**/dist/
+
+# Dependencies
+**/node_modules/
+
+# Astro cache
+**/.astro/

@@ -1,0 +1,165 @@
+---
+import Layout from '../layouts/Layout.astro';
+import MetricsCard from '../components/MetricsCard.astro';
+import { FileText, CheckCircle, AlertTriangle, ShieldAlert, Plus, ArrowRight, ExternalLink } from "lucide-astro";
+
+const recentInvestigations = [
+  { id: 'INV-2026-001', context: 'Loan Approval', applicant: 'Rajesh Kumar', date: '2 hours ago', status: 'Fraudulent', files: 4 },
+  { id: 'INV-2026-002', context: 'Mortgage Underwriting', applicant: 'Priya Singh', date: '5 hours ago', status: 'Suspicious', files: 6 },
+  { id: 'INV-2026-003', context: 'KYC / Onboarding', applicant: 'Amit Patel', date: 'Yesterday', status: 'Verified', files: 2 },
+  { id: 'INV-2026-004', context: 'Internal Audit', applicant: 'Suresh Raina', date: 'Yesterday', status: 'Verified', files: 12 },
+  { id: 'INV-2026-005', context: 'Tenant Screening', applicant: 'Ananya Iyer', date: '2 days ago', status: 'Suspicious', files: 3 },
+];
+---
+
+<Layout title="Dashboard | Anobis">
+  <div class="p-8 max-w-7xl mx-auto space-y-8">
+    <!-- Page Header -->
+    <div class="flex items-center justify-between">
+      <div>
+        <h1 class="text-2xl font-bold text-slate-900">Workspace Overview</h1>
+        <p class="text-slate-500 mt-1 font-medium">Monitoring and analysis of financial document integrity.</p>
+      </div>
+      <a href="/new-investigation" class="btn-primary">
+        <Plus class="w-4 h-4" />
+        New Investigation
+      </a>
+    </div>
+
+    <!-- Metrics Grid -->
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+      <MetricsCard 
+        title="Total Processed" 
+        value="1,284" 
+        icon={FileText} 
+        colorClass="bg-slate-100 text-slate-600"
+        trend="+12.5%"
+        trendType="up"
+      />
+      <MetricsCard 
+        title="Verified" 
+        value="1,142" 
+        icon={CheckCircle} 
+        colorClass="bg-emerald-100 text-emerald-600"
+        trend="+14.2%"
+        trendType="up"
+      />
+      <MetricsCard 
+        title="Suspicious" 
+        value="94" 
+        icon={AlertTriangle} 
+        colorClass="bg-amber-100 text-amber-600"
+        trend="-4.1%"
+        trendType="down"
+      />
+      <MetricsCard 
+        title="Fraudulent" 
+        value="48" 
+        icon={ShieldAlert} 
+        colorClass="bg-rose-100 text-rose-600"
+        trend="+8.3%"
+        trendType="up"
+      />
+    </div>
+
+    <!-- Recent Investigations -->
+    <div class="investigation-card">
+      <div class="px-6 py-4 border-b border-slate-200 flex items-center justify-between">
+        <h2 class="font-bold text-slate-900">Recent Investigations</h2>
+        <a href="/investigations" class="text-xs font-semibold text-bank-blue hover:underline flex items-center gap-1">
+          View All Investigations
+          <ArrowRight class="w-3 h-3" />
+        </a>
+      </div>
+      <div class="overflow-x-auto">
+        <table class="w-full text-left">
+          <thead class="bg-slate-50 text-slate-500 uppercase text-[10px] font-bold tracking-widest border-b border-slate-200">
+            <tr>
+              <th class="px-6 py-3">Investigation ID</th>
+              <th class="px-6 py-3">Context</th>
+              <th class="px-6 py-3">Applicant / Entity</th>
+              <th class="px-6 py-3">Date</th>
+              <th class="px-6 py-3">Files</th>
+              <th class="px-6 py-3">Status</th>
+              <th class="px-6 py-3 text-right">Actions</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-slate-200">
+            {recentInvestigations.map((inv) => (
+              <tr class="hover:bg-slate-50 transition-colors group">
+                <td class="px-6 py-4">
+                  <span class="font-mono text-xs font-semibold text-slate-900 bg-slate-100 px-2 py-1 rounded">{inv.id}</span>
+                </td>
+                <td class="px-6 py-4">
+                  <p class="text-sm font-medium text-slate-700">{inv.context}</p>
+                </td>
+                <td class="px-6 py-4">
+                  <p class="text-sm font-semibold text-slate-900">{inv.applicant}</p>
+                </td>
+                <td class="px-6 py-4">
+                  <p class="text-sm text-slate-500 font-medium">{inv.date}</p>
+                </td>
+                <td class="px-6 py-4">
+                  <p class="text-sm text-slate-500 font-medium">{inv.files} docs</p>
+                </td>
+                <td class="px-6 py-4">
+                  {inv.status === 'Verified' && <span class="status-pill-green">Verified</span>}
+                  {inv.status === 'Suspicious' && <span class="status-pill-yellow">Suspicious</span>}
+                  {inv.status === 'Fraudulent' && <span class="status-pill-red">Fraudulent</span>}
+                </td>
+                <td class="px-6 py-4 text-right">
+                  <a href={`/investigate/${inv.id}`} class="text-slate-400 hover:text-bank-blue transition-colors">
+                    <ExternalLink class="w-4 h-4 ml-auto" />
+                  </a>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+    
+    <!-- Quick Actions / Info -->
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <div class="lg:col-span-2 investigation-card p-6 bg-slate-900 text-white relative overflow-hidden">
+        <div class="relative z-10">
+          <h3 class="text-lg font-bold">Internal Audit & Compliance</h3>
+          <p class="text-slate-400 mt-2 text-sm max-w-md">Our system automatically monitors cross-document consistency for all loan and mortgage applications to ensure 100% regulatory compliance.</p>
+          <div class="mt-6 flex gap-4">
+            <button class="px-4 py-2 bg-white text-slate-900 rounded-md font-bold text-sm hover:bg-slate-100 transition-colors">Generate Quarterly Report</button>
+            <button class="px-4 py-2 bg-slate-800 text-white border border-slate-700 rounded-md font-bold text-sm hover:bg-slate-700 transition-colors">Audit Logs</button>
+          </div>
+        </div>
+        <!-- Decorative abstract shape -->
+        <div class="absolute -right-12 -top-12 w-64 h-64 bg-slate-800 rounded-full opacity-50 blur-3xl"></div>
+      </div>
+      
+      <div class="investigation-card p-6 border-slate-200">
+        <h3 class="font-bold text-slate-900">System Status</h3>
+        <div class="mt-4 space-y-4">
+          <div class="flex items-center justify-between">
+            <span class="text-sm text-slate-500 font-medium">AI Analysis Engine</span>
+            <span class="flex items-center text-xs font-bold text-emerald-600">
+              <span class="w-1.5 h-1.5 bg-emerald-500 rounded-full mr-2"></span>
+              Operational
+            </span>
+          </div>
+          <div class="flex items-center justify-between">
+            <span class="text-sm text-slate-500 font-medium">Cross-Document Validation</span>
+            <span class="flex items-center text-xs font-bold text-emerald-600">
+              <span class="w-1.5 h-1.5 bg-emerald-500 rounded-full mr-2"></span>
+              Operational
+            </span>
+          </div>
+          <div class="flex items-center justify-between">
+            <span class="text-sm text-slate-500 font-medium">Metadata Forensic Lab</span>
+            <span class="flex items-center text-xs font-bold text-emerald-600">
+              <span class="w-1.5 h-1.5 bg-emerald-500 rounded-full mr-2"></span>
+              Operational
+            </span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</Layout>

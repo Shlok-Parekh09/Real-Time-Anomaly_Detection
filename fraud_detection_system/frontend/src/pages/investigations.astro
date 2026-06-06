@@ -1,0 +1,138 @@
+---
+import Layout from '../layouts/Layout.astro';
+import { Search, Filter, Plus, ChevronRight, ExternalLink, FileText, Download, MoreHorizontal } from "lucide-astro";
+
+const investigations = [
+  { id: 'INV-2026-001', context: 'Loan Approval', applicant: 'Rajesh Kumar', date: 'June 5, 2026', status: 'Fraudulent', risk: 'High', score: 34 },
+  { id: 'INV-2026-002', context: 'Mortgage Underwriting', applicant: 'Priya Singh', date: 'June 5, 2026', status: 'Suspicious', risk: 'Medium', score: 62 },
+  { id: 'INV-2026-003', context: 'KYC / Onboarding', applicant: 'Amit Patel', date: 'June 4, 2026', status: 'Verified', risk: 'Low', score: 98 },
+  { id: 'INV-2026-004', context: 'Internal Audit', applicant: 'Suresh Raina', date: 'June 4, 2026', status: 'Verified', risk: 'Low', score: 96 },
+  { id: 'INV-2026-005', context: 'Tenant Screening', applicant: 'Ananya Iyer', date: 'June 3, 2026', status: 'Suspicious', risk: 'Medium', score: 71 },
+  { id: 'INV-2026-006', context: 'Loan Approval', applicant: 'Vikram Seth', date: 'June 3, 2026', status: 'Verified', risk: 'Low', score: 94 },
+  { id: 'INV-2026-007', context: 'Insurance Claim', applicant: 'Meera Deshmukh', date: 'June 2, 2026', status: 'Fraudulent', risk: 'High', score: 12 },
+  { id: 'INV-2026-008', context: 'Mortgage Underwriting', applicant: 'Arjun Kapoor', date: 'June 2, 2026', status: 'Verified', risk: 'Low', score: 91 },
+];
+---
+
+<Layout title="Investigations | Anobis" activeTab="investigations">
+  <div class="p-8 max-w-7xl mx-auto space-y-6">
+    <div class="flex items-center justify-between">
+      <div>
+        <h1 class="text-2xl font-bold text-slate-900">Investigations</h1>
+        <p class="text-slate-500 mt-1 font-medium">Manage and review all forensic document analysis cases.</p>
+      </div>
+      <div class="flex items-center gap-3">
+        <button class="btn-secondary">
+          <Download class="w-4 h-4" />
+          Export CSV
+        </button>
+        <a href="/new-investigation" class="btn-primary">
+          <Plus class="w-4 h-4" />
+          New Investigation
+        </a>
+      </div>
+    </div>
+
+    <!-- Filters & Search -->
+    <div class="flex flex-col md:flex-row gap-4 items-center justify-between bg-white p-4 rounded-lg border border-slate-200 shadow-sm">
+      <div class="relative w-full md:w-96">
+        <Search class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+        <input type="text" placeholder="Filter by ID, name, or context..." class="w-full pl-10 pr-4 py-2 bg-slate-50 border-slate-200 rounded-md text-sm focus:ring-1 focus:ring-bank-blue transition-all" />
+      </div>
+      <div class="flex items-center gap-2 w-full md:w-auto">
+        <button class="btn-secondary py-1.5 text-xs flex-1 md:flex-none">
+          <Filter class="w-3.5 h-3.5" />
+          More Filters
+        </button>
+        <select class="bg-slate-50 border border-slate-200 rounded-md text-xs font-bold py-1.5 px-3 text-slate-700 outline-none focus:ring-1 focus:ring-bank-blue">
+          <option>All Status</option>
+          <option>Verified</option>
+          <option>Suspicious</option>
+          <option>Fraudulent</option>
+        </select>
+        <select class="bg-slate-50 border border-slate-200 rounded-md text-xs font-bold py-1.5 px-3 text-slate-700 outline-none focus:ring-1 focus:ring-bank-blue">
+          <option>Last 30 Days</option>
+          <option>Last 7 Days</option>
+          <option>All Time</option>
+        </select>
+      </div>
+    </div>
+
+    <!-- Table -->
+    <div class="investigation-card">
+      <div class="overflow-x-auto">
+        <table class="w-full text-left">
+          <thead class="bg-slate-50 text-slate-500 uppercase text-[10px] font-bold tracking-widest border-b border-slate-200">
+            <tr>
+              <th class="px-6 py-4">ID</th>
+              <th class="px-6 py-4">Applicant</th>
+              <th class="px-6 py-4">Context</th>
+              <th class="px-6 py-4">Date</th>
+              <th class="px-6 py-4">Trust Score</th>
+              <th class="px-6 py-4">Status</th>
+              <th class="px-6 py-4 text-right">Action</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-slate-200">
+            {investigations.map((inv) => (
+              <tr class="hover:bg-slate-50 transition-colors group">
+                <td class="px-6 py-4">
+                  <span class="font-mono text-xs font-bold text-slate-900">{inv.id}</span>
+                </td>
+                <td class="px-6 py-4">
+                  <p class="text-sm font-bold text-slate-900">{inv.applicant}</p>
+                </td>
+                <td class="px-6 py-4 text-sm text-slate-600 font-medium">
+                  {inv.context}
+                </td>
+                <td class="px-6 py-4 text-sm text-slate-500 font-medium">
+                  {inv.date}
+                </td>
+                <td class="px-6 py-4">
+                  <div class="flex items-center gap-2">
+                    <div class="w-16 h-1.5 bg-slate-100 rounded-full overflow-hidden">
+                      <div 
+                        class={`h-full rounded-full ${inv.score > 80 ? 'bg-emerald-500' : inv.score > 50 ? 'bg-amber-500' : 'bg-rose-500'}`} 
+                        style={`width: ${inv.score}%`}
+                      ></div>
+                    </div>
+                    <span class={`text-xs font-bold ${inv.score > 80 ? 'text-emerald-600' : inv.score > 50 ? 'text-amber-600' : 'text-rose-600'}`}>{inv.score}%</span>
+                  </div>
+                </td>
+                <td class="px-6 py-4">
+                  {inv.status === 'Verified' && <span class="status-pill-green">Verified</span>}
+                  {inv.status === 'Suspicious' && <span class="status-pill-yellow">Suspicious</span>}
+                  {inv.status === 'Fraudulent' && <span class="status-pill-red">Fraudulent</span>}
+                </td>
+                <td class="px-6 py-4 text-right">
+                  <div class="flex items-center justify-end gap-2">
+                    <a href={`/investigate/${inv.id}`} class="p-1.5 text-slate-400 hover:text-bank-blue hover:bg-blue-50 rounded transition-all">
+                      <ExternalLink class="w-4 h-4" />
+                    </a>
+                    <button class="p-1.5 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded transition-all">
+                      <MoreHorizontal class="w-4 h-4" />
+                    </button>
+                  </div>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      
+      <!-- Pagination -->
+      <div class="px-6 py-4 bg-slate-50 border-t border-slate-200 flex items-center justify-between">
+        <p class="text-xs font-bold text-slate-500 uppercase tracking-widest">Showing 8 of 142 results</p>
+        <div class="flex items-center gap-2">
+          <button class="px-3 py-1 bg-white border border-slate-200 rounded text-xs font-bold text-slate-400 cursor-not-allowed">Previous</button>
+          <div class="flex items-center gap-1">
+            <button class="w-8 h-8 bg-bank-blue text-white rounded text-xs font-bold">1</button>
+            <button class="w-8 h-8 bg-white border border-slate-200 rounded text-xs font-bold text-slate-600 hover:bg-slate-50">2</button>
+            <button class="w-8 h-8 bg-white border border-slate-200 rounded text-xs font-bold text-slate-600 hover:bg-slate-50">3</button>
+          </div>
+          <button class="px-3 py-1 bg-white border border-slate-200 rounded text-xs font-bold text-slate-600 hover:bg-slate-50">Next</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</Layout>

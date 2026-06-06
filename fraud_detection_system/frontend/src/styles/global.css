@@ -1,0 +1,61 @@
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Inter", "Geist", system-ui, -apple-system, sans-serif;
+  --font-mono: "Geist Mono", "JetBrains Mono", ui-monospace, monospace;
+
+  --color-bank-blue: #003399;
+  --color-bank-gold: #FFCC00;
+  
+  --color-success-600: #059669;
+  --color-warning-600: #d97706;
+  --color-error-600: #dc2626;
+
+  --radius-sm: 4px;
+  --radius-md: 6px;
+  --radius-lg: 12px;
+}
+
+@layer base {
+  body {
+    @apply antialiased text-slate-900 bg-slate-50;
+  }
+}
+
+@utility status-pill {
+  padding-left: 0.5rem;
+  padding-right: 0.5rem;
+  padding-top: 0.125rem;
+  padding-bottom: 0.125rem;
+  border-radius: 9999px;
+  font-size: 0.75rem;
+  line-height: 1rem;
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+@utility status-pill-green {
+  @apply status-pill bg-emerald-50 text-emerald-700 border border-emerald-200;
+}
+
+@utility status-pill-yellow {
+  @apply status-pill bg-amber-50 text-amber-700 border border-amber-200;
+}
+
+@utility status-pill-red {
+  @apply status-pill bg-rose-50 text-rose-700 border border-rose-200;
+}
+
+@utility investigation-card {
+  @apply bg-white border border-slate-200 rounded-lg shadow-sm overflow-hidden;
+}
+
+@utility btn-primary {
+  @apply px-4 py-2 bg-slate-900 text-white rounded-md font-medium hover:bg-slate-800 transition-colors inline-flex items-center justify-center gap-2;
+}
+
+@utility btn-secondary {
+  @apply px-4 py-2 bg-white border border-slate-200 text-slate-700 rounded-md font-medium hover:bg-slate-50 transition-colors inline-flex items-center justify-center gap-2;
+}
