@@ -1,46 +1,52 @@
-# Astro Starter Kit: Basics
+# Anobis Frontend | Banking Investigation Workspace
 
-```sh
-npm create astro@latest -- --template basics
-```
+The professional frontend for the **Anobis** document fraud detection platform, built with **Astro 6.4** and **Tailwind CSS v4**.
 
-> 🧑‍🚀 **Seasoned astronaut?** Delete this file. Have fun!
+## 🚀 Overview
 
-## 🚀 Project Structure
+This frontend is designed as a high-density, enterprise-grade workspace for banking auditors and underwriters. It prioritizes forensic clarity, evidence presentation, and cross-document validation.
 
-Inside of your Astro project, you'll see the following folders and files:
+## 🛠️ Tech Stack
+
+- **Framework**: [Astro 6.4](https://astro.build/)
+- **Styling**: [Tailwind CSS v4](https://tailwindcss.com/) (Vite Plugin)
+- **Icons**: [Lucide Astro](https://lucide.dev/guide/astro)
+- **Type Safety**: TypeScript
+
+## 📂 Project Structure
 
 ```text
-/
-├── public/
-│   └── favicon.svg
-├── src
-│   ├── assets
-│   │   └── astro.svg
-│   ├── components
-│   │   └── Welcome.astro
-│   ├── layouts
-│   │   └── Layout.astro
-│   └── pages
-│       └── index.astro
-└── package.json
+src/
+├── components/        # Reusable Astro components (MetricsCard, etc.)
+├── layouts/           # Main Anobis layout shell with sidebar
+├── pages/             # Route handlers
+│   ├── index.astro    # Dashboard
+│   ├── investigations.astro # Audit trail
+│   ├── new-investigation.astro # Upload flow
+│   └── investigate/   # Forensic workspace
+└── styles/            # Tailwind v4 entry point
 ```
-
-To learn more about the folder structure of an Astro project, refer to [our guide on project structure](https://docs.astro.build/en/basics/project-structure/).
 
 ## 🧞 Commands
 
-All commands are run from the root of the project, from a terminal:
+| Command | Action |
+| :--- | :--- |
+| `npm install` | Installs dependencies |
+| `npm run dev` | Starts local dev server at `localhost:4321` |
+| `npm run build` | Build for production to `./dist/` |
+| `npm run preview` | Preview production build locally |
 
-| Command                   | Action                                           |
-| :------------------------ | :----------------------------------------------- |
-| `npm install`             | Installs dependencies                            |
-| `npm run dev`             | Starts local dev server at `localhost:4321`      |
-| `npm run build`           | Build your production site to `./dist/`          |
-| `npm run preview`         | Preview your build locally, before deploying     |
-| `npm run astro ...`       | Run CLI commands like `astro add`, `astro check` |
-| `npm run astro -- --help` | Get help using the Astro CLI                     |
+## 🎨 Design Principles
 
-## 👀 Want to learn more?
+- **Professionalism**: Uses a clean "Banking Blue" and Slate palette.
+- **Density**: High information density for efficient forensic review.
+- **Clarity**: Status-coded findings (🟢 Verified, 🟡 Suspicious, 🔴 Fraudulent).
+- **Evidence-First**: Every UI element is tied to specific forensic indicators.
 
-Feel free to check [our documentation](https://docs.astro.build) or jump into our [Discord server](https://astro.build/chat).
+## 🔗 Backend Integration
+
+The frontend expects a FastAPI backend running at `http://localhost:8000`. You can configure the API endpoint in your `.env` file (see `.env.example`).
+
+---
+
+**Anobis | Professional Banking Forensics**

@@ -8,3 +8,6 @@ pytesseract
 Pillow
 numpy
 pydantic
+sqlalchemy
+pydantic-settings
+pydantic[email]

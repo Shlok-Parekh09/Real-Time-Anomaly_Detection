@@ -1,105 +1,81 @@
-# 🔍 AI-Powered Fraud Detection System
+# 🔍 Anobis: Banking Document Investigation Platform
 
-A free, web-based document fraud detection system powered by **Gemma AI** via **Puter.js**.
+An enterprise-grade document fraud and forensics platform designed for banking compliance, loan underwriting, and audit teams.
+
+**Anobis** provides a professional **Banking Investigation Workspace** for high-fidelity forensic analysis of financial and identity documents.
 
 ## 🚀 Quick Links
 
-- **Main Project:** [fraud_detection_system/](./fraud_detection_system/)
-- **Deploy Guide:** [DEPLOY_TO_VERCEL.md](./fraud_detection_system/DEPLOY_TO_VERCEL.md)
-- **Documentation:** [fraud_detection_system/README.md](./fraud_detection_system/README.md)
+- **Frontend (Astro + Tailwind v4):** [fraud_detection_system/frontend/](./fraud_detection_system/frontend/)
+- **Backend (FastAPI):** [fraud_detection_system/backend/](./fraud_detection_system/backend/)
+- **Engineering Guide:** [AGENTS.md](./AGENTS.md)
+- **Design Guidelines:** [DESIGN.md](./DESIGN.md)
 
-## ✨ Features
+## ✨ Key Features
 
-- 🤖 AI-powered fraud detection (Gemma 2 27B)
-- 📄 PDF and image support
-- 🎯 Real-time analysis (5-15 seconds)
-- 💰 100% free (no API keys)
-- 🌐 Deploy to Vercel in 10 minutes
-- 🖍️ Smart highlighting of suspicious areas
+- **Banking Investigation Workspace**: Professional, high-density UI designed for enterprise auditors.
+- **Multi-Document Analysis**: Compare bank statements, payslips, and KYC documents in a single case.
+- **Cross-Document Consistency**: Automatically identify mismatches (e.g., income discrepancy) across different files.
+- **Forensic PDF Inspection**: Deterministic byte-level analysis for metadata tampering and structural anomalies.
+- **Trust Scoring**: Dynamic risk assessment based on forensic findings.
+- **Audit Ready**: Comprehensive investigation logs and report export capabilities.
 
 ## 🚀 Get Started
 
-```bash
-cd fraud_detection_system
+### Local Development
 
-# Local development
-cd backend && python main.py
-cd frontend && npm run dev
+1. **Frontend**:
+   ```bash
+   cd fraud_detection_system/frontend
+   npm install
+   npm run dev
+   ```
+   Available at `http://localhost:4321`
 
-# Or deploy to Vercel (see DEPLOY_TO_VERCEL.md)
-```
-
-## 📖 Documentation
-
-All documentation is in the `fraud_detection_system/` directory:
-
-- [README.md](./fraud_detection_system/README.md) - Main documentation
-- [DEPLOY_TO_VERCEL.md](./fraud_detection_system/DEPLOY_TO_VERCEL.md) - Step-by-step deployment
-- [WEB_DEPLOYMENT_GUIDE.md](./fraud_detection_system/WEB_DEPLOYMENT_GUIDE.md) - Architecture details
-- [SOLUTION_SUMMARY.md](./fraud_detection_system/SOLUTION_SUMMARY.md) - Technical overview
-
-## 🎯 What It Does
-
-Analyzes documents for fraud indicators:
-- **Metadata manipulation** - Editing software traces, date mismatches
-- **Financial inconsistencies** - Balance errors, identical amounts
-- **Pattern anomalies** - Weekend transactions, statistical outliers
-- **Document integrity** - Missing fields, vague descriptions
-
-## 💰 Cost
-
-**$0/month** for unlimited users when deployed to Vercel!
-
-- Frontend: Vercel (free)
-- Backend: Vercel (free)
-- AI: Puter.js (free, unlimited)
+2. **Backend**:
+   ```bash
+   cd fraud_detection_system/backend
+   python -m venv .venv
+   source .venv/bin/activate
+   pip install -r requirements.txt
+   uvicorn main:app --reload
+   ```
 
 ## 🏗️ Architecture
 
 ```
-User Browser
+Banking Auditor
     ↓
-Frontend (React + Vite)
+Anobis Dashboard (Astro 6.4 + Tailwind v4)
     ↓
-Backend (FastAPI)
+Forensic Engine (FastAPI + PyMuPDF)
     ↓
-Puter.js → Gemma AI (cloud)
+Metadata, Structural, & Consistency Analysis
     ↓
-Results with highlighting
+High-Density Investigation Report
 ```
 
 ## 🛠️ Tech Stack
 
-- **Frontend:** React, TypeScript, Vite, TailwindCSS, Puter.js
-- **Backend:** FastAPI, PyMuPDF, Tesseract OCR, OpenCV
-- **AI:** Gemma4 31B (via Puter.js) - Most accurate model
-- **Hosting:** Vercel (serverless)
+- **Frontend:** Astro 6.4, TypeScript, Tailwind CSS v4, Lucide Astro.
+- **Backend:** FastAPI, PyMuPDF (fitz), Tesseract OCR, OpenCV.
+- **Design:** Enterprise Banking Investigation aesthetic (Anobis Branding).
 
-## 📊 Performance
+## 🎯 What It Investigates
 
-- **Analysis:** 5-15 seconds per document
-- **Accuracy:** Highest (Gemma4 31B model)
-- **Scale:** Unlimited concurrent users
-- **Cost:** $0/month
+Anobis analyzes documents for critical fraud indicators:
+- **Metadata Manipulation**: Software traces (e.g., Photoshop, PDF Editors), creation/modification date mismatches.
+- **Cross-Doc Inconsistencies**: Income mismatch between payslips and statements, name spelling variations.
+- **Structural Integrity**: PDF revision counts, incremental update anomalies, font inconsistencies.
+- **Content Validation**: Anomalous transaction patterns, suspected PDF layering.
 
-## 🔐 Security
+## 🔐 Security & Compliance
 
-- ✅ HTTPS (automatic)
-- ✅ User authentication (Puter OAuth)
-- ✅ No data storage
-- ✅ Privacy-focused
-
-## 🚀 Deploy Now
-
-1. Push to GitHub
-2. Import to Vercel
-3. Deploy backend + frontend
-4. Done!
-
-See [DEPLOY_TO_VERCEL.md](./fraud_detection_system/DEPLOY_TO_VERCEL.md) for detailed instructions.
+- **Privacy First**: Designed for local/private deployment within banking infrastructure.
+- **Deterministic**: Findings are grounded in forensic evidence, not probabilistic AI hallucinations.
+- **Audit Trail**: Every finding is backed by specific evidence and confidence assessments.
 
 ---
 
-**Made with ❤️ for free, accessible fraud detection**
-
-**No API keys. No subscriptions. Just AI.**
+**Anobis | Professional Banking Forensics**
+*Built for the Canara Bank Hackathon*
