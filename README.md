@@ -1,81 +1,103 @@
-# 🔍 Anobis: Banking Document Investigation Platform
+# Anobis: Banking Document Fraud & Anomaly Detection
 
-An enterprise-grade document fraud and forensics platform designed for banking compliance, loan underwriting, and audit teams.
+## Project Overview
 
-**Anobis** provides a professional **Banking Investigation Workspace** for high-fidelity forensic analysis of financial and identity documents.
+### Problem Statement
+In modern banking, mortgage underwriting, and KYC processes, document fraud has become increasingly sophisticated. Single-document classification is no longer enough to detect coordinated forgery attempts. Underwriters are overwhelmed by manual verification, leading to slow processing times and increased risk exposure.
 
-## 🚀 Quick Links
+### The Solution: Anobis
+Anobis is an **investigation-centric** document fraud detection platform. Instead of analyzing documents in isolation, it treats multiple documents as part of a single **Investigation**. By correlating data across IDs, payslips, and bank statements, Anobis identifies contradictions and tampering that traditional systems miss.
 
-- **Frontend (Astro + Tailwind v4):** [fraud_detection_system/frontend/](./fraud_detection_system/frontend/)
-- **Backend (FastAPI):** [fraud_detection_system/backend/](./fraud_detection_system/backend/)
-- **Engineering Guide:** [AGENTS.md](./AGENTS.md)
-- **Design Guidelines:** [DESIGN.md](./DESIGN.md)
-
-## ✨ Key Features
-
-- **Banking Investigation Workspace**: Professional, high-density UI designed for enterprise auditors.
-- **Multi-Document Analysis**: Compare bank statements, payslips, and KYC documents in a single case.
-- **Cross-Document Consistency**: Automatically identify mismatches (e.g., income discrepancy) across different files.
-- **Forensic PDF Inspection**: Deterministic byte-level analysis for metadata tampering and structural anomalies.
-- **Trust Scoring**: Dynamic risk assessment based on forensic findings.
-- **Audit Ready**: Comprehensive investigation logs and report export capabilities.
-
-## 🚀 Get Started
-
-### Local Development
-
-1. **Frontend**:
-   ```bash
-   cd fraud_detection_system/frontend
-   npm install
-   npm run dev
-   ```
-   Available at `http://localhost:4321`
-
-2. **Backend**:
-   ```bash
-   cd fraud_detection_system/backend
-   python -m venv .venv
-   source .venv/bin/activate
-   pip install -r requirements.txt
-   uvicorn main:app --reload
-   ```
-
-## 🏗️ Architecture
-
-```
-Banking Auditor
-    ↓
-Anobis Dashboard (Astro 6.4 + Tailwind v4)
-    ↓
-Forensic Engine (FastAPI + PyMuPDF)
-    ↓
-Metadata, Structural, & Consistency Analysis
-    ↓
-High-Density Investigation Report
-```
-
-## 🛠️ Tech Stack
-
-- **Frontend:** Astro 6.4, TypeScript, Tailwind CSS v4, Lucide Astro.
-- **Backend:** FastAPI, PyMuPDF (fitz), Tesseract OCR, OpenCV.
-- **Design:** Enterprise Banking Investigation aesthetic (Anobis Branding).
-
-## 🎯 What It Investigates
-
-Anobis analyzes documents for critical fraud indicators:
-- **Metadata Manipulation**: Software traces (e.g., Photoshop, PDF Editors), creation/modification date mismatches.
-- **Cross-Doc Inconsistencies**: Income mismatch between payslips and statements, name spelling variations.
-- **Structural Integrity**: PDF revision counts, incremental update anomalies, font inconsistencies.
-- **Content Validation**: Anomalous transaction patterns, suspected PDF layering.
-
-## 🔐 Security & Compliance
-
-- **Privacy First**: Designed for local/private deployment within banking infrastructure.
-- **Deterministic**: Findings are grounded in forensic evidence, not probabilistic AI hallucinations.
-- **Audit Trail**: Every finding is backed by specific evidence and confidence assessments.
+### Why it Matters
+*   **Prevent Financial Loss:** Catch sophisticated forgery before credit is extended.
+*   **Operational Efficiency:** Reduce manual review time by 60% with evidence-based findings.
+*   **Explainable AI:** Move beyond "Black Box" scores. Every flag is backed by physical evidence and deterministic math.
 
 ---
 
-**Anobis | Professional Banking Forensics**
-*Built for the Canara Bank Hackathon*
+## Key Features
+
+*   **Multi-Document Investigations:** Analyze a complete case (ID + Payslip + Bank Statement) as a single entity.
+*   **Automated Classification:** Automatically detects document types (e.g., PAN, Aadhaar, Bank Statement) to apply correct validation rules.
+*   **Digital Forensics:** Detects metadata manipulation, software signatures (Photoshop/Canva), and PDF revision history.
+*   **Context-Aware Validation:** Validates bank statement math and payslip consistency based on the investigation goal (e.g., Loan Approval).
+*   **Cross-Document Intelligence:** Matches names, IDs, and financial values across different files to detect identity or income mismatches.
+*   **Deterministic Scoring:** Transparent 0-100 Trust and Confidence scores.
+*   **Multilingual AI Summaries:** Generates plain-language summaries in **English and Hindi** for regional investigators.
+*   **Audit Timeline:** A complete chronological log of every forensic step taken during the investigation.
+
+---
+
+## Architecture Overview
+
+Anobis uses a modular, asynchronous pipeline architecture:
+
+**Investigation** $\rightarrow$ **Upload** $\rightarrow$ **Extraction** $\rightarrow$ **Entity Extraction** $\rightarrow$ **Forensics** $\rightarrow$ **Context Validation** $\rightarrow$ **Cross-Doc Validation** $\rightarrow$ **Trust Engine** $\rightarrow$ **AI Summary** $\rightarrow$ **Report**
+
+---
+
+## Technology Stack
+
+*   **Frontend:** Astro, TypeScript, Tailwind CSS, Nano Stores.
+*   **Backend:** FastAPI (Python), SQLAlchemy ORM.
+*   **Database:** SQLite (SQLAlchemy for easy PostgreSQL migration).
+*   **AI:** Gemini 2.5 Flash (Technical Translation & Summarization).
+*   **Forensics:** PyMuPDF (PDF Structure), OpenCV (Image Metadata), Levenshtein/Jaro-Winkler (Fuzzy Matching).
+
+---
+
+## Repository Structure
+
+```text
+Real-Time-Anomaly_Detection/
+├── dataset/                # Sample data for demo and testing
+├── fraud_detection_system/
+│   ├── backend/            # Modular FastAPI application
+│   │   ├── api/            # REST Endpoints & Dependencies
+│   │   ├── core/           # Config & DB Initialization
+│   │   ├── models/         # SQLAlchemy & Pydantic Schemas
+│   │   ├── layers/         # Domain Logic (Forensics, Extraction, etc.)
+│   │   ├── services/       # Orchestrators (InvestigationManager)
+│   │   ├── legacy/         # Archived legacy scripts
+│   │   └── main.py         # Entry Point
+│   └── frontend/           # Astro Web Application
+└── README.md
+```
+
+---
+
+## API Overview
+
+| Endpoint | Method | Description |
+| :--- | :--- | :--- |
+| `/investigations` | `GET` | List all investigations (Dashboard) |
+| `/investigations` | `POST` | Create a new investigation case |
+| `/investigations/{id}/documents` | `POST` | Upload documents to a case |
+| `/investigations/{id}/analyze` | `POST` | Trigger async forensic pipeline |
+| `/investigations/{id}/status` | `GET` | Real-time progress and stage tracking |
+| `/investigations/{id}/results` | `GET` | Full investigation findings and report data |
+| `/investigations/{id}/events` | `GET` | Complete audit timeline |
+
+---
+
+## Local Setup
+
+### Backend Setup
+1. `cd fraud_detection_system/backend`
+2. `python -m venv .venv && source .venv/bin/activate`
+3. `pip install -r requirements.txt`
+4. Create a `.env` file with your `GEMINI_API_KEY`.
+5. `uvicorn main:app --reload`
+
+### Frontend Setup
+1. `cd fraud_detection_system/frontend`
+2. `npm install`
+3. `npm run dev`
+
+---
+
+## Future Enhancements
+*   **KNN Anomaly Detection:** Statistical outlier detection against a trusted document repository.
+*   **Similarity Engine:** Identifying known fraudulent templates across different investigations.
+*   **Advanced Image Forensics:** Deep Error Level Analysis (ELA) for image-based uploads.
+*   **PDF Export:** Generating immutable forensic audit reports in PDF format.
