@@ -23,9 +23,10 @@ COPY . .
 RUN mkdir -p uploads
 
 # Download model on build (optional - can also lazy load)
+# Using TinyLlama for free tier deployments (smaller, faster)
 RUN python -c "from transformers import AutoTokenizer, AutoModelForCausalLM; \
-    AutoTokenizer.from_pretrained('microsoft/Phi-3-mini-4k-instruct', trust_remote_code=True); \
-    AutoModelForCausalLM.from_pretrained('microsoft/Phi-3-mini-4k-instruct', trust_remote_code=True)" || echo "Model will be downloaded on first use"
+    AutoTokenizer.from_pretrained('TinyLlama/TinyLlama-1.1B-Chat-v1.0', trust_remote_code=True); \
+    AutoModelForCausalLM.from_pretrained('TinyLlama/TinyLlama-1.1B-Chat-v1.0', trust_remote_code=True)" || echo "Model will be downloaded on first use"
 
 # Expose port
 EXPOSE 8000

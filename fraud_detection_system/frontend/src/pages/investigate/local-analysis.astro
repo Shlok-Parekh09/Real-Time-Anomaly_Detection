@@ -1,0 +1,203 @@
+---
+import Layout from '../../layouts/Layout.astro';
+import { 
+  ShieldCheck, AlertTriangle, CheckCircle2, ChevronLeft, Download, 
+  Printer, Languages, Info, FileText, AlertCircle, FileSearch, 
+  ExternalLink, ArrowRight, CornerDownRight, History, MoreVertical,
+  Scale, HardDrive, Cpu, FileCheck, Eye
+} from "lucide-astro";
+
+const { id } = Astro.params;
+---
+
+<Layout title={`Investigation ${id} | Anobis`} activeTab="investigations">
+  <div id="loading-state" class="flex flex-col items-center justify-center h-full bg-slate-50">
+     <div class="animate-spin text-bank-blue mb-4">
+        <Cpu class="w-12 h-12" />
+     </div>
+     <p class="text-slate-900 font-bold">Compiling Forensic Report...</p>
+     <p class="text-slate-500 text-sm">Aggregating evidence from local analysis engines</p>
+  </div>
+
+  <div id="results-content" class="flex h-full overflow-hidden hidden">
+    <!-- File Sidebar -->
+    <aside class="w-72 border-r border-slate-200 bg-white flex flex-col flex-shrink-0">
+      <div class="p-4 border-b border-slate-200 flex items-center justify-between">
+        <h2 class="text-xs font-bold text-slate-900 uppercase tracking-widest">Analyzed File</h2>
+      </div>
+      <div class="flex-1 overflow-y-auto p-2 space-y-1">
+          <button class="w-full flex items-center justify-between p-3 rounded-md transition-all text-left bg-blue-50 border border-blue-100">
+            <div class="flex items-center gap-3 truncate">
+              <div id="sidebar-status-dot" class="w-2 h-2 rounded-full flex-shrink-0"></div>
+              <span id="sidebar-filename" class="text-sm truncate font-bold text-bank-blue">filename.pdf</span>
+            </div>
+            <Eye class="w-3.5 h-3.5 text-bank-blue flex-shrink-0" />
+          </button>
+      </div>
+    </aside>
+
+    <!-- Workspace -->
+    <div class="flex-1 flex flex-col min-w-0 bg-slate-50 overflow-hidden">
+      <!-- Toolbar -->
+      <div class="h-12 bg-white border-b border-slate-200 flex items-center justify-between px-6 flex-shrink-0">
+        <div class="flex items-center gap-4">
+          <a href="/new-investigation" class="p-1 text-slate-400 hover:text-slate-900 transition-colors">
+            <ChevronLeft class="w-5 h-5" />
+          </a>
+          <div class="h-4 w-px bg-slate-200"></div>
+          <p class="text-xs font-bold text-slate-500 uppercase tracking-widest">Case ID: <span class="text-slate-900" id="case-id-display">LOCAL-ANALYSIS</span></p>
+          <div class="h-4 w-px bg-slate-200"></div>
+          <span id="top-status-pill" class="status-pill-red">Status Loading</span>
+        </div>
+      </div>
+
+      <!-- Main Workspace Scroll Area -->
+      <div class="flex-1 overflow-y-auto p-8">
+        <div class="max-w-6xl mx-auto space-y-8">
+          
+          <!-- Summary Header -->
+          <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            <div class="lg:col-span-2 space-y-6">
+              <div class="flex items-start justify-between bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
+                <div class="space-y-4 flex-1">
+                  <div class="flex items-center gap-3">
+                    <div id="summary-icon-bg" class="p-2 rounded-lg">
+                      <ShieldCheck class="w-6 h-6" />
+                    </div>
+                    <div>
+                      <h2 class="text-xl font-bold text-slate-900">Investigation Summary</h2>
+                      <p class="text-slate-500 text-sm font-medium">Real-Time Forensic Engine Results</p>
+                    </div>
+                  </div>
+                  
+                  <div class="bg-slate-50 p-4 rounded-lg border border-slate-100 relative group">
+                    <p id="summary-text" class="text-sm text-slate-700 leading-relaxed font-medium pr-10">
+                      Generating summary...
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Detailed Findings -->
+              <div class="space-y-4" id="findings-container">
+                 <!-- Findings will be injected here -->
+              </div>
+            </div>
+
+            <!-- Score Panel -->
+            <div class="space-y-6">
+              <div class="investigation-card p-8 flex flex-col items-center text-center bg-white">
+                <p class="text-xs font-bold text-slate-400 uppercase tracking-widest mb-4">Fraud Probability Score</p>
+                <div class="relative w-32 h-32 flex items-center justify-center">
+                  <svg class="w-full h-full transform -rotate-90">
+                    <circle cx="64" cy="64" r="58" stroke="currentColor" stroke-width="8" fill="transparent" class="text-slate-100" />
+                    <circle id="score-circle" cx="64" cy="64" r="58" stroke="currentColor" stroke-width="8" fill="transparent" stroke-dasharray="364.4" stroke-dashoffset="364.4" class="transition-all duration-1000" />
+                  </svg>
+                  <span id="score-text" class="absolute text-3xl font-bold text-slate-900 tracking-tighter">0%</span>
+                </div>
+                <div class="mt-6 space-y-1">
+                  <p id="status-label" class="text-lg font-bold uppercase tracking-tight">Status</p>
+                  <p id="status-desc" class="text-xs text-slate-500 font-medium">Analysis complete</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</Layout>
+
+<script>
+  window.addEventListener('load', () => {
+    const rawData = sessionStorage.getItem('last_investigation_result');
+    if (!rawData) {
+      window.location.href = '/new-investigation';
+      return;
+    }
+
+    const data = JSON.parse(rawData);
+    
+    // UI Elements
+    const loadingState = document.getElementById('loading-state');
+    const resultsContent = document.getElementById('results-content');
+    const sidebarFilename = document.getElementById('sidebar-filename');
+    const sidebarStatusDot = document.getElementById('sidebar-status-dot');
+    const topStatusPill = document.getElementById('top-status-pill');
+    const summaryText = document.getElementById('summary-text');
+    const scoreCircle = document.getElementById('score-circle');
+    const scoreText = document.getElementById('score-text');
+    const statusLabel = document.getElementById('status-label');
+    const findingsContainer = document.getElementById('findings-container');
+
+    // 1. Populate Basic Info
+    sidebarFilename.textContent = data.filename;
+    
+    // 2. Score Animation
+    const score = data.fraud_probability_score;
+    scoreText.textContent = `${score}%`;
+    const offset = 364.4 - (364.4 * score / 100);
+    scoreCircle.style.strokeDashoffset = offset;
+
+    // 3. Status Colors
+    if (data.status === 'TAMPERED') {
+      scoreCircle.classList.add('text-rose-500');
+      statusLabel.textContent = 'TAMPERED';
+      statusLabel.classList.add('text-rose-600');
+      topStatusPill.className = 'status-pill-red';
+      topStatusPill.textContent = 'High Risk Detected';
+      sidebarStatusDot.classList.add('bg-rose-500');
+    } else if (data.status === 'SUSPICIOUS') {
+      scoreCircle.classList.add('text-amber-500');
+      statusLabel.textContent = 'SUSPICIOUS';
+      statusLabel.classList.add('text-amber-600');
+      topStatusPill.className = 'status-pill-amber';
+      topStatusPill.textContent = 'Potential Issues';
+      sidebarStatusDot.classList.add('bg-amber-500');
+    } else {
+      scoreCircle.classList.add('text-emerald-500');
+      statusLabel.textContent = 'TRUSTED';
+      statusLabel.classList.add('text-emerald-600');
+      topStatusPill.className = 'status-pill-green';
+      topStatusPill.textContent = 'Verified Clear';
+      sidebarStatusDot.classList.add('bg-emerald-500');
+    }
+
+    // 4. Build Summary
+    if (data.anomalies.length > 0) {
+      summaryText.textContent = `Analysis of "${data.filename}" revealed ${data.anomalies.length} specific anomalies. Key concerns include ${data.anomalies[0].type.toLowerCase()}.`;
+    } else {
+      summaryText.textContent = `Forensic analysis of "${data.filename}" found no technical anomalies. The document's structural integrity, metadata, and mathematical values appear consistent with official banking standards.`;
+    }
+
+    // 5. Build Findings List
+    findingsContainer.innerHTML = data.anomalies.map(anomaly => {
+      const colorClass = anomaly.risk_level === 'High' || anomaly.risk_level === 'Critical' ? 'rose' : 'amber';
+      return `
+        <div class="investigation-card border-l-4 border-l-${colorClass}-500 bg-white">
+          <div class="p-6">
+            <div class="flex items-start justify-between">
+              <div class="flex items-center gap-3">
+                <div class="p-2 bg-${colorClass}-50 text-${colorClass}-600 rounded">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg>
+                </div>
+                <div>
+                  <h4 class="text-sm font-bold text-slate-900">${anomaly.type}</h4>
+                  <p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest">${anomaly.risk_level} Risk</p>
+                </div>
+              </div>
+            </div>
+            <div class="mt-4 pl-12">
+              <p class="text-xs font-bold text-slate-400 uppercase tracking-widest mb-1">Forensic Evidence</p>
+              <p class="text-sm text-slate-700 leading-relaxed bg-slate-50 p-3 rounded border border-slate-100 italic">${anomaly.description}</p>
+            </div>
+          </div>
+        </div>
+      `;
+    }).join('');
+
+    // Reveal Content
+    loadingState.classList.add('hidden');
+    resultsContent.classList.remove('hidden');
+  });
+</script>

@@ -1,6 +1,6 @@
 ---
 import Layout from '../layouts/Layout.astro';
-import { ShieldCheck, Upload, ChevronRight, File, X, Sparkles, Building2, UserCheck, Landmark, Receipt, FileSearch } from "lucide-astro";
+import { ShieldCheck, Upload, ChevronRight, File, X, Sparkles, Building2, UserCheck, Landmark, Receipt, FileSearch, Loader2 } from "lucide-astro";
 
 const contexts = [
   { id: 'loan', name: 'Loan Approval', description: 'Personal or business loan verification', icon: Landmark },
@@ -26,87 +26,167 @@ const contexts = [
       <p class="text-slate-500 mt-1 font-medium">Select context and upload documents for forensic analysis.</p>
     </div>
 
-    <!-- Context Selection -->
-    <section class="space-y-4">
-      <div class="flex items-center justify-between">
-        <h2 class="text-sm font-bold text-slate-900 uppercase tracking-wider">1. Investigation Context</h2>
-        <div class="flex items-center gap-2 px-3 py-1 bg-violet-50 text-violet-700 rounded-full border border-violet-100 cursor-pointer hover:bg-violet-100 transition-colors">
-          <Sparkles class="w-3 h-3" />
-          <span class="text-[10px] font-bold uppercase tracking-widest">Automatic Detection</span>
-        </div>
-      </div>
-      
-      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        {contexts.map((ctx) => (
-          <label class="group relative flex items-start gap-4 p-4 bg-white border border-slate-200 rounded-lg cursor-pointer hover:border-bank-blue hover:shadow-sm transition-all has-[:checked]:border-bank-blue has-[:checked]:bg-blue-50/30 has-[:checked]:ring-1 has-[:checked]:ring-bank-blue">
-            <input type="radio" name="context" value={ctx.id} class="sr-only" />
-            <div class="p-2 rounded-md bg-slate-100 text-slate-600 group-hover:bg-blue-100 group-hover:text-bank-blue transition-colors">
-              <ctx.icon class="w-5 h-5" />
-            </div>
-            <div>
-              <p class="text-sm font-bold text-slate-900">{ctx.name}</p>
-              <p class="text-xs text-slate-500 mt-1 leading-relaxed">{ctx.description}</p>
-            </div>
-          </label>
-        ))}
-      </div>
-    </section>
-
-    <!-- Upload Section -->
-    <section class="space-y-4">
-      <h2 class="text-sm font-bold text-slate-900 uppercase tracking-wider">2. Upload Documents</h2>
-      
-      <div class="bg-white border-2 border-dashed border-slate-200 rounded-xl p-12 flex flex-col items-center justify-center gap-4 hover:border-bank-blue hover:bg-slate-50/50 transition-all cursor-pointer group">
-        <div class="p-4 rounded-full bg-slate-100 text-slate-400 group-hover:bg-blue-100 group-hover:text-bank-blue transition-all">
-          <Upload class="w-8 h-8" />
-        </div>
-        <div class="text-center">
-          <p class="text-slate-900 font-bold">Drag and drop files here</p>
-          <p class="text-slate-500 text-sm mt-1 font-medium">Support for PDF, JPG, PNG (Max 20MB per file)</p>
-        </div>
-        <button class="btn-secondary mt-2">Browse Files</button>
-      </div>
-
-      <!-- File List (Mockup) -->
-      <div class="space-y-3">
-        <div class="flex items-center justify-between p-3 bg-white border border-slate-200 rounded-lg group">
-          <div class="flex items-center gap-3">
-            <div class="p-2 bg-slate-100 text-slate-500 rounded">
-              <File class="w-4 h-4" />
-            </div>
-            <div>
-              <p class="text-sm font-bold text-slate-900">BankStatement_Q1.pdf</p>
-              <p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest">2.4 MB • Uploaded</p>
-            </div>
+    <form id="investigation-form" class="space-y-8">
+      <!-- Context Selection -->
+      <section class="space-y-4">
+        <div class="flex items-center justify-between">
+          <h2 class="text-sm font-bold text-slate-900 uppercase tracking-wider">1. Investigation Context</h2>
+          <div class="flex items-center gap-2 px-3 py-1 bg-violet-50 text-violet-700 rounded-full border border-violet-100 cursor-pointer hover:bg-violet-100 transition-colors">
+            <Sparkles class="w-3 h-3" />
+            <span class="text-[10px] font-bold uppercase tracking-widest">Automatic Detection</span>
           </div>
-          <button class="p-1.5 text-slate-400 hover:text-rose-500 hover:bg-rose-50 rounded transition-all opacity-0 group-hover:opacity-100">
-            <X class="w-4 h-4" />
-          </button>
         </div>
         
-        <div class="flex items-center justify-between p-3 bg-white border border-slate-200 rounded-lg group">
-          <div class="flex items-center gap-3">
-            <div class="p-2 bg-slate-100 text-slate-500 rounded">
-              <File class="w-4 h-4" />
-            </div>
-            <div>
-              <p class="text-sm font-bold text-slate-900">Payslip_March2026.png</p>
-              <p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest">1.1 MB • Uploaded</p>
-            </div>
-          </div>
-          <button class="p-1.5 text-slate-400 hover:text-rose-500 hover:bg-rose-50 rounded transition-all opacity-0 group-hover:opacity-100">
-            <X class="w-4 h-4" />
-          </button>
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {contexts.map((ctx) => (
+            <label class="group relative flex items-start gap-4 p-4 bg-white border border-slate-200 rounded-lg cursor-pointer hover:border-bank-blue hover:shadow-sm transition-all has-[:checked]:border-bank-blue has-[:checked]:bg-blue-50/30 has-[:checked]:ring-1 has-[:checked]:ring-bank-blue">
+              <input type="radio" name="context" value={ctx.id} class="sr-only" required />
+              <div class="p-2 rounded-md bg-slate-100 text-slate-600 group-hover:bg-blue-100 group-hover:text-bank-blue transition-colors">
+                <ctx.icon class="w-5 h-5" />
+              </div>
+              <div>
+                <p class="text-sm font-bold text-slate-900">{ctx.name}</p>
+                <p class="text-xs text-slate-500 mt-1 leading-relaxed">{ctx.description}</p>
+              </div>
+            </label>
+          ))}
         </div>
-      </div>
-    </section>
+      </section>
 
-    <!-- Footer Actions -->
-    <div class="pt-6 border-t border-slate-200 flex items-center justify-end gap-4">
-      <button class="px-6 py-2.5 text-sm font-bold text-slate-500 hover:text-slate-900 transition-colors">Cancel</button>
-      <a href="/investigate/INV-2026-NEW" class="btn-primary px-8 py-2.5">
-        Start Forensic Analysis
-      </a>
-    </div>
+      <!-- Upload Section -->
+      <section class="space-y-4">
+        <h2 class="text-sm font-bold text-slate-900 uppercase tracking-wider">2. Upload Documents</h2>
+        
+        <div id="drop-zone" class="bg-white border-2 border-dashed border-slate-200 rounded-xl p-12 flex flex-col items-center justify-center gap-4 hover:border-bank-blue hover:bg-slate-50/50 transition-all cursor-pointer group">
+          <input type="file" id="file-input" class="hidden" accept=".pdf,.png,.jpg,.jpeg" />
+          <div class="p-4 rounded-full bg-slate-100 text-slate-400 group-hover:bg-blue-100 group-hover:text-bank-blue transition-all">
+            <Upload class="w-8 h-8" />
+          </div>
+          <div class="text-center">
+            <p class="text-slate-900 font-bold">Drag and drop files here</p>
+            <p class="text-slate-500 text-sm mt-1 font-medium">Support for PDF, JPG, PNG (Max 20MB per file)</p>
+          </div>
+          <button type="button" class="btn-secondary mt-2" onclick="document.getElementById('file-input').click()">Browse Files</button>
+        </div>
+
+        <!-- File List -->
+        <div id="file-list" class="space-y-3">
+          <!-- Dynamically populated -->
+        </div>
+      </section>
+
+      <!-- Footer Actions -->
+      <div class="pt-6 border-t border-slate-200 flex items-center justify-end gap-4">
+        <button type="button" class="px-6 py-2.5 text-sm font-bold text-slate-500 hover:text-slate-900 transition-colors">Cancel</button>
+        <button type="submit" id="start-analysis" class="btn-primary px-8 py-2.5 disabled:opacity-50 disabled:cursor-not-allowed" disabled>
+          <span id="button-text">Start Forensic Analysis</span>
+          <Loader2 id="button-loader" class="w-4 h-4 animate-spin hidden" />
+        </button>
+      </div>
+    </form>
   </div>
 </Layout>
+
+<script>
+  let selectedFile = null;
+  const fileInput = document.getElementById('file-input');
+  const fileList = document.getElementById('file-list');
+  const dropZone = document.getElementById('drop-zone');
+  const form = document.getElementById('investigation-form');
+  const startButton = document.getElementById('start-analysis');
+  const buttonText = document.getElementById('button-text');
+  const buttonLoader = document.getElementById('button-loader');
+
+  function updateFileList() {
+    if (!selectedFile) {
+      fileList.innerHTML = '';
+      startButton.disabled = true;
+      return;
+    }
+
+    startButton.disabled = false;
+    fileList.innerHTML = `
+      <div class="flex items-center justify-between p-3 bg-white border border-slate-200 rounded-lg group">
+        <div class="flex items-center gap-3">
+          <div class="p-2 bg-blue-50 text-bank-blue rounded">
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-4 h-4"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/></svg>
+          </div>
+          <div>
+            <p class="text-sm font-bold text-slate-900">${selectedFile.name}</p>
+            <p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest">${(selectedFile.size / (1024 * 1024)).toFixed(2)} MB • Ready</p>
+          </div>
+        </div>
+        <button type="button" id="remove-file" class="p-1.5 text-slate-400 hover:text-rose-500 hover:bg-rose-50 rounded transition-all">
+          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-4 h-4"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+        </button>
+      </div>
+    `;
+
+    document.getElementById('remove-file').addEventListener('click', () => {
+      selectedFile = null;
+      updateFileList();
+    });
+  }
+
+  fileInput.addEventListener('change', (e) => {
+    if (e.target.files.length > 0) {
+      selectedFile = e.target.files[0];
+      updateFileList();
+    }
+  });
+
+  dropZone.addEventListener('dragover', (e) => {
+    e.preventDefault();
+    dropZone.classList.add('border-bank-blue', 'bg-slate-50/50');
+  });
+
+  dropZone.addEventListener('dragleave', () => {
+    dropZone.classList.remove('border-bank-blue', 'bg-slate-50/50');
+  });
+
+  dropZone.addEventListener('drop', (e) => {
+    e.preventDefault();
+    dropZone.classList.remove('border-bank-blue', 'bg-slate-50/50');
+    if (e.dataTransfer.files.length > 0) {
+      selectedFile = e.dataTransfer.files[0];
+      updateFileList();
+    }
+  });
+
+  form.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    if (!selectedFile) return;
+
+    // UI Feedback
+    startButton.disabled = true;
+    buttonText.textContent = 'Analyzing...';
+    buttonLoader.classList.remove('hidden');
+
+    const formData = new FormData();
+    formData.append('file', selectedFile);
+
+    try {
+      // Connect to the local FastAPI backend
+      const response = await fetch('http://127.0.0.1:8000/api/v1/investigate', {
+        method: 'POST',
+        body: formData,
+      });
+
+      if (!response.ok) throw new Error('Forensic analysis failed');
+
+      const result = await response.json();
+      
+      // Store the result in session storage to pass to the report page
+      sessionStorage.setItem('last_investigation_result', JSON.stringify(result));
+      
+      // Navigate to a dynamic results page (we'll use a fixed ID for simplicity or generate one)
+      window.location.href = `/investigate/local-analysis`;
+    } catch (error) {
+      console.error(error);
+      alert('Error during forensic analysis: ' + error.message);
+      startButton.disabled = false;
+      buttonText.textContent = 'Start Forensic Analysis';
+      buttonLoader.classList.add('hidden');
+    }
+  });
+</script>
