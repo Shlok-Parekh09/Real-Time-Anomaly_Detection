@@ -8,6 +8,16 @@ pytesseract
 Pillow
 numpy
 pydantic
+pdfplumber
 sqlalchemy
 pydantic-settings
 pydantic[email]
+thefuzz
+python-Levenshtein
+pyjarowinkler
+transformers
+torch
+accelerate
+sentencepiece
+protobuf
+bitsandbytes

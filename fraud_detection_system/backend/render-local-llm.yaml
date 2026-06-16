@@ -1,0 +1,17 @@
+services:
+  - type: web
+    name: fraud-detection-local-llm
+    env: docker
+    dockerfilePath: ./Dockerfile.local-llm
+    region: oregon
+    plan: starter  # Free tier
+    healthCheckPath: /health
+    envVars:
+      - key: TRANSFORMERS_CACHE
+        value: /app/.cache
+      - key: PYTHONUNBUFFERED
+        value: 1
+    disk:
+      name: model-cache
+      mountPath: /app/.cache
+      sizeGB: 10

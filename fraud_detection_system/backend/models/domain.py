@@ -1,62 +1,81 @@
-from datetime import datetime
-from typing import List, Optional, Any
 from pydantic import BaseModel, Field
+from typing import List, Optional, Any
+from datetime import datetime
 
-class InvestigationBase(BaseModel):
-    context: str
-    title: Optional[str] = None
+# --- Response Models for /api/v1/investigate endpoint ---
 
-class InvestigationCreate(InvestigationBase):
-    pass
+class BoundingBox(BaseModel):
+    x0: float
+    y0: float
+    x1: float
+    y1: float
+    page: int
 
-class EvidenceBase(BaseModel):
-    document_id: str
-    page_number: Optional[int] = None
-    coordinates: Optional[Any] = None
-    confidence: Optional[float] = None
-    extracted_text: Optional[str] = None
-    description: Optional[str] = None
+class AnomalyFeature(BaseModel):
+    type: str = Field(..., description="The category of the anomaly (e.g., 'Suspicious Metadata', 'Mathematical Error')")
+    description: str = Field(..., description="Detailed description of why this was flagged")
+    risk_level: str = Field(..., description="Must be 'Critical', 'High', 'Medium', or 'Low'")
+    bbox: Optional[BoundingBox] = Field(None, description="Coordinates to highlight the anomaly on the frontend")
 
-class EvidenceSchema(EvidenceBase):
-    id: str
-    finding_id: str
-
-    class Config:
-        from_attributes = True
-
-class FindingBase(BaseModel):
-    layer_source: str
-    name: str
-    severity: str
-    description: str
-    metadata_json: Optional[Any] = None
-
-class FindingSchema(FindingBase):
-    id: str
-    investigation_id: str
-    evidence_items: List[EvidenceSchema] = []
-
-    class Config:
-        from_attributes = True
-
-class DocumentBase(BaseModel):
+class InvestigationResponse(BaseModel):
     filename: str
-    file_type: str
+    fraud_probability_score: int = Field(..., description="0 to 100 score")
+    status: str = Field(..., description="'TRUSTED', 'SUSPICIOUS', or 'TAMPERED'")
+    anomalies: List[AnomalyFeature]
+    ai_summary: Optional[dict] = Field(None, description="AI-generated summary of the analysis")
 
-class DocumentSchema(DocumentBase):
+
+# --- CRUD Schemas for /api/v1/investigations endpoints ---
+
+class InvestigationCreate(BaseModel):
+    context: str = Field(..., description="Investigation context like 'loan_approval', 'kyc', etc.")
+    title: Optional[str] = Field(None, description="Optional title for the investigation")
+
+class DocumentSchema(BaseModel):
     id: str
+    filename: str
+    file_type: Optional[str] = None
     classification: Optional[str] = None
-    created_at: datetime
+    created_at: Optional[datetime] = None
 
     class Config:
         from_attributes = True
 
 class InvestigationEventSchema(BaseModel):
     id: str
-    timestamp: datetime
+    investigation_id: str
+    timestamp: Optional[datetime] = None
     event_type: str
     message: str
     metadata_json: Optional[Any] = None
+
+    class Config:
+        from_attributes = True
+
+class FindingSchema(BaseModel):
+    id: str
+    layer_source: str
+    name: str
+    severity: str
+    description: str
+    metadata_json: Optional[Any] = None
+    created_at: Optional[datetime] = None
+
+    class Config:
+        from_attributes = True
+
+class InvestigationSchema(BaseModel):
+    id: str
+    title: Optional[str] = None
+    context: str
+    status: str
+    progress: int
+    current_stage: str
+    trust_score: Optional[float] = None
+    confidence_score: Optional[float] = None
+    recommendation: Optional[str] = None
+    created_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
 
     class Config:
         from_attributes = True
@@ -67,22 +86,11 @@ class InvestigationStatusSchema(BaseModel):
     current_stage: str
     message: Optional[str] = None
 
-class InvestigationSchema(InvestigationBase):
-    id: str
-    status: str
-    progress: int
-    current_stage: str
-    trust_score: Optional[float] = None
-    confidence_score: Optional[float] = None
-    recommendation: Optional[str] = None
-    ai_summary_json: Optional[Any] = None
-    created_at: datetime
-    updated_at: datetime
+class InvestigationFullSchema(InvestigationSchema):
     documents: List[DocumentSchema] = []
+    findings: List[FindingSchema] = []
+    events: List[InvestigationEventSchema] = []
+    ai_summary_json: Optional[Any] = None
 
     class Config:
         from_attributes = True
-
-class InvestigationFullSchema(InvestigationSchema):
-    findings: List[FindingSchema] = []
-    events: List[InvestigationEventSchema] = []

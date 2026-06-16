@@ -1,18 +1,17 @@
-from __future__ import annotations
-
-from fastapi import FastAPI
+from fastapi import FastAPI, UploadFile, File, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from services.investigation_manager import InvestigationManager
+from models.domain import InvestigationResponse
+import tempfile
+import os
 
-# New imports for Phase 1
-from core.database import engine, Base
-from api.routes import router as investigation_router
-from core.config import settings
+app = FastAPI(
+    title="Offline Anomaly Detection API",
+    description="Locally hosted API for strict, air-gapped forensic document analysis.",
+    version="1.0.0"
+)
 
-# Create new database tables
-Base.metadata.create_all(bind=engine)
-
-app = FastAPI(title=settings.PROJECT_NAME)
-
+# In a production offline environment, CORS might be strict, but we allow all for local dev
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -21,9 +20,29 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Include new investigation-centric routes
-app.include_router(investigation_router, prefix=settings.API_V1_STR)
-
 @app.get("/")
-async def root():
-    return {"message": "Document Fraud & Anomaly Detection API is running", "version": "1.0.0"}
+def health_check():
+    return {"status": "offline_engine_running"}
+
+@app.post("/api/v1/investigate", response_model=InvestigationResponse)
+async def investigate_document(file: UploadFile = File(...)):
+    if not file.filename.lower().endswith(('.pdf', '.png', '.jpg', '.jpeg')):
+        raise HTTPException(status_code=400, detail="Only PDF and Image files are supported.")
+        
+    # Save uploaded file to a temporary location for local libraries to process
+    with tempfile.NamedTemporaryFile(delete=False, suffix=os.path.splitext(file.filename)[1]) as temp_file:
+        content = await file.read()
+        temp_file.write(content)
+        temp_path = temp_file.name
+
+    try:
+        manager = InvestigationManager()
+        # Execute the forensic pipeline
+        result = await manager.process_document(temp_path, file.filename)
+        return result
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Internal Forensic Engine Error: {str(e)}")
+    finally:
+        # Ensure cleanup of sensitive files immediately after processing
+        if os.path.exists(temp_path):
+            os.remove(temp_path)

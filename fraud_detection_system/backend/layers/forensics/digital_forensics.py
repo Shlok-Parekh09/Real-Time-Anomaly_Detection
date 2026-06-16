@@ -1,61 +1,57 @@
-import re
-from typing import Dict, Any, List
-from .pdf_analyzer import pdf_analyzer
+import fitz  # PyMuPDF
+from models.domain import AnomalyFeature
 
-class DigitalForensics:
+def validate_metadata(file_path: str) -> list[AnomalyFeature]:
     """
-    Handles digital tampering detection for various file types.
+    Parses the PDF /Info dictionary to detect traces of consumer editing software 
+    and validates timestamps.
     """
+    anomalies = []
     
-    def analyze(self, file_bytes: bytes, filename: str, content_type: str, metadata: Dict[str, Any]) -> List[Dict[str, Any]]:
-        """
-        Runs digital forensic checks.
-        """
-        findings = []
+    try:
+        # PyMuPDF opens the file locally without internet
+        doc = fitz.open(file_path)
+        metadata = doc.metadata
         
-        file_type = metadata.get("file_type", "unknown")
+        producer = metadata.get("producer", "").lower()
+        creator = metadata.get("creator", "").lower()
         
-        if file_type == "pdf":
-            findings.extend(pdf_analyzer.analyze_structure(file_bytes, metadata))
-        elif file_type == "image":
-            findings.extend(self._analyze_image_forensics(file_bytes, metadata))
-            
-        # Common metadata checks
-        findings.extend(self._check_metadata_anomalies(metadata))
-            
-        return findings
-
-    def _check_metadata_anomalies(self, metadata: Dict[str, Any]) -> List[Dict[str, Any]]:
-        anomalies = []
-        producer = str(metadata.get("Producer", "")).lower()
-        creator = str(metadata.get("Creator", "")).lower()
+        # Blacklist of common consumer tools used to fake documents
+        suspicious_tools = [
+            "ilovepdf", "adobe acrobat", "smallpdf", 
+            "canva", "corel", "pdf24", "sejda", "foxit"
+        ]
         
-        suspicious_software = ["photoshop", "illustrator", "gimp", "canva", "quartz pdfcontext"]
-        
-        for software in suspicious_software:
-            if software in producer or software in creator:
-                anomalies.append({
-                    "name": "Editing Software Signature",
-                    "severity": "HIGH",
-                    "description": f"Metadata contains traces of editing software: {software}",
-                    "evidence": [f"Producer/Creator: {software}"]
-                })
+        detected_tool = None
+        for tool in suspicious_tools:
+            if tool in producer or tool in creator:
+                detected_tool = tool.title()
+                break
                 
-        # Date mismatch
-        created = metadata.get("CreationDate")
-        modified = metadata.get("ModDate")
-        if created and modified and created != modified:
-            anomalies.append({
-                "name": "Metadata Date Mismatch",
-                "severity": "MEDIUM",
-                "description": "Document creation and modification dates are different, suggesting post-generation editing.",
-                "evidence": [f"Created: {created}", f"Modified: {modified}"]
-            })
+        if detected_tool:
+            anomalies.append(AnomalyFeature(
+                type="Suspicious Software Trace",
+                description=f"PDF metadata indicates modification via consumer editing software: {detected_tool}",
+                risk_level="High"
+            ))
             
-        return anomalies
-
-    def _analyze_image_forensics(self, file_bytes: bytes, metadata: Dict[str, Any]) -> List[Dict[str, Any]]:
-        # This will call advanced_image_analysis logic later
-        return []
-
-digital_forensics = DigitalForensics()
+        # Timestamp manipulation check
+        creation_date = metadata.get("creationDate", "")
+        mod_date = metadata.get("modDate", "")
+        
+        if creation_date and mod_date and creation_date != mod_date:
+            anomalies.append(AnomalyFeature(
+                type="Timestamp Mismatch",
+                description="The modification date of this document is different from its creation date, indicating it was edited post-generation.",
+                risk_level="Low"
+            ))
+            
+        doc.close()
+    except Exception as e:
+        anomalies.append(AnomalyFeature(
+            type="Forensic Parse Error",
+            description=f"Could not inspect PDF internals: {str(e)}",
+            risk_level="Medium"
+        ))
+        
+    return anomalies
