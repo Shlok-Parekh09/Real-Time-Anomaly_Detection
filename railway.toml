@@ -1,0 +1,11 @@
+[build]
+builder = "DOCKERFILE"
+dockerfilePath = "fraud_detection_system/backend/Dockerfile.railway"
+watchPatterns = ["fraud_detection_system/backend/**"]
+
+[deploy]
+startCommand = "uvicorn main_local_llm:app --host 0.0.0.0 --port $PORT"
+healthcheckPath = "/health"
+healthcheckTimeout = 300
+restartPolicyType = "ON_FAILURE"
+restartPolicyMaxRetries = 3
