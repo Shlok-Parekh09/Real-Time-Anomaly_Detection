@@ -1,32 +1,33 @@
-FROM python:3.10-slim
-
-# Create a non-root user
-RUN useradd -m -u 1000 user
-USER user
-ENV PATH="/home/user/.local/bin:${PATH}"
+FROM python:3.11-slim
 
 WORKDIR /app
 
-# Install system dependencies
-USER root
+# Install system dependencies for OpenCV
 RUN apt-get update && apt-get install -y \
+    gcc \
+    g++ \
+    libgl1-mesa-glx \
     libglib2.0-0 \
-    libsm6 \
-    libxext6 \
-    libxrender-dev \
-    tesseract-ocr \
     && rm -rf /var/lib/apt/lists/*
 
-# Fix permissions
-RUN chown -R user:user /app
-USER user
+# Copy requirements first for better Docker layer caching
+COPY requirements.txt .
 
-COPY --chown=user requirements.txt .
-RUN pip install --no-cache-dir --user -r requirements.txt
+# Install Python dependencies
+RUN pip install --no-cache-dir -r requirements.txt
 
-COPY --chown=user . .
+# Copy application code
+COPY . .
 
-# Hugging Face Spaces uses port 7860 by default
-EXPOSE 7860
+# Create necessary directories
+RUN mkdir -p uploads
 
-CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "7860"]
+# Set environment variables
+ENV PYTHONUNBUFFERED=1
+ENV PORT=8000
+
+# Expose port
+EXPOSE 8000
+
+# Start command
+CMD uvicorn main:app --host 0.0.0.0 --port ${PORT}
