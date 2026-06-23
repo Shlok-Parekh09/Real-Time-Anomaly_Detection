@@ -1,7 +1,6 @@
-__pycache__/
-*.pyc
+# Data and local runtime state
 fraud_detection_system/backend/data/
-node_modules
+
 # AI agent configs
 .agents/
 .gemini/
@@ -22,3 +21,52 @@ skills-lock.json
 
 # Astro cache
 **/.astro/
+
+# Python cache & build files
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.pytest_cache/
+.coverage
+htmlcov/
+build/
+develop-eggs/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Virtual environments
+.venv/
+venv/
+ENV/
+env/
+
+# Databases
+*.db
+*.sqlite
+*.sqlite3
+
+# Frontend Environment configuration
+fraud_detection_system/frontend/.env*
+!fraud_detection_system/frontend/.env.example
+
+# Backend Uploads
+fraud_detection_system/backend/uploads/
+
+# Generated PDF reports
+fraud_detection_system/backend/Anobis_Report_*.pdf
+
+# Operating system files
+.DS_Store
+Thumbs.db

@@ -4,85 +4,39 @@ import {
   ShieldCheck, AlertTriangle, CheckCircle2, ChevronLeft, Download, 
   Printer, Languages, Info, FileText, AlertCircle, FileSearch, 
   ExternalLink, ArrowRight, CornerDownRight, History, MoreVertical,
-  Scale, HardDrive, Cpu, FileCheck, Eye
+  Scale, HardDrive, Cpu, FileCheck, Eye, Loader2, RefreshCcw
 } from "lucide-astro";
 
 export function getStaticPaths() {
   return [
-    { params: { id: 'INV-2026-001' } },
-    { params: { id: 'INV-2026-002' } },
-    { params: { id: 'INV-2026-NEW' } },
+    { params: { id: 'latest' } },
   ];
 }
 
 const { id } = Astro.params;
-
-const files = [
-  { name: 'BankStatement_Q1.pdf', status: 'verified', active: true },
-  { name: 'Payslip_March2026.png', status: 'suspicious', active: false },
-  { name: 'Aadhaar_Card.pdf', status: 'fraudulent', active: false },
-  { name: 'PAN_Card.jpg', status: 'verified', active: false },
-];
-
-const findings = {
-  fraudulent: [
-    { title: 'Metadata Manipulation', evidence: 'Creation timestamp (2026-05-12) differs from modification history (2024-02-10). File structure indicates recent PDF injection.', confidence: '94%', file: 'Aadhaar_Card.pdf' }
-  ],
-  suspicious: [
-    { title: 'Inconsistent Font Rendering', evidence: 'Currency symbols in the total amount field use a font family not present in the rest of the document.', confidence: '78%', file: 'Payslip_March2026.png' },
-    { title: 'Suspected PDF Layering', evidence: 'Hidden text layers detected beneath visible income values. Indicates possible manual overwrite.', confidence: '82%', file: 'BankStatement_Q1.pdf' }
-  ],
-  verified: [
-    { title: 'Structural Integrity', evidence: 'Document structure conforms to standard financial institution templates. No anomalous headers detected.', file: 'BankStatement_Q1.pdf' },
-    { title: 'Identity Correlation', evidence: 'Name and DOB match across identity documents and bank records.', file: 'PAN_Card.jpg' }
-  ]
-};
 ---
 
 <Layout title={`Investigation ${id} | Anobis`} activeTab="investigations">
-  <div class="flex h-full overflow-hidden">
-    <!-- File Sidebar -->
-    <aside class="w-72 border-r border-slate-200 bg-white flex flex-col flex-shrink-0">
-      <div class="p-4 border-b border-slate-200 flex items-center justify-between">
-        <h2 class="text-xs font-bold text-slate-900 uppercase tracking-widest">Uploaded Files</h2>
-        <span class="text-[10px] font-bold text-slate-400 bg-slate-100 px-1.5 py-0.5 rounded">{files.length}</span>
-      </div>
-      <div class="flex-1 overflow-y-auto p-2 space-y-1">
-        {files.map((file) => (
-          <button class={`w-full flex items-center justify-between p-3 rounded-md transition-all text-left ${file.active ? 'bg-blue-50 border border-blue-100' : 'hover:bg-slate-50 border border-transparent'}`}>
-            <div class="flex items-center gap-3 truncate">
-              {file.status === 'verified' && <div class="w-2 h-2 rounded-full bg-emerald-500 flex-shrink-0"></div>}
-              {file.status === 'suspicious' && <div class="w-2 h-2 rounded-full bg-amber-500 flex-shrink-0"></div>}
-              {file.status === 'fraudulent' && <div class="w-2 h-2 rounded-full bg-rose-500 flex-shrink-0"></div>}
-              <span class={`text-sm truncate ${file.active ? 'font-bold text-bank-blue' : 'font-medium text-slate-600'}`}>{file.name}</span>
-            </div>
-            {file.active && <Eye class="w-3.5 h-3.5 text-bank-blue flex-shrink-0" />}
-          </button>
-        ))}
-        
-        <button class="w-full flex items-center justify-center gap-2 p-3 mt-4 border border-dashed border-slate-200 rounded-md text-slate-400 text-xs font-bold uppercase tracking-wider hover:border-bank-blue hover:text-bank-blue transition-all">
-          <Download class="w-3 h-3" />
-          Add More Docs
-        </button>
-      </div>
-    </aside>
-
-    <!-- Workspace -->
+  <div id="investigation-container" class="flex h-full overflow-hidden">
+    <!-- Main Content Area -->
     <div class="flex-1 flex flex-col min-w-0 bg-slate-50 overflow-hidden">
       <!-- Toolbar -->
       <div class="h-12 bg-white border-b border-slate-200 flex items-center justify-between px-6 flex-shrink-0">
         <div class="flex items-center gap-4">
-          <a href="/" class="p-1 text-slate-400 hover:text-slate-900 transition-colors">
+          <a href="/investigations" class="p-1 text-slate-400 hover:text-slate-900 transition-colors">
             <ChevronLeft class="w-5 h-5" />
           </a>
           <div class="h-4 w-px bg-slate-200"></div>
-          <p class="text-xs font-bold text-slate-500 uppercase tracking-widest">Case: <span class="text-slate-900">{id}</span></p>
+          <p class="text-xs font-bold text-slate-500 uppercase tracking-widest">Case: <span class="text-slate-900" id="display-id">{id}</span></p>
           <div class="h-4 w-px bg-slate-200"></div>
-          <span class="status-pill-red">High Risk Detected</span>
+          <span id="header-status-pill" class="status-pill">Loading...</span>
         </div>
         
         <div class="flex items-center gap-2">
-          <button class="btn-secondary py-1 text-xs">
+          <button id="refresh-btn" class="p-1.5 text-slate-400 hover:text-slate-600 rounded">
+            <RefreshCcw class="w-4 h-4" />
+          </button>
+          <button id="export-report-btn" class="btn-secondary py-1 text-xs">
             <Printer class="w-3.5 h-3.5" />
             Export Report
           </button>
@@ -92,269 +46,585 @@ const findings = {
         </div>
       </div>
 
-      <!-- Main Workspace Scroll Area -->
-      <div class="flex-1 overflow-y-auto p-8">
-        <div class="max-w-6xl mx-auto space-y-8">
-          
-          <!-- Summary Header -->
-          <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
-            <div class="lg:col-span-2 space-y-6">
-              <div class="flex items-start justify-between bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
-                <div class="space-y-4 flex-1">
-                  <div class="flex items-center gap-3">
-                    <div class="p-2 bg-rose-50 text-rose-600 rounded-lg">
-                      <ShieldCheck class="w-6 h-6" />
-                    </div>
-                    <div>
-                      <h2 class="text-xl font-bold text-slate-900">Investigation Summary</h2>
-                      <p class="text-slate-500 text-sm font-medium">Forensic Analysis of Multiple Document Submission</p>
-                    </div>
-                  </div>
-                  
-                  <div class="bg-slate-50 p-4 rounded-lg border border-slate-100 relative group">
-                    <p class="text-sm text-slate-700 leading-relaxed font-medium pr-10">
-                      "Multiple anomalies detected across three documents. The submitted payslip appears modified after generation and contains values inconsistent with the provided bank statement. Identity document (Aadhaar) shows signs of metadata tampering in the creation timestamp."
-                    </p>
-                    <button class="absolute top-3 right-3 p-1.5 text-slate-400 hover:text-bank-blue hover:bg-white rounded transition-all shadow-sm" title="Translate to Hindi">
-                      <Languages class="w-4 h-4" />
-                    </button>
-                  </div>
-                </div>
-              </div>
+      <!-- Analysis Progress (Phase 4) -->
+      <div id="analysis-progress-view" class="hidden flex-1 flex flex-col items-center justify-center p-8 text-center bg-white">
+        <div class="max-w-md w-full space-y-8">
+           <div class="relative w-24 h-24 mx-auto">
+             <div class="absolute inset-0 border-4 border-slate-100 rounded-full"></div>
+             <div id="progress-spinner" class="absolute inset-0 border-4 border-bank-blue rounded-full border-t-transparent animate-spin"></div>
+             <div class="absolute inset-0 flex items-center justify-center text-sm font-bold text-slate-900" id="progress-percent">0%</div>
+           </div>
+           
+           <div class="space-y-2">
+             <h2 class="text-xl font-bold text-slate-900">Forensic Analysis in Progress</h2>
+             <p class="text-slate-500 text-sm font-medium" id="current-stage-msg">Initializing extraction engine...</p>
+           </div>
 
-              <!-- Cross-Document Consistency -->
-              <div class="investigation-card p-6 bg-white">
-                <div class="flex items-center gap-2 mb-6">
-                  <Scale class="w-5 h-5 text-bank-blue" />
-                  <h3 class="font-bold text-slate-900 uppercase tracking-wider text-sm">Cross-Document Consistency Analysis</h3>
-                </div>
-                
-                <div class="space-y-6">
-                  <div class="flex items-start gap-4 p-4 bg-rose-50 border border-rose-100 rounded-lg">
-                    <div class="p-2 bg-rose-100 text-rose-600 rounded">
-                      <AlertCircle class="w-4 h-4" />
-                    </div>
-                    <div class="flex-1 grid grid-cols-1 md:grid-cols-3 gap-6">
-                      <div class="md:col-span-2">
-                        <p class="text-sm font-bold text-slate-900">Income Mismatch Detected</p>
-                        <p class="text-xs text-slate-600 mt-1">Comparison between reported monthly income and bank deposits reveals a significant variance of 44%.</p>
-                      </div>
-                      <div class="flex flex-col gap-2 border-l border-rose-200 pl-6">
-                        <div>
-                          <p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Payslip.pdf</p>
-                          <p class="text-sm font-bold text-rose-600">₹75,000 / month</p>
-                        </div>
-                        <div>
-                          <p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest">BankStatement.pdf</p>
-                          <p class="text-sm font-bold text-rose-600">₹42,000 / month avg</p>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
+           <div class="w-full h-2 bg-slate-100 rounded-full overflow-hidden">
+             <div id="progress-bar-fill" class="h-full bg-bank-blue transition-all duration-500" style="width: 0%"></div>
+           </div>
 
-                  <div class="flex items-start gap-4 p-4 bg-amber-50 border border-amber-100 rounded-lg">
-                    <div class="p-2 bg-amber-100 text-amber-600 rounded">
-                      <AlertTriangle class="w-4 h-4" />
-                    </div>
-                    <div class="flex-1 grid grid-cols-1 md:grid-cols-3 gap-6">
-                      <div class="md:col-span-2">
-                        <p class="text-sm font-bold text-slate-900">Name Inconsistency</p>
-                        <p class="text-xs text-slate-600 mt-1">Slight variation in name spelling detected across KYC documents and financial records.</p>
-                      </div>
-                      <div class="flex flex-col gap-2 border-l border-amber-200 pl-6">
-                        <div>
-                          <p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest">ID Document</p>
-                          <p class="text-sm font-bold text-amber-700 font-mono">RAJESH KUMAR</p>
-                        </div>
-                        <div>
-                          <p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Bank Statement</p>
-                          <p class="text-sm font-bold text-amber-700 font-mono">RAJESH KUMAAR</p>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <!-- Score Panel -->
-            <div class="space-y-6">
-              <div class="investigation-card p-8 flex flex-col items-center text-center bg-white">
-                <p class="text-xs font-bold text-slate-400 uppercase tracking-widest mb-4">Final Trust Score</p>
-                <div class="relative w-32 h-32 flex items-center justify-center">
-                  <svg class="w-full h-full transform -rotate-90">
-                    <circle cx="64" cy="64" r="58" stroke="currentColor" stroke-width="8" fill="transparent" class="text-slate-100" />
-                    <circle cx="64" cy="64" r="58" stroke="currentColor" stroke-width="8" fill="transparent" stroke-dasharray="364.4" stroke-dashoffset="240.5" class="text-rose-500" />
-                  </svg>
-                  <span class="absolute text-3xl font-bold text-slate-900 tracking-tighter">34%</span>
-                </div>
-                <div class="mt-6 space-y-1">
-                  <p class="text-lg font-bold text-rose-600 uppercase tracking-tight">Fraudulent</p>
-                  <p class="text-xs text-slate-500 font-medium">Critical anomalies detected</p>
-                </div>
-              </div>
-
-              <div class="investigation-card bg-slate-900 text-white p-6">
-                <h3 class="text-xs font-bold text-slate-400 uppercase tracking-widest mb-4">Recommended Actions</h3>
-                <div class="space-y-3">
-                  <button class="w-full flex items-center justify-between p-3 bg-slate-800 rounded-md hover:bg-slate-700 transition-all text-left">
-                    <span class="text-sm font-medium">Escalate for Manual Review</span>
-                    <CornerDownRight class="w-4 h-4 text-slate-500" />
-                  </button>
-                  <button class="w-full flex items-center justify-between p-3 bg-slate-800 rounded-md hover:bg-slate-700 transition-all text-left text-rose-400">
-                    <span class="text-sm font-medium">Reject Application</span>
-                    <AlertCircle class="w-4 h-4" />
-                  </button>
-                  <button class="w-full flex items-center justify-between p-3 bg-slate-800 rounded-md hover:bg-slate-700 transition-all text-left">
-                    <span class="text-sm font-medium">Request Additional Docs</span>
-                    <History class="w-4 h-4 text-slate-500" />
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <!-- Detailed Findings -->
-          <div class="space-y-6">
-            <h3 class="text-sm font-bold text-slate-900 uppercase tracking-wider">Analysis Breakdown</h3>
-            
-            <!-- Analysis Pillars -->
-            <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
-              <div class="investigation-card p-4 bg-white flex flex-col gap-3">
-                <div class="flex items-center gap-2">
-                  <HardDrive class="w-4 h-4 text-slate-400" />
-                  <p class="text-[10px] font-bold text-slate-500 uppercase">Metadata</p>
-                </div>
-                <div class="flex items-center justify-between">
-                  <span class="text-xs font-bold text-slate-900">Forensics</span>
-                  <span class="text-[10px] font-bold text-rose-600">TAMPERED</span>
-                </div>
-              </div>
-              <div class="investigation-card p-4 bg-white flex flex-col gap-3">
-                <div class="flex items-center gap-2">
-                  <Cpu class="w-4 h-4 text-slate-400" />
-                  <p class="text-[10px] font-bold text-slate-500 uppercase">Structural</p>
-                </div>
-                <div class="flex items-center justify-between">
-                  <span class="text-xs font-bold text-slate-900">Integrity Check</span>
-                  <span class="text-[10px] font-bold text-emerald-600">VALID</span>
-                </div>
-              </div>
-              <div class="investigation-card p-4 bg-white flex flex-col gap-3">
-                <div class="flex items-center gap-2">
-                  <FileCheck class="w-4 h-4 text-slate-400" />
-                  <p class="text-[10px] font-bold text-slate-500 uppercase">Content</p>
-                </div>
-                <div class="flex items-center justify-between">
-                  <span class="text-xs font-bold text-slate-900">Validation</span>
-                  <span class="text-[10px] font-bold text-amber-600">ANOMALOUS</span>
-                </div>
-              </div>
-              <div class="investigation-card p-4 bg-white flex flex-col gap-3">
-                <div class="flex items-center gap-2">
-                  <FileSearch class="w-4 h-4 text-slate-400" />
-                  <p class="text-[10px] font-bold text-slate-500 uppercase">Authenticity</p>
-                </div>
-                <div class="flex items-center justify-between">
-                  <span class="text-xs font-bold text-slate-900">Lab Analysis</span>
-                  <span class="text-[10px] font-bold text-rose-600">FAILED</span>
-                </div>
-              </div>
-            </div>
-
-            <!-- Findings Groups -->
-            <div class="space-y-4">
-              <!-- Fraudulent -->
-              {findings.fraudulent.map((f) => (
-                <div class="investigation-card border-l-4 border-l-rose-500 bg-white">
-                  <div class="p-6">
-                    <div class="flex items-start justify-between">
-                      <div class="flex items-center gap-3">
-                        <div class="p-2 bg-rose-50 text-rose-600 rounded">
-                          <AlertCircle class="w-5 h-5" />
-                        </div>
-                        <div>
-                          <h4 class="text-sm font-bold text-slate-900">{f.title}</h4>
-                          <p class="text-xs text-slate-500 font-medium">{f.file}</p>
-                        </div>
-                      </div>
-                      <div class="text-right">
-                        <p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Confidence</p>
-                        <p class="text-sm font-bold text-rose-600">{f.confidence}</p>
-                      </div>
-                    </div>
-                    <div class="mt-4 pl-12">
-                      <p class="text-xs font-bold text-slate-400 uppercase tracking-widest mb-1">Evidence</p>
-                      <p class="text-sm text-slate-700 leading-relaxed bg-slate-50 p-3 rounded border border-slate-100 italic">{f.evidence}</p>
-                    </div>
-                  </div>
-                </div>
-              ))}
-
-              <!-- Suspicious -->
-              {findings.suspicious.map((f) => (
-                <div class="investigation-card border-l-4 border-l-amber-500 bg-white">
-                  <div class="p-6">
-                    <div class="flex items-start justify-between">
-                      <div class="flex items-center gap-3">
-                        <div class="p-2 bg-amber-50 text-amber-600 rounded">
-                          <AlertTriangle class="w-5 h-5" />
-                        </div>
-                        <div>
-                          <h4 class="text-sm font-bold text-slate-900">{f.title}</h4>
-                          <p class="text-xs text-slate-500 font-medium">{f.file}</p>
-                        </div>
-                      </div>
-                      <div class="text-right">
-                        <p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Confidence</p>
-                        <p class="text-sm font-bold text-amber-600">{f.confidence}</p>
-                      </div>
-                    </div>
-                    <div class="mt-4 pl-12">
-                      <p class="text-xs font-bold text-slate-400 uppercase tracking-widest mb-1">Evidence</p>
-                      <p class="text-sm text-slate-700 leading-relaxed bg-slate-50 p-3 rounded border border-slate-100 italic">{f.evidence}</p>
-                    </div>
-                  </div>
-                </div>
-              ))}
-
-              <!-- Verified -->
-              <div class="investigation-card bg-white opacity-70">
-                <div class="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
-                  <div class="flex items-center gap-2">
-                    <CheckCircle2 class="w-4 h-4 text-emerald-500" />
-                    <h4 class="text-xs font-bold text-slate-500 uppercase tracking-wider">Verified Checks Passed</h4>
-                  </div>
-                  <button class="text-slate-400 hover:text-slate-600">
-                    <MoreVertical class="w-4 h-4" />
-                  </button>
-                </div>
-                <div class="p-4 space-y-2">
-                  {findings.verified.map((f) => (
-                    <div class="flex items-center gap-3 px-2 py-1">
-                      <CheckCircle2 class="w-3.5 h-3.5 text-emerald-500" />
-                      <span class="text-xs font-bold text-slate-700">{f.title}</span>
-                      <span class="text-[10px] text-slate-400">— {f.evidence}</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <!-- Document Viewer Placeholder -->
-          <div class="investigation-card bg-slate-200 border-slate-300 min-h-[500px] flex flex-col items-center justify-center relative group">
-             <div class="absolute inset-0 bg-slate-900/5 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center z-10">
-                <button class="btn-primary">
-                  <FileSearch class="w-4 h-4" />
-                  Open in Forensic Viewer
-                </button>
-             </div>
-             <FileText class="w-16 h-16 text-slate-400" />
-             <p class="mt-4 text-slate-500 font-bold uppercase tracking-widest text-xs text-center">Document Preview Container<br/><span class="font-medium normal-case mt-1 block">Full PDF viewer with evidence highlighting will render here</span></p>
-          </div>
+           <div class="p-4 bg-blue-50 border border-blue-100 rounded-lg">
+             <p class="text-[10px] font-bold text-blue-700 uppercase tracking-widest text-center">AI Agents are scanning metadata, structural integrity, and content consistency across all uploaded documents.</p>
+           </div>
         </div>
       </div>
+
+      <!-- Results View (Step 6 Document Workbench Split View) -->
+      <div id="results-view" class="hidden flex-1 flex flex-row overflow-hidden h-full">
+        
+        <!-- Left Side: Investigation Details & Findings (60% width) -->
+        <div class="w-7/12 h-full overflow-y-auto p-8 border-r border-slate-200 space-y-8 bg-slate-50">
+          
+          <!-- Summary Header -->
+          <div class="bg-white p-6 rounded-xl border border-slate-200 shadow-sm space-y-4">
+            <div class="flex items-start justify-between">
+              <div class="flex items-center gap-3">
+                <div id="summary-icon-container" class="p-2 bg-slate-100 text-slate-600 rounded-lg">
+                  <ShieldCheck class="w-6 h-6" />
+                </div>
+                <div>
+                  <h2 class="text-xl font-bold text-slate-900" id="res-title">Investigation Summary</h2>
+                  <p class="text-slate-500 text-sm font-medium" id="res-context">Loading context...</p>
+                </div>
+              </div>
+            </div>
+            
+            <div class="bg-slate-50 p-4 rounded-lg border border-slate-100 relative group">
+              <div id="summary-content" class="text-sm text-slate-700 leading-relaxed font-medium pr-10">
+                <!-- English Summary -->
+              </div>
+              <div id="hindi-summary-content" class="hidden mt-4 pt-4 border-t border-slate-200 text-sm text-slate-700 leading-relaxed font-medium">
+                <!-- Hindi Summary -->
+              </div>
+              <button id="toggle-hindi" class="absolute top-3 right-3 p-1.5 text-slate-400 hover:text-bank-blue hover:bg-white rounded transition-all shadow-sm" title="Translate to Hindi">
+                <Languages class="w-4 h-4" />
+              </button>
+            </div>
+          </div>
+
+          <!-- Score & Recommendation Row -->
+          <div class="grid grid-cols-2 gap-4">
+            <div class="investigation-card p-6 flex flex-col items-center text-center bg-white border border-slate-200">
+              <p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">Trust Score</p>
+              <div class="relative w-24 h-24 flex items-center justify-center">
+                <svg class="w-full h-full transform -rotate-90">
+                  <circle cx="48" cy="48" r="42" stroke="currentColor" stroke-width="6" fill="transparent" class="text-slate-100" />
+                  <circle id="trust-circle" cx="48" cy="48" r="42" stroke="currentColor" stroke-width="6" fill="transparent" stroke-dasharray="263.8" stroke-dashoffset="263.8" class="text-slate-400 transition-all duration-1000" />
+                </svg>
+                <span class="absolute text-xl font-bold text-slate-900 tracking-tighter" id="trust-score-text">--%</span>
+              </div>
+              <div class="mt-4 space-y-1">
+                <p id="res-status-text" class="text-sm font-bold text-slate-600 uppercase tracking-tight">ANALYZING</p>
+                <p class="text-[10px] text-slate-500 font-bold uppercase tracking-widest" id="res-recommendation">...</p>
+              </div>
+            </div>
+
+            <div class="investigation-card p-6 bg-slate-900 text-white border border-slate-800 flex flex-col">
+              <h3 class="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-3">Evidence Quick-List</h3>
+              <div class="space-y-2 flex-1 overflow-y-auto" id="evidence-summary-list">
+                <!-- Evidence Quick List -->
+              </div>
+            </div>
+          </div>
+
+          <!-- Findings Breakdown -->
+          <div class="space-y-4">
+             <h3 class="text-xs font-bold text-slate-900 uppercase tracking-wider">Analysis Findings</h3>
+             <div id="findings-container" class="space-y-4">
+               <!-- Grouped Findings -->
+             </div>
+          </div>
+
+        </div>
+
+        <!-- Right Side: Forensic Document Workbench (40% width) -->
+        <div class="w-5/12 h-full flex flex-col bg-white border-l border-slate-200">
+          
+          <!-- Workbench Header -->
+          <div class="p-4 border-b border-slate-200 space-y-3 bg-slate-50 flex-shrink-0">
+            <div class="flex items-center justify-between">
+              <h3 class="text-xs font-bold text-slate-900 uppercase tracking-wider flex items-center gap-1.5">
+                <FileSearch class="w-4 h-4 text-bank-blue" />
+                Forensic Document Workbench
+              </h3>
+              <span id="doc-type-badge" class="px-2 py-0.5 bg-blue-50 text-blue-700 text-[9px] font-bold rounded uppercase tracking-widest border border-blue-100">Select doc</span>
+            </div>
+            
+            <select id="doc-selector" class="w-full bg-white border border-slate-200 rounded-md text-xs font-bold py-2 px-3 text-slate-700 outline-none focus:ring-1 focus:ring-bank-blue cursor-pointer">
+              <!-- Dynamically populated options -->
+            </select>
+          </div>
+
+          <!-- Tab Bar -->
+          <div class="flex border-b border-slate-200 bg-slate-50 flex-shrink-0 text-xs font-bold text-slate-500 uppercase tracking-widest">
+            <button id="tab-view" class="flex-1 py-3 text-center border-b-2 border-bank-blue text-bank-blue focus:outline-none transition-all">File View</button>
+            <button id="tab-text" class="flex-1 py-3 text-center border-b-2 border-transparent hover:text-slate-800 focus:outline-none transition-all">Text Inspector</button>
+            <button id="tab-meta" class="flex-1 py-3 text-center border-b-2 border-transparent hover:text-slate-800 focus:outline-none transition-all">Properties</button>
+          </div>
+
+          <!-- Tab Contents -->
+          <div class="flex-1 overflow-hidden relative p-4 bg-slate-100">
+            
+            <!-- Tab: Document View (Iframe) -->
+            <div id="panel-view" class="w-full h-full bg-white rounded shadow-sm overflow-hidden flex flex-col">
+              <iframe id="doc-iframe" class="w-full h-full border-0 bg-white" src=""></iframe>
+            </div>
+
+            <!-- Tab: Raw Text Inspector -->
+            <div id="panel-text" class="hidden w-full h-full bg-slate-50 rounded shadow-sm border border-slate-200 p-4 overflow-y-auto font-mono text-[11px] leading-relaxed text-slate-700 whitespace-pre-wrap select-text">
+              <!-- Raw extracted text -->
+            </div>
+
+            <!-- Tab: Properties / Metadata / Entities -->
+            <div id="panel-meta" class="hidden w-full h-full bg-white rounded shadow-sm border border-slate-200 p-4 overflow-y-auto text-xs space-y-4">
+              <div>
+                <h4 class="font-bold text-slate-900 border-b border-slate-100 pb-1.5 mb-2 uppercase tracking-wide">Extracted Entities</h4>
+                <div id="entities-table-body" class="space-y-1.5">
+                  <!-- Entities key-value pairs -->
+                </div>
+              </div>
+              <div>
+                <h4 class="font-bold text-slate-900 border-b border-slate-100 pb-1.5 mb-2 uppercase tracking-wide">OCR & Image Properties</h4>
+                <div id="ocr-table-body" class="space-y-1.5">
+                  <!-- OCR details -->
+                </div>
+              </div>
+            </div>
+
+          </div>
+
+        </div>
+
+      </div>
+
+      <!-- Loading State -->
+      <div id="global-loading" class="flex-1 flex flex-col items-center justify-center bg-white">
+        <Loader2 class="w-8 h-8 text-bank-blue animate-spin mb-4" />
+        <p class="text-slate-500 font-medium">Loading investigation data...</p>
+      </div>
+
+      <!-- Error State -->
+      <div id="global-error" class="hidden flex-1 flex flex-col items-center justify-center bg-white p-8 text-center">
+        <div class="w-16 h-16 bg-rose-50 rounded-full flex items-center justify-center mb-4">
+          <AlertCircle class="w-8 h-8 text-rose-500" />
+        </div>
+        <h3 class="text-lg font-bold text-slate-900">Forensic Link Failed</h3>
+        <p id="global-error-msg" class="text-slate-500 mt-1 max-w-xs">We couldn't retrieve the analysis results for this case.</p>
+        <button id="retry-fetch" class="mt-6 btn-secondary">
+          <RefreshCcw class="w-4 h-4" />
+          Retry Connection
+        </button>
+      </div>
+
     </div>
   </div>
 </Layout>
+
+<style is:global>
+  @media print {
+    aside, header, #refresh-btn, #export-report-btn, .btn-primary, #doc-selector, #doc-type-badge, select, .w-5\/12 {
+      display: none !important;
+    }
+    #investigation-container {
+      display: block !important;
+      overflow: visible !important;
+      height: auto !important;
+    }
+    #results-view {
+      display: block !important;
+      overflow: visible !important;
+      height: auto !important;
+      width: 100% !important;
+    }
+    .w-7\/12 {
+      width: 100% !important;
+      border-right: none !important;
+      padding: 0 !important;
+      overflow: visible !important;
+      height: auto !important;
+    }
+    .investigation-card {
+      border: 1px solid #cbd5e1 !important;
+      box-shadow: none !important;
+      page-break-inside: avoid;
+    }
+  }
+</style>
+
+<script>
+  import { api } from '../../services/api';
+  
+  const id = window.location.pathname.split('/').pop() || '';
+  
+  // Elements
+  const analysisProgressView = document.getElementById('analysis-progress-view');
+  const resultsView = document.getElementById('results-view');
+  const globalLoading = document.getElementById('global-loading');
+  const globalError = document.getElementById('global-error');
+  const globalErrorMsg = document.getElementById('global-error-msg');
+  const retryFetch = document.getElementById('retry-fetch');
+  const refreshBtn = document.getElementById('refresh-btn');
+  const exportReportBtn = document.getElementById('export-report-btn');
+  
+  const currentStageMsg = document.getElementById('current-stage-msg');
+  const progressPercent = document.getElementById('progress-percent');
+  const progressBarFill = document.getElementById('progress-bar-fill');
+  
+  const resTitle = document.getElementById('res-title');
+  const resContext = document.getElementById('res-context');
+  const summaryContent = document.getElementById('summary-content');
+  const hindiSummaryContent = document.getElementById('hindi-summary-content');
+  const toggleHindi = document.getElementById('toggle-hindi');
+  const resStatusText = document.getElementById('res-status-text');
+  const resRecommendation = document.getElementById('res-recommendation');
+  const trustScoreText = document.getElementById('trust-score-text');
+  const trustCircle = document.getElementById('trust-circle') as unknown as SVGCircleElement;
+  const findingsContainer = document.getElementById('findings-container');
+  const evidenceSummaryList = document.getElementById('evidence-summary-list');
+  const headerStatusPill = document.getElementById('header-status-pill');
+
+  // Tabs / Workbench
+  const tabView = document.getElementById('tab-view');
+  const tabText = document.getElementById('tab-text');
+  const tabMeta = document.getElementById('tab-meta');
+  const panelView = document.getElementById('panel-view');
+  const panelText = document.getElementById('panel-text');
+  const panelMeta = document.getElementById('panel-meta');
+  const docSelector = document.getElementById('doc-selector') as HTMLSelectElement;
+  const docTypeBadge = document.getElementById('doc-type-badge');
+
+  let pollingInterval: any = null;
+  let caseData: any = null;
+
+  async function init() {
+    showView('loading');
+    await fetchAndRender();
+  }
+
+  async function fetchAndRender() {
+    try {
+      const status = await api.getInvestigationStatus(id);
+      
+      updateHeaderStatus(status.status);
+
+      if (status.status === 'PROCESSING' || status.status === 'PENDING') {
+        showView('progress');
+        updateProgressUI(status.progress, status.current_stage);
+        startPolling();
+      } else if (status.status === 'COMPLETED') {
+        stopPolling();
+        const results = await api.getInvestigationResults(id);
+        caseData = results;
+        renderResults(results);
+        showView('results');
+      } else if (status.status === 'FAILED') {
+        stopPolling();
+        showError(`Analysis failed: ${status.message || 'Unknown error'}`);
+      }
+    } catch (error) {
+      console.error('Fetch failed:', error);
+      showError(error instanceof Error ? error.message : 'Failed to connect to forensic engine');
+    }
+  }
+
+  function showView(view: 'loading' | 'progress' | 'results' | 'error') {
+    globalLoading?.classList.toggle('hidden', view !== 'loading');
+    analysisProgressView?.classList.toggle('hidden', view !== 'progress');
+    resultsView?.classList.toggle('hidden', view !== 'results');
+    globalError?.classList.toggle('hidden', view !== 'error');
+  }
+
+  function showError(msg: string) {
+    if (globalErrorMsg) globalErrorMsg.textContent = msg;
+    showView('error');
+  }
+
+  function updateProgressUI(progress: number, stage: string) {
+    if (progressPercent) progressPercent.textContent = `${progress}%`;
+    if (progressBarFill) progressBarFill.style.width = `${progress}%`;
+    if (currentStageMsg) currentStageMsg.textContent = stage.replace(/_/g, ' ');
+  }
+
+  function updateHeaderStatus(status: string) {
+    if (!headerStatusPill) return;
+    headerStatusPill.textContent = status;
+    headerStatusPill.className = 'status-pill';
+    if (status === 'COMPLETED') headerStatusPill.classList.add('status-pill-green');
+    else if (status === 'FAILED') headerStatusPill.classList.add('status-pill-red');
+    else if (status === 'PROCESSING' || status === 'PENDING') headerStatusPill.classList.add('status-pill-yellow');
+    else headerStatusPill.classList.add('bg-slate-100', 'text-slate-500');
+  }
+
+  function startPolling() {
+    if (pollingInterval) return;
+    pollingInterval = setInterval(fetchAndRender, 2000);
+  }
+
+  function stopPolling() {
+    if (pollingInterval) {
+      clearInterval(pollingInterval);
+      pollingInterval = null;
+    }
+  }
+
+  function renderResults(data: any) {
+    if (resTitle) resTitle.textContent = data.title || `Investigation: ${data.context}`;
+    if (resContext) resContext.textContent = data.context;
+    
+    // Summary
+    const summary = data.ai_summary || {};
+    if (summaryContent) summaryContent.textContent = summary.executive_summary || 'No summary available.';
+    if (hindiSummaryContent) {
+      const hindiText = summary.executive_summary_hi || summary.hindi_summary || '';
+      hindiSummaryContent.textContent = hindiText;
+      toggleHindi?.classList.toggle('hidden', !hindiText);
+    }
+
+    // Scores
+    const scores = data.scores || {};
+    const trust = scores.trust_score !== null && scores.trust_score !== undefined ? Math.round(scores.trust_score * 100) : 0;
+    if (trustScoreText) trustScoreText.textContent = `${trust}%`;
+    if (trustCircle) {
+      const circumference = 2 * Math.PI * 42;
+      const offset = circumference - (trust / 100) * circumference;
+      trustCircle.style.strokeDashoffset = offset.toString();
+      
+      trustCircle.classList.remove('text-emerald-500', 'text-amber-500', 'text-rose-500');
+      if (trust > 80) trustCircle.classList.add('text-emerald-500');
+      else if (trust > 50) trustCircle.classList.add('text-amber-500');
+      else trustCircle.classList.add('text-rose-500');
+    }
+
+    if (resStatusText) {
+       resStatusText.textContent = trust > 80 ? 'VERIFIED' : trust > 50 ? 'SUSPICIOUS' : 'FRAUDULENT';
+       resStatusText.className = `text-sm font-bold uppercase tracking-tight ${trust > 80 ? 'text-emerald-600' : trust > 50 ? 'text-amber-600' : 'text-rose-600'}`;
+    }
+    if (resRecommendation) resRecommendation.textContent = scores.recommendation || 'No recommendation provided.';
+
+    // Findings
+    renderFindings(data.findings || []);
+    renderEvidenceSummary(data.findings || []);
+
+    // Populate Workbench Document Selector
+    populateDocSelector(data.documents || []);
+  }
+
+  function renderFindings(findings: any[]) {
+    if (!findingsContainer) return;
+    
+    if (findings.length === 0) {
+      findingsContainer.innerHTML = `
+        <div class="p-8 bg-white border border-slate-200 rounded-xl text-center">
+          <p class="text-slate-500 font-medium">No findings detected during analysis.</p>
+        </div>
+      `;
+      return;
+    }
+
+    // Group by severity
+    const order = { 'CRITICAL': 0, 'HIGH': 1, 'MEDIUM': 2, 'LOW': 3 } as Record<string, number>;
+    const sorted = [...findings].sort((a, b) => (order[a.severity] || 99) - (order[b.severity] || 99));
+
+    findingsContainer.innerHTML = sorted.map(f => {
+      const severityClass = f.severity === 'CRITICAL' || f.severity === 'HIGH' ? 'border-l-rose-500' : f.severity === 'MEDIUM' ? 'border-l-amber-500' : 'border-l-blue-500';
+      const iconClass = f.severity === 'CRITICAL' || f.severity === 'HIGH' ? 'bg-rose-50 text-rose-600' : f.severity === 'MEDIUM' ? 'bg-amber-50 text-amber-600' : 'bg-blue-50 text-blue-600';
+      
+      return `
+        <div class="investigation-card border-l-4 ${severityClass} bg-white shadow-sm rounded-lg border border-slate-200">
+          <div class="p-6">
+            <div class="flex items-start justify-between">
+              <div class="flex items-center gap-3">
+                <div class="p-2 ${iconClass} rounded">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-alert-circle"><circle cx="12" cy="12" r="10"/><line x1="12" x2="12" y1="8" y2="12"/><line x1="12" x2="12.01" y1="16" y2="16"/></svg>
+                </div>
+                <div>
+                  <h4 class="text-sm font-bold text-slate-900">${f.name}</h4>
+                  <p class="text-[10px] text-slate-400 font-bold uppercase tracking-widest">${f.layer_source}</p>
+                </div>
+              </div>
+              <div class="text-right">
+                <p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Severity</p>
+                <p class="text-xs font-bold ${f.severity === 'CRITICAL' || f.severity === 'HIGH' ? 'text-rose-600' : f.severity === 'MEDIUM' ? 'text-amber-600' : 'text-blue-600'}">${f.severity}</p>
+              </div>
+            </div>
+            <p class="mt-4 text-sm text-slate-600 font-medium leading-relaxed">${f.description}</p>
+            
+            ${f.evidence && f.evidence.length > 0 ? `
+              <div class="mt-6 space-y-3">
+                <p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest border-b border-slate-100 pb-2">Technical Evidence</p>
+                ${f.evidence.map((ev: any) => `
+                  <div class="bg-slate-50 rounded-lg p-3 border border-slate-100 flex flex-col justify-between gap-2">
+                    <div>
+                      <div class="flex items-center justify-between mb-2">
+                         <span class="text-[10px] font-bold text-slate-500 uppercase tracking-tighter">${ev.document} ${ev.page ? `• Page ${ev.page}` : ''}</span>
+                         ${ev.document_id ? `
+                           <button onclick="window.viewEvidence('${ev.document_id}', ${ev.page || 1})" class="text-[9px] font-bold text-bank-blue hover:underline uppercase flex items-center gap-0.5 cursor-pointer">
+                             View Document &rarr;
+                           </button>
+                         ` : ''}
+                      </div>
+                      <p class="text-xs text-slate-700 leading-relaxed"><span class="font-bold text-slate-900">Observation:</span> ${ev.description || 'No description provided.'}</p>
+                    </div>
+                    ${ev.text ? `<p class="text-[11px] font-mono text-slate-500 bg-white p-2 rounded border border-slate-200">"${ev.text}"</p>` : ''}
+                  </div>
+                `).join('')}
+              </div>
+            ` : ''}
+          </div>
+        </div>
+      `;
+    }).join('');
+  }
+
+  function renderEvidenceSummary(findings: any[]) {
+    if (!evidenceSummaryList) return;
+    
+    const allEvidence: any[] = findings.flatMap(f => f.evidence || []);
+    if (allEvidence.length === 0) {
+      evidenceSummaryList.innerHTML = `<p class="text-xs text-slate-500 italic">No specific evidence points found.</p>`;
+      return;
+    }
+
+    evidenceSummaryList.innerHTML = allEvidence.slice(0, 5).map(ev => `
+      <div class="flex items-start gap-2.5 p-2 bg-slate-800/50 rounded border border-slate-700/50">
+        <div class="mt-0.5 flex-shrink-0">
+          <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-slate-500"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/></svg>
+        </div>
+        <p class="text-xs text-slate-300 font-medium leading-tight">${ev.description || 'Anomalous content point detected'}</p>
+      </div>
+    `).join('') + (allEvidence.length > 5 ? `<p class="text-[10px] font-bold text-slate-500 text-center uppercase tracking-widest">+ ${allEvidence.length - 5} more evidence points</p>` : '');
+  }
+
+  // Document Workbench Controls
+  function switchTab(activeTab: 'view' | 'text' | 'meta') {
+    tabView?.classList.toggle('border-bank-blue', activeTab === 'view');
+    tabView?.classList.toggle('text-bank-blue', activeTab === 'view');
+    tabView?.classList.toggle('border-transparent', activeTab !== 'view');
+    
+    tabText?.classList.toggle('border-bank-blue', activeTab === 'text');
+    tabText?.classList.toggle('text-bank-blue', activeTab === 'text');
+    tabText?.classList.toggle('border-transparent', activeTab !== 'text');
+    
+    tabMeta?.classList.toggle('border-bank-blue', activeTab === 'meta');
+    tabMeta?.classList.toggle('text-bank-blue', activeTab === 'meta');
+    tabMeta?.classList.toggle('border-transparent', activeTab !== 'meta');
+    
+    panelView?.classList.toggle('hidden', activeTab !== 'view');
+    panelText?.classList.toggle('hidden', activeTab !== 'text');
+    panelMeta?.classList.toggle('hidden', activeTab !== 'meta');
+  }
+
+  tabView?.addEventListener('click', () => switchTab('view'));
+  tabText?.addEventListener('click', () => switchTab('text'));
+  tabMeta?.addEventListener('click', () => switchTab('meta'));
+
+  function populateDocSelector(docs: any[]) {
+    if (!docSelector || docs.length === 0) return;
+    docSelector.innerHTML = docs.map(d => `<option value="${d.id}">${d.filename}</option>`).join('');
+    selectDocument(docs[0].id);
+  }
+
+  docSelector?.addEventListener('change', () => {
+    selectDocument(docSelector.value);
+  });
+
+  function selectDocument(docId: string, pageNum?: number) {
+    if (!caseData || !caseData.documents) return;
+    
+    // Find the full document info inside caseData
+    const doc = caseData.documents.find((d: any) => d.id === docId);
+    if (!doc) return;
+
+    if (docSelector) docSelector.value = docId;
+    if (docTypeBadge) docTypeBadge.textContent = doc.classification || 'Unknown';
+
+    // 1. Update File View (Iframe src)
+    const baseUrl = import.meta.env.PUBLIC_API_URL || 'http://localhost:8000';
+    const iframe = document.getElementById('doc-iframe') as HTMLIFrameElement;
+    if (iframe) {
+      let fileUrl = `${baseUrl}/api/v1/investigations/${id}/documents/${docId}/file`;
+      if (pageNum) {
+        fileUrl += `#page=${pageNum}`;
+      }
+      iframe.src = fileUrl;
+    }
+
+    // 2. Update Raw Text inspector
+    if (panelText) {
+      panelText.textContent = doc.extracted_text || "No text extracted from this document.";
+    }
+
+    // 3. Update Properties and Entities
+    const entitiesBody = document.getElementById('entities-table-body');
+    const ocrBody = document.getElementById('ocr-table-body');
+
+    if (entitiesBody) {
+      const ent = doc.entities_json || {};
+      const keys = Object.keys(ent);
+      if (keys.length === 0) {
+        entitiesBody.innerHTML = `<p class="text-slate-400 italic text-[11px] p-2">No key entities extracted.</p>`;
+      } else {
+        entitiesBody.innerHTML = keys.map(k => {
+          let val = ent[k];
+          if (val === null || val === undefined) val = "-";
+          if (typeof val === 'number' && k === 'salary') val = "Rs. " + val.toLocaleString();
+          return `
+            <div class="flex items-center justify-between py-2 border-b border-slate-100">
+              <span class="text-slate-500 font-medium capitalize text-[11px]">${k.replace(/_/g, ' ')}:</span>
+              <span class="text-slate-900 font-semibold text-[11px] select-all">${val}</span>
+            </div>
+          `;
+        }).join('');
+      }
+    }
+
+    if (ocrBody) {
+      const meta = doc.metadata_json || {};
+      const isScanned = meta.is_scanned || false;
+      const conf = meta.ocr_confidence !== undefined ? Math.round(meta.ocr_confidence) : 100;
+      
+      ocrBody.innerHTML = `
+        <div class="flex items-center justify-between py-2 border-b border-slate-100">
+          <span class="text-slate-500 font-medium text-[11px]">Extraction Mode:</span>
+          <span class="text-slate-900 font-semibold text-[11px]">${isScanned ? "Tesseract OCR Scan" : "Native Vector Text"}</span>
+        </div>
+        <div class="flex items-center justify-between py-2 border-b border-slate-100">
+          <span class="text-slate-500 font-medium text-[11px]">Confidence Score:</span>
+          <span class="text-[11px] font-semibold ${conf < 60 ? 'text-rose-600' : 'text-slate-900'}">${conf}%</span>
+        </div>
+        <div class="flex items-center justify-between py-2 border-b border-slate-100">
+          <span class="text-slate-500 font-medium text-[11px]">File Format:</span>
+          <span class="text-slate-900 font-semibold text-[11px] uppercase">${doc.file_type || 'unknown'}</span>
+        </div>
+      `;
+    }
+  }
+
+  // Expose viewEvidence globally for findings item clicks
+  (window as any).viewEvidence = (docId: string, pageNum: number) => {
+    switchTab('view');
+    selectDocument(docId, pageNum);
+    
+    // Smooth scroll the workbench into view on smaller displays
+    const docSelectorEl = document.getElementById('doc-selector');
+    docSelectorEl?.scrollIntoView({ behavior: 'smooth' });
+  };
+
+  // Click listeners
+  toggleHindi?.addEventListener('click', () => {
+    hindiSummaryContent?.classList.toggle('hidden');
+    toggleHindi.classList.toggle('text-bank-blue');
+    toggleHindi.classList.toggle('bg-white');
+  });
+
+  refreshBtn?.addEventListener('click', fetchAndRender);
+  retryFetch?.addEventListener('click', fetchAndRender);
+
+  exportReportBtn?.addEventListener('click', () => {
+    const baseUrl = import.meta.env.PUBLIC_API_URL || 'http://localhost:8000';
+    window.location.href = `${baseUrl}/api/v1/investigations/${id}/report`;
+  });
+
+  init();
+</script>

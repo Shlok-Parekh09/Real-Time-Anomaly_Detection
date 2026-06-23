@@ -1,5 +1,6 @@
 from typing import List
-from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form, BackgroundTasks
+from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form, BackgroundTasks, Response
+from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
 from core.database import get_db
 from models import domain, database
@@ -8,6 +9,7 @@ from layers.intake import document_manager
 from services.investigation_manager import investigation_manager
 from services.report_generator import report_generator
 import uuid
+import os
 
 router = APIRouter()
 
@@ -125,6 +127,47 @@ def get_investigation_results(id: str, db: Session = Depends(get_db)):
         raise HTTPException(status_code=404, detail="Investigation not found")
     
     return report_generator.generate_json_report(investigation)
+
+@router.get("/investigations/{id}/report")
+def download_investigation_report(id: str, db: Session = Depends(get_db)):
+    """
+    Generates and returns the downloadable forensic PDF report.
+    """
+    investigation = db.query(database.Investigation).filter(database.Investigation.id == id).first()
+    if not investigation:
+        raise HTTPException(status_code=404, detail="Investigation not found")
+    
+    if investigation.status != "COMPLETED":
+        raise HTTPException(status_code=400, detail="Report is only available for completed investigations")
+        
+    pdf_bytes = report_generator.generate_pdf_report(investigation)
+    
+    return Response(
+        content=pdf_bytes,
+        media_type="application/pdf",
+        headers={
+            "Content-Disposition": f"attachment; filename=Anobis_Report_{id}.pdf"
+        }
+    )
+
+@router.get("/investigations/{id}/documents/{doc_id}/file")
+def get_document_file(id: str, doc_id: str, db: Session = Depends(get_db)):
+    """
+    Serves the actual physical file of an uploaded document.
+    """
+    doc = db.query(database.Document).filter(
+        database.Document.investigation_id == id,
+        database.Document.id == doc_id
+    ).first()
+    
+    if not doc:
+        raise HTTPException(status_code=404, detail="Document not found")
+        
+    if not os.path.exists(doc.storage_path):
+        raise HTTPException(status_code=404, detail="Physical document file not found")
+        
+    media_type = "application/pdf" if doc.file_type == "pdf" else (doc.file_type or "application/octet-stream")
+    return FileResponse(doc.storage_path, media_type=media_type)
 
 @router.get("/investigations/{id}", response_model=domain.InvestigationFullSchema)
 def get_investigation(id: str, db: Session = Depends(get_db)):

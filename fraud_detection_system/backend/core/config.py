@@ -13,9 +13,9 @@ class Settings(BaseSettings):
     
     # AI / LLM Configuration
     GEMINI_API_KEY: str = os.getenv("GEMINI_API_KEY", "")
-    USE_LOCAL_GEMMA: bool = os.getenv("USE_LOCAL_GEMMA", "True").lower() == "true"
+    USE_LOCAL_LLM: bool = os.getenv("USE_LOCAL_LLM", "True").lower() == "true"
     OLLAMA_BASE_URL: str = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")
-    OLLAMA_MODEL: str = os.getenv("OLLAMA_MODEL", "llama3.2")
+    OLLAMA_MODEL: str = os.getenv("OLLAMA_MODEL", "qwen2.5:3b")
     
     # Trust Score Thresholds
     TRUST_THRESHOLD_AUTO_APPROVE: int = 85

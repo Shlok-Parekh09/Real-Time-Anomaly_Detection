@@ -1,286 +1,353 @@
-"""
-Investigation Manager
-Orchestrates the complete forensic analysis pipeline for uploaded documents.
-Integrates all layers:
-  - PDF Metadata Forensics
-  - PDF Structure Analysis (%%EOF, /Prev pointers)
-  - Font Consistency Analysis
-  - Digital Signature Validation
-  - Financial/Mathematical Validation (Benford's Law, round numbers)
-  - Running Balance Verification
-  - Date Validation
-  - Image Pixel Forensics (ELA, compression noise, copy-paste)
-  - AI Summary Generation (Ollama LLM / template fallback)
-"""
-
-import asyncio
-import os
 import logging
-from typing import List
-
-from models.domain import InvestigationResponse, AnomalyFeature
-
-# Forensics layers
-from layers.forensics.digital_forensics import validate_metadata
-from layers.forensics.pdf_analyzer import pdf_analyzer
-from layers.forensics.font_forensics import analyze_font_consistency
-from layers.forensics.signature_validator import validate_digital_signatures
-from layers.forensics.image_forensics import run_image_forensics
-
-# Context/content validation layers
-from layers.context.financial_validator import run_financial_analysis
-from layers.context.date_validator import validate_dates
-from layers.context.balance_validator import validate_running_balances
-
-# Scoring
-from layers.scoring.trust_engine import calculate_trust_score, calculate_confidence_score, get_recommendation
-
-# AI summary
+import asyncio
+from typing import Dict, Any, List
+from sqlalchemy.orm import Session
+from models.database import Investigation, Document, Finding, Evidence
+from services.event_logger import log_event
+from layers.extraction.extraction_service import extraction_service
+from layers.forensics.digital_forensics import digital_forensics
+from layers.cross_document.cross_document_validator import cross_document_validator
+from layers.scoring.trust_engine import trust_engine
 from layers.ai.summary_generator import summary_generator
+from core.database import SessionLocal
+
+from layers.context.context_templates import get_rules_for_context
+from layers.context.financial_validator import validate_bank_statement_math, validate_payslip_math
+from layers.context.real_estate_signals import detect_real_estate_fraud_signals
 
 logger = logging.getLogger(__name__)
 
-
 class InvestigationManager:
     """
-    Orchestrates the asynchronous execution of all forensic layers.
-    Runs each layer independently so one failure doesn't block others.
+    Orchestrates the multi-step investigation pipeline asynchronously.
     """
-
-    async def process_document(self, file_path: str, filename: str) -> InvestigationResponse:
-        anomalies: List[AnomalyFeature] = []
-        is_pdf = file_path.lower().endswith('.pdf')
-        is_image = file_path.lower().endswith(('.png', '.jpg', '.jpeg', '.bmp', '.tiff'))
-        extracted_text = ""
-
-        logger.info(f"[PIPELINE] Starting analysis of '{filename}' (PDF={is_pdf}, Image={is_image})")
-
-        # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-        # LAYER 1: PDF Metadata Forensics
-        # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-        if is_pdf:
-            try:
-                meta_anomalies = validate_metadata(file_path)
-                anomalies.extend(meta_anomalies)
-                logger.info(f"[PIPELINE] Metadata check: {len(meta_anomalies)} anomalies")
-            except Exception as e:
-                logger.error(f"[PIPELINE] Metadata check failed: {e}")
-
-        # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-        # LAYER 2: PDF Structure Analysis
-        # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-        if is_pdf:
-            try:
-                with open(file_path, "rb") as f:
-                    pdf_bytes = f.read()
-                
-                import fitz
-                doc = fitz.open(file_path)
-                metadata = doc.metadata or {}
-                # Extract text for use by other layers
-                for page in doc:
-                    extracted_text += page.get_text()
-                doc.close()
-
-                struct_findings = pdf_analyzer.analyze_structure(pdf_bytes, metadata)
-                for finding in struct_findings:
-                    anomalies.append(AnomalyFeature(
-                        type=finding["name"],
-                        description=finding["description"],
-                        risk_level="High" if finding["severity"] == "HIGH" else "Medium"
-                    ))
-                logger.info(f"[PIPELINE] Structure check: {len(struct_findings)} anomalies")
-            except Exception as e:
-                logger.error(f"[PIPELINE] Structure check failed: {e}")
-
-        # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-        # LAYER 3: Font Consistency Analysis
-        # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-        if is_pdf:
-            try:
-                font_anomalies = analyze_font_consistency(file_path)
-                anomalies.extend(font_anomalies)
-                logger.info(f"[PIPELINE] Font check: {len(font_anomalies)} anomalies")
-            except Exception as e:
-                logger.error(f"[PIPELINE] Font check failed: {e}")
-
-        # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-        # LAYER 4: Digital Signature Validation
-        # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-        if is_pdf:
-            try:
-                sig_anomalies = validate_digital_signatures(file_path)
-                anomalies.extend(sig_anomalies)
-                logger.info(f"[PIPELINE] Signature check: {len(sig_anomalies)} anomalies")
-            except Exception as e:
-                logger.error(f"[PIPELINE] Signature check failed: {e}")
-
-        # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-        # LAYER 5: Financial/Mathematical Validation
-        # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-        if is_pdf:
-            try:
-                fin_anomalies = run_financial_analysis(file_path)
-                anomalies.extend(fin_anomalies)
-                logger.info(f"[PIPELINE] Financial check: {len(fin_anomalies)} anomalies")
-            except Exception as e:
-                logger.error(f"[PIPELINE] Financial check failed: {e}")
-
-        # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-        # LAYER 6: Running Balance Verification
-        # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-        if is_pdf:
-            try:
-                balance_anomalies = validate_running_balances(file_path)
-                anomalies.extend(balance_anomalies)
-                logger.info(f"[PIPELINE] Balance check: {len(balance_anomalies)} anomalies")
-            except Exception as e:
-                logger.error(f"[PIPELINE] Balance check failed: {e}")
-
-        # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-        # LAYER 7: Date Validation
-        # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-        if extracted_text:
-            try:
-                date_anomalies = validate_dates(extracted_text)
-                anomalies.extend(date_anomalies)
-                logger.info(f"[PIPELINE] Date check: {len(date_anomalies)} anomalies")
-            except Exception as e:
-                logger.error(f"[PIPELINE] Date check failed: {e}")
-
-        # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-        # LAYER 8: Image/Pixel Forensics (for both images and PDFs)
-        # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-        try:
-            image_anomalies = run_image_forensics(file_path)
-            anomalies.extend(image_anomalies)
-            logger.info(f"[PIPELINE] Image forensics: {len(image_anomalies)} anomalies")
-        except Exception as e:
-            logger.error(f"[PIPELINE] Image forensics failed: {e}")
-
-        # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-        # SCORING ENGINE
-        # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-        fraud_score, status = calculate_trust_score(anomalies)
-        confidence = calculate_confidence_score(anomalies, extracted_text)
-        recommendation = get_recommendation(fraud_score, confidence)
-
-        logger.info(
-            f"[PIPELINE] Scoring complete: fraud_score={fraud_score}, "
-            f"status={status}, confidence={confidence}, recommendation={recommendation}"
-        )
-
-        # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-        # AI SUMMARY GENERATION (Ollama LLM / fallback)
-        # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-        try:
-            summary_data = {
-                "filename": filename,
-                "fraud_probability_score": fraud_score,
-                "status": status,
-                "confidence": confidence,
-                "recommendation": recommendation,
-                "anomalies": [
-                    {
-                        "type": a.type,
-                        "description": a.description,
-                        "risk_level": a.risk_level
-                    }
-                    for a in anomalies
-                ]
-            }
-            ai_summary = summary_generator.generate_summary(summary_data)
-            logger.info("[PIPELINE] AI summary generated successfully")
-        except Exception as e:
-            logger.error(f"[PIPELINE] AI summary generation failed: {e}")
-            ai_summary = {
-                "executive_summary": f"Analysis complete. {len(anomalies)} anomalies detected. Score: {fraud_score}/100.",
-                "hindi_summary": f"विश्लेषण पूर्ण। {len(anomalies)} विसंगतियाँ पाई गईं। स्कोर: {fraud_score}/100।",
-                "reviewer_notes": "AI summary generation encountered an error. Please review anomalies manually."
-            }
-
-        # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-        # BUILD RESPONSE
-        # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-        return InvestigationResponse(
-            filename=filename,
-            fraud_probability_score=fraud_score,
-            status=status,
-            anomalies=anomalies,
-            ai_summary=ai_summary
-        )
-
+    
     async def run_analysis(self, investigation_id: str):
         """
-        Background analysis for the CRUD-based investigation workflow.
-        Used by routes.py for async processing.
+        The main entry point for the analysis pipeline.
+        Runs as a background task.
         """
-        from core.database import SessionLocal
-        from models.database import Investigation, Document
-
         db = SessionLocal()
+        investigation = None
         try:
-            investigation = db.query(Investigation).filter(
-                Investigation.id == investigation_id
-            ).first()
-
+            investigation = db.query(Investigation).filter(Investigation.id == investigation_id).first()
             if not investigation:
+                logger.error(f"Investigation {investigation_id} not found")
                 return
 
-            investigation.status = "PROCESSING"
-            investigation.current_stage = "ANALYSIS"
-            investigation.progress = 10
-            db.commit()
-
-            # Process each document
-            all_anomalies = []
-            docs = investigation.documents
-
-            for i, doc in enumerate(docs):
-                progress = 10 + int((i / max(len(docs), 1)) * 70)
-                investigation.progress = progress
-                investigation.current_stage = f"ANALYZING_{doc.filename}"
-                db.commit()
-
-                try:
-                    result = await self.process_document(doc.storage_path, doc.filename)
-                    all_anomalies.extend(result.anomalies)
-                except Exception as e:
-                    logger.error(f"[PIPELINE] Error processing {doc.filename}: {e}")
-
-            # Calculate final scores
-            fraud_score, status = calculate_trust_score(all_anomalies)
-            confidence = calculate_confidence_score(all_anomalies)
-            recommendation = get_recommendation(fraud_score, confidence)
-
-            investigation.trust_score = 100 - fraud_score  # Trust is inverse of fraud
-            investigation.confidence_score = confidence
-            investigation.recommendation = recommendation
-            investigation.status = "COMPLETED"
-            investigation.progress = 100
-            investigation.current_stage = "DONE"
+            # Reset previous results if any
+            self._reset_investigation(db, investigation)
             
-            # Generate AI summary
-            try:
-                summary_data = {
-                    "filename": "investigation",
-                    "fraud_probability_score": fraud_score,
-                    "status": status,
-                    "anomalies": [{"type": a.type, "description": a.description, "risk_level": a.risk_level} for a in all_anomalies]
-                }
-                investigation.ai_summary_json = summary_generator.generate_summary(summary_data)
-            except Exception:
-                investigation.ai_summary_json = {"error": "Summary generation failed"}
+            # Start Pipeline
+            await self._update_status(db, investigation, "PROCESSING", 0, "ANALYSIS_STARTED")
+            
+            # 1. Extraction, Classification & Forensics (Per Document)
+            docs = investigation.documents
+            total_docs = len(docs)
+            extraction_success_count = 0
+            
+            if total_docs == 0:
+                raise Exception("No documents uploaded for this investigation.")
 
-            db.commit()
+            for idx, doc in enumerate(docs):
+                success = await self._process_single_document(db, investigation, doc, idx, total_docs)
+                if success:
+                    extraction_success_count += 1
+            
+            if extraction_success_count == 0:
+                raise Exception("Unable to extract text from uploaded documents. All documents failed extraction.")
+            
+            # 2. Context Validation
+            await self._update_status(db, investigation, "PROCESSING", 60, "CONTEXT_VALIDATION")
+            self._run_context_validation(db, investigation)
+            
+            # 3. Cross-Document Validation
+            await self._update_status(db, investigation, "PROCESSING", 70, "CROSS_DOCUMENT_VALIDATION")
+            cross_document_validator.validate_investigation(db, investigation_id)
+            
+            # 4. Trust Scoring
+            await self._update_status(db, investigation, "PROCESSING", 80, "CALCULATING_TRUST_SCORE")
+            self._calculate_final_scores(db, investigation)
+            
+            # 5. AI Summary
+            await self._update_status(db, investigation, "PROCESSING", 90, "GENERATING_AI_SUMMARY")
+            self._generate_ai_summary(db, investigation)
+            
+            # 6. Finalize
+            await self._update_status(db, investigation, "COMPLETED", 100, "ANALYSIS_COMPLETED")
+            log_event(db, investigation_id, "REPORT_READY", "The final investigation report is ready for review.")
 
         except Exception as e:
-            investigation.status = "FAILED"
-            investigation.ai_summary_json = {"error": str(e)}
-            db.commit()
+            logger.exception(f"Pipeline failed for investigation {investigation_id}: {e}")
+            if investigation:
+                investigation.status = "FAILED"
+                investigation.current_stage = "ERROR"
+                # Store message for GET /status
+                investigation.ai_summary_json = {"error": str(e)}
+                log_event(db, investigation_id, "PIPELINE_ERROR", str(e))
+                db.commit()
         finally:
             db.close()
 
+    async def _process_single_document(self, db: Session, investigation: Investigation, doc: Document, index: int, total: int) -> bool:
+        """
+        Handles the per-document layers. Returns True if extraction succeeded.
+        """
+        base_progress = 10
+        doc_progress_share = 50 / total # Scale document processing to 50% of total bar
+        
+        current_progress = int(base_progress + (index * doc_progress_share))
+        await self._update_status(db, investigation, "PROCESSING", current_progress, f"PROCESSING_DOCUMENT: {doc.filename}")
+        
+        try:
+            # Read file bytes
+            with open(doc.storage_path, "rb") as f:
+                file_bytes = f.read()
+                
+            # A. Extraction Layer
+            results = extraction_service.process_document(file_bytes, doc.filename, doc.file_type)
+            
+            doc.extracted_text = results.get("extracted_text")
+            doc.classification = results.get("classification")
+            doc.entities_json = results.get("entities")
+            
+            # Save converted PDF bytes back to storage if file type changed
+            if results.get("pdf_bytes"):
+                try:
+                    with open(doc.storage_path, "wb") as f:
+                        f.write(results["pdf_bytes"])
+                    doc.file_type = "pdf"
+                except Exception as e:
+                    logger.error(f"Failed to overwrite storage path with PDF bytes for {doc.filename}: {e}")
+            
+            doc.metadata_json = {
+                "raw_metadata": results.get("metadata"),
+                "coordinates": results.get("coordinates"),
+                "ocr_confidence": results.get("ocr_confidence", 100.0),
+                "is_scanned": results.get("is_scanned", False)
+            }
+            db.commit()
+            
+            if not doc.extracted_text:
+                return False
 
-# Module-level singleton for routes.py import
+            # B. Forensics Layer (Single Doc)
+            forensics_metadata = results.get("metadata", {})
+            if isinstance(forensics_metadata, dict):
+                forensics_metadata = forensics_metadata.copy()
+                forensics_metadata["extracted_text"] = results.get("extracted_text", "")
+            else:
+                forensics_metadata = {"extracted_text": results.get("extracted_text", "")}
+                
+            forensic_findings = digital_forensics.analyze(file_bytes, doc.filename, doc.file_type, forensics_metadata)
+            
+            for ff in forensic_findings:
+                finding = Finding(
+                    investigation_id=investigation.id,
+                    layer_source="FORENSIC",
+                    name=ff["name"],
+                    severity=ff["severity"],
+                    description=ff["description"],
+                    metadata_json=ff.get("evidence", [])
+                )
+                db.add(finding)
+                log_event(db, investigation.id, "FINDING_DETECTED", f"Forensic flag: {ff['name']} on {doc.filename}")
+            
+            db.commit()
+            return True
+        except Exception as e:
+            logger.error(f"Failed to process document {doc.filename}: {e}")
+            return False
+
+    def _run_context_validation(self, db: Session, investigation: Investigation):
+        """
+        Runs context-specific validation rules.
+        """
+        rules = get_rules_for_context(investigation.context)
+        if not rules:
+            return
+
+        for doc in investigation.documents:
+            if not doc.extracted_text:
+                continue
+
+            # Bank Statement Validation
+            if doc.classification == "Bank Statement":
+                results = validate_bank_statement_math(doc.extracted_text)
+                if results.get("validation_results"):
+                    for vr in results["validation_results"]:
+                        finding = Finding(
+                            investigation_id=investigation.id,
+                            layer_source="CONTEXT",
+                            name=vr["type"].replace("_", " ").title(),
+                            severity=vr["severity"].upper(),
+                            description=vr["description"]
+                        )
+                        db.add(finding)
+            
+            # Payslip Validation
+            if doc.classification == "Payslip":
+                results = validate_payslip_math(doc.extracted_text)
+                if results.get("validation_results"):
+                    for vr in results["validation_results"]:
+                        finding = Finding(
+                            investigation_id=investigation.id,
+                            layer_source="CONTEXT",
+                            name=vr["type"].replace("_", " ").title(),
+                            severity=vr["severity"].upper(),
+                            description=vr["description"]
+                        )
+                        db.add(finding)
+            
+            # Real Estate Signals
+            if investigation.context.lower() in ["mortgage underwriting", "tenant screening"]:
+                metadata = doc.metadata_json.get("raw_metadata", {}) if doc.metadata_json else {}
+                with open(doc.storage_path, "rb") as f:
+                    file_bytes = f.read()
+                re_signals = detect_real_estate_fraud_signals(file_bytes, doc.extracted_text, metadata, doc.file_type)
+                for res in re_signals:
+                    finding = Finding(
+                        investigation_id=investigation.id,
+                        layer_source="CONTEXT",
+                        name=res["name"],
+                        severity=res["severity"].upper(),
+                        description=res["summary"]
+                    )
+                    db.add(finding)
+        
+        db.commit()
+
+    def _calculate_final_scores(self, db: Session, investigation: Investigation):
+        """
+        Wraps the Trust Engine and calculates OCR, entity, and evidence metrics dynamically.
+        """
+        findings = [
+            {"layer_source": f.layer_source, "severity": f.severity, "name": f.name} 
+            for f in investigation.findings
+        ]
+        
+        docs = investigation.documents
+        total_docs = len(docs)
+        
+        # 1. Dynamic OCR Quality
+        ocr_scores = []
+        for doc in docs:
+            if not doc.extracted_text:
+                ocr_scores.append(0.0)
+            else:
+                meta = doc.metadata_json or {}
+                if meta.get("is_scanned", False):
+                    ocr_scores.append(meta.get("ocr_confidence", 100.0))
+                else:
+                    ocr_scores.append(100.0)
+        avg_ocr_quality = sum(ocr_scores) / total_docs if total_docs > 0 else 100.0
+
+        # 2. Dynamic Entity Success Rate
+        entity_success_rates = []
+        for doc in docs:
+            if not doc.extracted_text:
+                entity_success_rates.append(0.0)
+                continue
+                
+            entities = doc.entities_json or {}
+            cls = doc.classification
+            
+            # Map expected entities per classification type
+            expected_keys = ["name"]
+            if cls == "PAN":
+                expected_keys = ["name", "dob", "pan"]
+            elif cls == "Aadhaar":
+                expected_keys = ["name", "dob", "aadhaar"]
+            elif cls == "Payslip":
+                expected_keys = ["name", "salary", "employer"]
+            elif cls == "Property Record":
+                expected_keys = ["property_owner", "property_id"]
+            elif cls == "Bank Statement":
+                expected_keys = ["name", "account_number"]
+            elif cls in ["Utility Bill", "Lease Agreement"]:
+                expected_keys = ["name", "address"]
+                
+            found_count = sum(1 for k in expected_keys if entities.get(k) is not None)
+            success_rate = (found_count / len(expected_keys)) * 100.0
+            entity_success_rates.append(success_rate)
+            
+        avg_entity_success = sum(entity_success_rates) / total_docs if total_docs > 0 else 100.0
+
+        # 3. Dynamic Evidence Quality
+        evidence_confs = []
+        for f in investigation.findings:
+            for ev in f.evidence_items:
+                if ev.confidence is not None:
+                    evidence_confs.append(ev.confidence * 100.0)
+                    
+        avg_evidence_clarity = sum(evidence_confs) / len(evidence_confs) if evidence_confs else 100.0
+
+        # Flag poor image quality if any scanned doc has OCR confidence below 60%
+        has_poor_ocr = any(
+            doc.metadata_json and 
+            doc.metadata_json.get("is_scanned") and 
+            doc.metadata_json.get("ocr_confidence", 100.0) < 60.0 
+            for doc in docs
+        )
+
+        metrics = {
+            "ocr_quality": avg_ocr_quality,
+            "entity_success_rate": avg_entity_success,
+            "evidence_clarity": avg_evidence_clarity,
+            "poor_image_quality": has_poor_ocr
+        }
+        
+        # Determine expected document counts based on context
+        expected = 2
+        ctx_lower = investigation.context.lower()
+        if "underwriting" in ctx_lower or "mortgage" in ctx_lower or "loan" in ctx_lower:
+            expected = 3
+        elif "screening" in ctx_lower or "kyc" in ctx_lower:
+            expected = 2
+            
+        t, c, r = trust_engine.calculate_scores(findings, metrics, expected, total_docs)
+        
+        investigation.trust_score = t
+        investigation.confidence_score = c
+        investigation.recommendation = r
+        db.commit()
+
+    def _generate_ai_summary(self, db: Session, investigation: Investigation):
+        """
+        Wraps the AI Summary Generator.
+        """
+        # Prepare data for AI
+        data = {
+            "context": investigation.context,
+            "trust_score": investigation.trust_score,
+            "confidence_score": investigation.confidence_score,
+            "recommendation": investigation.recommendation,
+            "findings": [
+                {"name": f.name, "severity": f.severity, "description": f.description}
+                for f in investigation.findings
+            ]
+        }
+        
+        summary = summary_generator.generate_summary(data)
+        investigation.ai_summary_json = summary
+        db.commit()
+
+    async def _update_status(self, db: Session, investigation: Investigation, status: str, progress: int, stage: str):
+        investigation.status = status
+        investigation.progress = progress
+        investigation.current_stage = stage
+        db.commit()
+        log_event(db, investigation.id, stage, f"Pipeline moved to {stage} stage.")
+        await asyncio.sleep(0.1) # Yield control
+
+    def _reset_investigation(self, db: Session, investigation: Investigation):
+        """
+        Clears previous findings/evidence for a re-run.
+        """
+        db.query(Finding).filter(Finding.investigation_id == investigation.id).delete()
+        # Events are kept as history, or cleared based on requirement.
+        # For now we keep them but add a 'RESTARTED' event.
+        log_event(db, investigation.id, "ANALYSIS_RESTARTED", "Investigation analysis has been restarted.")
+        db.commit()
+
 investigation_manager = InvestigationManager()

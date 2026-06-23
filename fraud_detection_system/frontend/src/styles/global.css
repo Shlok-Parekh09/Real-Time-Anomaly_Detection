@@ -59,3 +59,28 @@
 @utility btn-secondary {
   @apply px-4 py-2 bg-white border border-slate-200 text-slate-700 rounded-md font-medium hover:bg-slate-50 transition-colors inline-flex items-center justify-center gap-2;
 }
+
+@utility btn-sm {
+  @apply px-3 py-1 text-xs;
+}
+
+@utility card-header {
+  @apply px-6 py-4 border-b border-slate-200 flex items-center justify-between;
+}
+
+@utility card-title {
+  @apply font-bold text-slate-900;
+}
+
+@utility table-standard {
+  @apply w-full text-left;
+}
+
+@utility table-header {
+  @apply bg-slate-50 text-slate-500 uppercase text-[10px] font-bold tracking-widest border-b border-slate-200;
+}
+
+@utility table-body {
+  @apply divide-y divide-slate-200;
+}
+

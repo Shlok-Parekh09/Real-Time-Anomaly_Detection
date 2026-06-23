@@ -1,17 +1,7 @@
 ---
 import Layout from '../layouts/Layout.astro';
-import { Search, Filter, Plus, ChevronRight, ExternalLink, FileText, Download, MoreHorizontal } from "lucide-astro";
+import { Search, Filter, Plus, ChevronRight, ExternalLink, FileText, Download, MoreHorizontal, AlertCircle, RefreshCcw } from "lucide-astro";
 
-const investigations = [
-  { id: 'INV-2026-001', context: 'Loan Approval', applicant: 'Rajesh Kumar', date: 'June 5, 2026', status: 'Fraudulent', risk: 'High', score: 34 },
-  { id: 'INV-2026-002', context: 'Mortgage Underwriting', applicant: 'Priya Singh', date: 'June 5, 2026', status: 'Suspicious', risk: 'Medium', score: 62 },
-  { id: 'INV-2026-003', context: 'KYC / Onboarding', applicant: 'Amit Patel', date: 'June 4, 2026', status: 'Verified', risk: 'Low', score: 98 },
-  { id: 'INV-2026-004', context: 'Internal Audit', applicant: 'Suresh Raina', date: 'June 4, 2026', status: 'Verified', risk: 'Low', score: 96 },
-  { id: 'INV-2026-005', context: 'Tenant Screening', applicant: 'Ananya Iyer', date: 'June 3, 2026', status: 'Suspicious', risk: 'Medium', score: 71 },
-  { id: 'INV-2026-006', context: 'Loan Approval', applicant: 'Vikram Seth', date: 'June 3, 2026', status: 'Verified', risk: 'Low', score: 94 },
-  { id: 'INV-2026-007', context: 'Insurance Claim', applicant: 'Meera Deshmukh', date: 'June 2, 2026', status: 'Fraudulent', risk: 'High', score: 12 },
-  { id: 'INV-2026-008', context: 'Mortgage Underwriting', applicant: 'Arjun Kapoor', date: 'June 2, 2026', status: 'Verified', risk: 'Low', score: 91 },
-];
 ---
 
 <Layout title="Investigations | Anobis" activeTab="investigations">
@@ -37,102 +27,259 @@ const investigations = [
     <div class="flex flex-col md:flex-row gap-4 items-center justify-between bg-white p-4 rounded-lg border border-slate-200 shadow-sm">
       <div class="relative w-full md:w-96">
         <Search class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-        <input type="text" placeholder="Filter by ID, name, or context..." class="w-full pl-10 pr-4 py-2 bg-slate-50 border-slate-200 rounded-md text-sm focus:ring-1 focus:ring-bank-blue transition-all" />
+        <input type="text" id="search-input" placeholder="Filter by title or context..." class="w-full pl-10 pr-4 py-2 bg-slate-50 border-slate-200 rounded-md text-sm focus:ring-1 focus:ring-bank-blue transition-all" />
       </div>
       <div class="flex items-center gap-2 w-full md:w-auto">
         <button class="btn-secondary py-1.5 text-xs flex-1 md:flex-none">
           <Filter class="w-3.5 h-3.5" />
           More Filters
         </button>
-        <select class="bg-slate-50 border border-slate-200 rounded-md text-xs font-bold py-1.5 px-3 text-slate-700 outline-none focus:ring-1 focus:ring-bank-blue">
-          <option>All Status</option>
-          <option>Verified</option>
-          <option>Suspicious</option>
-          <option>Fraudulent</option>
-        </select>
-        <select class="bg-slate-50 border border-slate-200 rounded-md text-xs font-bold py-1.5 px-3 text-slate-700 outline-none focus:ring-1 focus:ring-bank-blue">
-          <option>Last 30 Days</option>
-          <option>Last 7 Days</option>
-          <option>All Time</option>
+        <select id="status-filter" class="bg-slate-50 border border-slate-200 rounded-md text-xs font-bold py-1.5 px-3 text-slate-700 outline-none focus:ring-1 focus:ring-bank-blue">
+          <option value="ALL">All Status</option>
+          <option value="COMPLETED">Completed</option>
+          <option value="PROCESSING">In Progress</option>
+          <option value="PENDING">Pending</option>
+          <option value="FAILED">Failed</option>
         </select>
       </div>
     </div>
 
-    <!-- Table -->
-    <div class="investigation-card">
-      <div class="overflow-x-auto">
-        <table class="w-full text-left">
-          <thead class="bg-slate-50 text-slate-500 uppercase text-[10px] font-bold tracking-widest border-b border-slate-200">
+    <!-- Table Container -->
+    <div class="investigation-card min-h-[400px] flex flex-col">
+      <div class="overflow-x-auto flex-1">
+        <table class="table-standard">
+          <thead class="table-header">
             <tr>
-              <th class="px-6 py-4">ID</th>
-              <th class="px-6 py-4">Applicant</th>
+              <th class="px-6 py-4">Title / ID</th>
               <th class="px-6 py-4">Context</th>
-              <th class="px-6 py-4">Date</th>
-              <th class="px-6 py-4">Trust Score</th>
               <th class="px-6 py-4">Status</th>
+              <th class="px-6 py-4">Trust / Conf</th>
+              <th class="px-6 py-4">Recommendation</th>
+              <th class="px-6 py-4">Created</th>
               <th class="px-6 py-4 text-right">Action</th>
             </tr>
           </thead>
-          <tbody class="divide-y divide-slate-200">
-            {investigations.map((inv) => (
-              <tr class="hover:bg-slate-50 transition-colors group">
+          <tbody id="investigations-body" class="table-body">
+            <!-- Loading Skeletons -->
+            {[1, 2, 3, 4, 5].map(() => (
+              <tr class="skeleton-row animate-pulse">
                 <td class="px-6 py-4">
-                  <span class="font-mono text-xs font-bold text-slate-900">{inv.id}</span>
+                  <div class="h-4 bg-slate-100 rounded w-3/4 mb-2"></div>
+                  <div class="h-3 bg-slate-50 rounded w-1/2"></div>
                 </td>
                 <td class="px-6 py-4">
-                  <p class="text-sm font-bold text-slate-900">{inv.applicant}</p>
+                  <div class="h-4 bg-slate-100 rounded w-full"></div>
                 </td>
-                <td class="px-6 py-4 text-sm text-slate-600 font-medium">
-                  {inv.context}
-                </td>
-                <td class="px-6 py-4 text-sm text-slate-500 font-medium">
-                  {inv.date}
+                <td class="px-6 py-4">
+                  <div class="h-6 bg-slate-100 rounded-full w-20"></div>
                 </td>
                 <td class="px-6 py-4">
                   <div class="flex items-center gap-2">
-                    <div class="w-16 h-1.5 bg-slate-100 rounded-full overflow-hidden">
-                      <div 
-                        class={`h-full rounded-full ${inv.score > 80 ? 'bg-emerald-500' : inv.score > 50 ? 'bg-amber-500' : 'bg-rose-500'}`} 
-                        style={`width: ${inv.score}%`}
-                      ></div>
-                    </div>
-                    <span class={`text-xs font-bold ${inv.score > 80 ? 'text-emerald-600' : inv.score > 50 ? 'text-amber-600' : 'text-rose-600'}`}>{inv.score}%</span>
+                    <div class="w-12 h-1.5 bg-slate-100 rounded-full"></div>
+                    <div class="w-8 h-3 bg-slate-50 rounded"></div>
                   </div>
                 </td>
                 <td class="px-6 py-4">
-                  {inv.status === 'Verified' && <span class="status-pill-green">Verified</span>}
-                  {inv.status === 'Suspicious' && <span class="status-pill-yellow">Suspicious</span>}
-                  {inv.status === 'Fraudulent' && <span class="status-pill-red">Fraudulent</span>}
+                  <div class="h-4 bg-slate-100 rounded w-full"></div>
+                </td>
+                <td class="px-6 py-4">
+                  <div class="h-4 bg-slate-100 rounded w-24"></div>
                 </td>
                 <td class="px-6 py-4 text-right">
-                  <div class="flex items-center justify-end gap-2">
-                    <a href={`/investigate/${inv.id}`} class="p-1.5 text-slate-400 hover:text-bank-blue hover:bg-blue-50 rounded transition-all">
-                      <ExternalLink class="w-4 h-4" />
-                    </a>
-                    <button class="p-1.5 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded transition-all">
-                      <MoreHorizontal class="w-4 h-4" />
-                    </button>
-                  </div>
+                  <div class="h-8 w-8 bg-slate-50 rounded ml-auto"></div>
                 </td>
               </tr>
             ))}
           </tbody>
         </table>
+
+        <!-- Empty State (Hidden by default) -->
+        <div id="empty-state" class="hidden py-20 flex flex-col items-center justify-center text-center">
+          <div class="w-16 h-16 bg-slate-50 rounded-full flex items-center justify-center mb-4">
+            <FileText class="w-8 h-8 text-slate-300" />
+          </div>
+          <h3 class="text-lg font-bold text-slate-900">No investigations yet</h3>
+          <p class="text-slate-500 mt-1 max-w-xs">Start your first forensic analysis by creating a new investigation.</p>
+          <a href="/new-investigation" class="mt-6 btn-primary">
+            <Plus class="w-4 h-4" />
+            Create Investigation
+          </a>
+        </div>
+
+        <!-- Error State (Hidden by default) -->
+        <div id="error-state" class="hidden py-20 flex flex-col items-center justify-center text-center">
+          <div class="w-16 h-16 bg-rose-50 rounded-full flex items-center justify-center mb-4">
+            <AlertCircle class="w-8 h-8 text-rose-500" />
+          </div>
+          <h3 class="text-lg font-bold text-slate-900">Failed to load investigations</h3>
+          <p id="error-message" class="text-slate-500 mt-1 max-w-xs">An error occurred while connecting to the forensic engine.</p>
+          <button id="retry-button" class="mt-6 btn-secondary">
+            <RefreshCcw class="w-4 h-4" />
+            Retry Connection
+          </button>
+        </div>
       </div>
       
-      <!-- Pagination -->
-      <div class="px-6 py-4 bg-slate-50 border-t border-slate-200 flex items-center justify-between">
-        <p class="text-xs font-bold text-slate-500 uppercase tracking-widest">Showing 8 of 142 results</p>
+      <!-- Pagination (Footer) -->
+      <div id="pagination-footer" class="px-6 py-4 bg-slate-50 border-t border-slate-200 flex items-center justify-between opacity-50 pointer-events-none">
+        <p class="text-xs font-bold text-slate-500 uppercase tracking-widest" id="results-count">Showing 0 results</p>
         <div class="flex items-center gap-2">
-          <button class="px-3 py-1 bg-white border border-slate-200 rounded text-xs font-bold text-slate-400 cursor-not-allowed">Previous</button>
-          <div class="flex items-center gap-1">
-            <button class="w-8 h-8 bg-bank-blue text-white rounded text-xs font-bold">1</button>
-            <button class="w-8 h-8 bg-white border border-slate-200 rounded text-xs font-bold text-slate-600 hover:bg-slate-50">2</button>
-            <button class="w-8 h-8 bg-white border border-slate-200 rounded text-xs font-bold text-slate-600 hover:bg-slate-50">3</button>
-          </div>
-          <button class="px-3 py-1 bg-white border border-slate-200 rounded text-xs font-bold text-slate-600 hover:bg-slate-50">Next</button>
+          <button class="px-3 py-1 bg-white border border-slate-200 rounded text-xs font-bold text-slate-400">Previous</button>
+          <button class="px-3 py-1 bg-white border border-slate-200 rounded text-xs font-bold text-slate-400">Next</button>
         </div>
       </div>
     </div>
   </div>
 </Layout>
+
+<script>
+  import { api } from '../services/api';
+  import type { Investigation } from '../types/api';
+
+  const investigationsBody = document.getElementById('investigations-body');
+  const emptyState = document.getElementById('empty-state');
+  const errorState = document.getElementById('error-state');
+  const errorMessage = document.getElementById('error-message');
+  const retryButton = document.getElementById('retry-button');
+  const resultsCount = document.getElementById('results-count');
+  const paginationFooter = document.getElementById('pagination-footer');
+  const statusFilter = document.getElementById('status-filter') as HTMLSelectElement;
+  const searchInput = document.getElementById('search-input') as HTMLInputElement;
+
+  let allInvestigations: Investigation[] = [];
+
+  async function loadInvestigations() {
+    if (!investigationsBody) return;
+
+    // Show skeletons
+    investigationsBody.innerHTML = Array(5).fill(0).map(() => `
+      <tr class="animate-pulse">
+        <td class="px-6 py-4"><div class="h-4 bg-slate-100 rounded w-3/4 mb-2"></div><div class="h-3 bg-slate-50 rounded w-1/2"></div></td>
+        <td class="px-6 py-4"><div class="h-4 bg-slate-100 rounded w-full"></div></td>
+        <td class="px-6 py-4"><div class="h-6 bg-slate-100 rounded-full w-20"></div></td>
+        <td class="px-6 py-4"><div class="flex items-center gap-2"><div class="w-12 h-1.5 bg-slate-100 rounded-full"></div></div></td>
+        <td class="px-6 py-4"><div class="h-4 bg-slate-100 rounded w-full"></div></td>
+        <td class="px-6 py-4"><div class="h-4 bg-slate-100 rounded w-24"></div></td>
+        <td class="px-6 py-4 text-right"><div class="h-8 w-8 bg-slate-50 rounded ml-auto"></div></td>
+      </tr>
+    `).join('');
+    
+    emptyState?.classList.add('hidden');
+    errorState?.classList.add('hidden');
+    investigationsBody.parentElement?.querySelector('table')?.classList.remove('hidden');
+
+    try {
+      allInvestigations = await api.getInvestigations();
+      renderInvestigations(allInvestigations);
+    } catch (error) {
+      console.error('Failed to fetch investigations:', error);
+      investigationsBody.parentElement?.querySelector('table')?.classList.add('hidden');
+      errorState?.classList.remove('hidden');
+      if (errorMessage) errorMessage.textContent = error instanceof Error ? error.message : 'Unknown error occurred';
+    }
+  }
+
+  function renderInvestigations(investigations: Investigation[]) {
+    if (!investigationsBody) return;
+
+    if (investigations.length === 0) {
+      investigationsBody.parentElement?.querySelector('table')?.classList.add('hidden');
+      emptyState?.classList.remove('hidden');
+      paginationFooter?.classList.add('opacity-50', 'pointer-events-none');
+      if (resultsCount) resultsCount.textContent = 'Showing 0 results';
+      return;
+    }
+
+    investigationsBody.parentElement?.querySelector('table')?.classList.remove('hidden');
+    emptyState?.classList.add('hidden');
+    paginationFooter?.classList.remove('opacity-50', 'pointer-events-none');
+    if (resultsCount) resultsCount.textContent = `Showing ${investigations.length} results`;
+
+    investigationsBody.innerHTML = investigations.map(inv => {
+      const date = new Date(inv.created_at).toLocaleDateString('en-US', {
+        month: 'short',
+        day: 'numeric',
+        year: 'numeric'
+      });
+
+      const trustScore = inv.trust_score !== null ? Math.round(inv.trust_score * 100) : null;
+      const confidenceScore = inv.confidence_score !== null ? Math.round(inv.confidence_score * 100) : null;
+      
+      let statusClass = 'bg-slate-50 text-slate-700 border-slate-200';
+      if (inv.status === 'COMPLETED') statusClass = 'bg-emerald-50 text-emerald-700 border-emerald-200';
+      if (inv.status === 'PROCESSING' || inv.status === 'IN_PROGRESS') statusClass = 'bg-blue-50 text-blue-700 border-blue-200';
+      if (inv.status === 'FAILED') statusClass = 'bg-rose-50 text-rose-700 border-rose-200';
+      if (inv.status === 'PENDING') statusClass = 'bg-amber-50 text-amber-700 border-amber-200';
+
+      let scoreColor = 'text-slate-400';
+      let scoreBg = 'bg-slate-100';
+      if (trustScore !== null) {
+        if (trustScore > 80) { scoreColor = 'text-emerald-600'; scoreBg = 'bg-emerald-500'; }
+        else if (trustScore > 50) { scoreColor = 'text-amber-600'; scoreBg = 'bg-amber-500'; }
+        else { scoreColor = 'text-rose-600'; scoreBg = 'bg-rose-500'; }
+      }
+
+      return `
+        <tr class="hover:bg-slate-50 transition-colors group">
+          <td class="px-6 py-4">
+            <p class="text-sm font-bold text-slate-900">${inv.title || 'Untitled Investigation'}</p>
+            <span class="font-mono text-[10px] font-bold text-slate-400 uppercase tracking-tighter">${inv.id}</span>
+          </td>
+          <td class="px-6 py-4 text-sm text-slate-600 font-medium">
+            ${inv.context}
+          </td>
+          <td class="px-6 py-4">
+            <span class="px-2 py-0.5 rounded-full text-[10px] font-bold border ${statusClass}">
+              ${inv.status}
+            </span>
+          </td>
+          <td class="px-6 py-4">
+            <div class="flex flex-col gap-1">
+              <div class="flex items-center gap-2">
+                <div class="w-12 h-1.5 bg-slate-100 rounded-full overflow-hidden">
+                  <div class="h-full rounded-full ${scoreBg}" style="width: ${trustScore || 0}%"></div>
+                </div>
+                <span class="text-[10px] font-bold ${scoreColor}">${trustScore !== null ? trustScore + '%' : 'N/A'}</span>
+              </div>
+              <span class="text-[9px] text-slate-400 font-bold uppercase tracking-widest">Conf: ${confidenceScore !== null ? confidenceScore + '%' : 'N/A'}</span>
+            </div>
+          </td>
+          <td class="px-6 py-4 text-sm text-slate-600 font-medium">
+            ${inv.recommendation || '<span class="text-slate-300 italic">Pending analysis...</span>'}
+          </td>
+          <td class="px-6 py-4 text-sm text-slate-500 font-medium">
+            ${date}
+          </td>
+          <td class="px-6 py-4 text-right">
+            <a href="/investigate/${inv.id}" class="p-1.5 text-slate-400 hover:text-bank-blue hover:bg-blue-50 rounded transition-all inline-block">
+              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-external-link"><path d="M15 3h6v6"/><path d="M10 14 21 3"/><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/></svg>
+            </a>
+          </td>
+        </tr>
+      `;
+    }).join('');
+  }
+
+  function filterInvestigations() {
+    const status = statusFilter.value;
+    const search = searchInput.value.toLowerCase();
+
+    const filtered = allInvestigations.filter(inv => {
+      const matchesStatus = status === 'ALL' || inv.status === status;
+      const matchesSearch = (inv.title || '').toLowerCase().includes(search) || 
+                            inv.context.toLowerCase().includes(search) ||
+                            inv.id.toLowerCase().includes(search);
+      return matchesStatus && matchesSearch;
+    });
+
+    renderInvestigations(filtered);
+  }
+
+  statusFilter?.addEventListener('change', filterInvestigations);
+  searchInput?.addEventListener('input', filterInvestigations);
+  retryButton?.addEventListener('click', loadInvestigations);
+
+  // Initial load
+  loadInvestigations();
+</script>
+

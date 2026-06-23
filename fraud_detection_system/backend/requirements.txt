@@ -1,28 +1,19 @@
-# Core web framework
 fastapi
 uvicorn[standard]
 python-multipart
-
-# PDF analysis
 PyPDF2
 PyMuPDF
 pdfplumber
-
-# Image analysis
 opencv-python-headless
+pytesseract
 Pillow
 numpy
-
-# Data models & database
 pydantic
+sqlalchemy
 pydantic-settings
 pydantic[email]
-sqlalchemy
-
-# Text similarity / fuzzy matching
 thefuzz
 python-Levenshtein
 pyjarowinkler
-
-# HTTP client (for Ollama LLM calls)
 httpx
+reportlab

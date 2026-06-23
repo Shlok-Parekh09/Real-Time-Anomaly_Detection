@@ -1,14 +1,14 @@
 ---
 import Layout from '../layouts/Layout.astro';
-import { ShieldCheck, Upload, ChevronRight, File, X, Sparkles, Building2, UserCheck, Landmark, Receipt, FileSearch, Loader2 } from "lucide-astro";
+import { ShieldCheck, Upload, ChevronRight, File, X, Sparkles, Building2, UserCheck, Landmark, Receipt, FileSearch, Loader2, AlertCircle, CheckCircle2 } from "lucide-astro";
 
 const contexts = [
-  { id: 'loan', name: 'Loan Approval', description: 'Personal or business loan verification', icon: Landmark },
-  { id: 'mortgage', name: 'Mortgage Underwriting', description: 'Property loan document analysis', icon: Building2 },
-  { id: 'tenant', name: 'Tenant Screening', description: 'Rental application verification', icon: UserCheck },
-  { id: 'kyc', name: 'KYC / Onboarding', description: 'Identity and address verification', icon: ShieldCheck },
-  { id: 'insurance', name: 'Insurance Claims', description: 'Claim document authenticity check', icon: Receipt },
-  { id: 'compliance', name: 'Internal Audit', description: 'Corporate compliance review', icon: FileSearch },
+  { id: 'Loan Approval', name: 'Loan Approval', description: 'Personal or business loan verification', icon: Landmark },
+  { id: 'Mortgage Underwriting', name: 'Mortgage Underwriting', description: 'Property loan document analysis', icon: Building2 },
+  { id: 'Tenant Screening', name: 'Tenant Screening', description: 'Rental application verification', icon: UserCheck },
+  { id: 'KYC / Onboarding', name: 'KYC / Onboarding', description: 'Identity and address verification', icon: ShieldCheck },
+  { id: 'Insurance Claims', name: 'Insurance Claims', description: 'Claim document authenticity check', icon: Receipt },
+  { id: 'Internal Audit', name: 'Internal Audit', description: 'Corporate compliance review', icon: FileSearch },
 ];
 ---
 
@@ -21,13 +21,13 @@ const contexts = [
       <span class="text-slate-900">New Investigation</span>
     </nav>
 
-    <div>
+    <div id="header-section">
       <h1 class="text-2xl font-bold text-slate-900">Create New Investigation</h1>
       <p class="text-slate-500 mt-1 font-medium">Select context and upload documents for forensic analysis.</p>
     </div>
 
-    <form id="investigation-form" class="space-y-8">
-      <!-- Context Selection -->
+    <!-- Step 1: Context Selection -->
+    <div id="step-1" class="space-y-8">
       <section class="space-y-4">
         <div class="flex items-center justify-between">
           <h2 class="text-sm font-bold text-slate-900 uppercase tracking-wider">1. Investigation Context</h2>
@@ -40,7 +40,7 @@ const contexts = [
         <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {contexts.map((ctx) => (
             <label class="group relative flex items-start gap-4 p-4 bg-white border border-slate-200 rounded-lg cursor-pointer hover:border-bank-blue hover:shadow-sm transition-all has-[:checked]:border-bank-blue has-[:checked]:bg-blue-50/30 has-[:checked]:ring-1 has-[:checked]:ring-bank-blue">
-              <input type="radio" name="context" value={ctx.id} class="sr-only" required />
+              <input type="radio" name="context" value={ctx.id} class="sr-only" />
               <div class="p-2 rounded-md bg-slate-100 text-slate-600 group-hover:bg-blue-100 group-hover:text-bank-blue transition-colors">
                 <ctx.icon class="w-5 h-5" />
               </div>
@@ -53,12 +53,30 @@ const contexts = [
         </div>
       </section>
 
-      <!-- Upload Section -->
       <section class="space-y-4">
-        <h2 class="text-sm font-bold text-slate-900 uppercase tracking-wider">2. Upload Documents</h2>
+         <h2 class="text-sm font-bold text-slate-900 uppercase tracking-wider">2. Investigation Title (Optional)</h2>
+         <input type="text" id="investigation-title" placeholder="e.g. Q2 Mortgage Audit - Rajesh Kumar" class="w-full px-4 py-3 bg-white border border-slate-200 rounded-lg text-sm focus:ring-1 focus:ring-bank-blue outline-none transition-all" />
+      </section>
+
+      <div class="pt-6 border-t border-slate-200 flex items-center justify-end gap-4">
+        <button id="cancel-btn" class="px-6 py-2.5 text-sm font-bold text-slate-500 hover:text-slate-900 transition-colors">Cancel</button>
+        <button id="create-inv-btn" class="btn-primary px-8 py-2.5">
+          Continue to Upload
+          <Loader2 id="create-loader" class="w-4 h-4 animate-spin hidden" />
+        </button>
+      </div>
+    </div>
+
+    <!-- Step 2: Upload (Hidden by default) -->
+    <div id="step-2" class="space-y-8 hidden">
+       <section class="space-y-4">
+        <div class="flex items-center justify-between">
+          <h2 class="text-sm font-bold text-slate-900 uppercase tracking-wider">3. Upload Documents</h2>
+          <span id="inv-id-badge" class="px-3 py-1 bg-slate-100 text-slate-600 rounded-full border border-slate-200 text-[10px] font-bold uppercase tracking-widest">ID: ...</span>
+        </div>
         
-        <div id="drop-zone" class="bg-white border-2 border-dashed border-slate-200 rounded-xl p-12 flex flex-col items-center justify-center gap-4 hover:border-bank-blue hover:bg-slate-50/50 transition-all cursor-pointer group">
-          <input type="file" id="file-input" class="hidden" accept=".pdf,.png,.jpg,.jpeg" />
+        <div id="drop-zone" class="bg-white border-2 border-dashed border-slate-200 rounded-xl p-12 flex flex-col items-center justify-center gap-4 hover:border-bank-blue hover:bg-slate-50/50 transition-all cursor-pointer group relative">
+          <input type="file" id="file-input" multiple accept=".pdf,.png,.jpg,.jpeg" class="absolute inset-0 opacity-0 cursor-pointer" />
           <div class="p-4 rounded-full bg-slate-100 text-slate-400 group-hover:bg-blue-100 group-hover:text-bank-blue transition-all">
             <Upload class="w-8 h-8" />
           </div>
@@ -66,7 +84,7 @@ const contexts = [
             <p class="text-slate-900 font-bold">Drag and drop files here</p>
             <p class="text-slate-500 text-sm mt-1 font-medium">Support for PDF, JPG, PNG (Max 20MB per file)</p>
           </div>
-          <button type="button" class="btn-secondary mt-2" onclick="document.getElementById('file-input').click()">Browse Files</button>
+          <button class="btn-secondary mt-2 pointer-events-none">Browse Files</button>
         </div>
 
         <!-- File List -->
@@ -75,118 +93,201 @@ const contexts = [
         </div>
       </section>
 
-      <!-- Footer Actions -->
-      <div class="pt-6 border-t border-slate-200 flex items-center justify-end gap-4">
-        <button type="button" class="px-6 py-2.5 text-sm font-bold text-slate-500 hover:text-slate-900 transition-colors">Cancel</button>
-        <button type="submit" id="start-analysis" class="btn-primary px-8 py-2.5 disabled:opacity-50 disabled:cursor-not-allowed" disabled>
-          <span id="button-text">Start Forensic Analysis</span>
-          <Loader2 id="button-loader" class="w-4 h-4 animate-spin hidden" />
+      <div class="pt-6 border-t border-slate-200 flex items-center justify-between">
+        <button id="back-to-step-1" class="px-6 py-2.5 text-sm font-bold text-slate-500 hover:text-slate-900 transition-colors">Back</button>
+        <button id="start-analysis-btn" class="btn-primary px-8 py-2.5 opacity-50 pointer-events-none">
+          Start Forensic Analysis
+          <Loader2 id="analysis-loader" class="w-4 h-4 animate-spin hidden" />
         </button>
       </div>
-    </form>
+    </div>
+
+    <!-- Error Toast -->
+    <div id="error-toast" class="fixed bottom-8 right-8 bg-rose-50 border border-rose-200 p-4 rounded-lg shadow-lg flex items-start gap-3 max-w-md transform translate-y-24 transition-transform duration-300 z-50">
+       <AlertCircle class="w-5 h-5 text-rose-500 flex-shrink-0" />
+       <div>
+         <p class="text-sm font-bold text-rose-900">Action Failed</p>
+         <p id="error-toast-msg" class="text-xs text-rose-700 mt-1">An unexpected error occurred.</p>
+       </div>
+       <button id="close-error" class="text-rose-400 hover:text-rose-600 ml-auto">
+         <X class="w-4 h-4" />
+       </button>
+    </div>
   </div>
 </Layout>
 
 <script>
-  let selectedFile = null;
-  const fileInput = document.getElementById('file-input');
-  const fileList = document.getElementById('file-list');
-  const dropZone = document.getElementById('drop-zone');
-  const form = document.getElementById('investigation-form');
-  const startButton = document.getElementById('start-analysis');
-  const buttonText = document.getElementById('button-text');
-  const buttonLoader = document.getElementById('button-loader');
+  import { api } from '../services/api';
+  
+  // State
+  let currentInvestigationId: string | null = null;
+  let selectedFiles: File[] = [];
 
-  function updateFileList() {
-    if (!selectedFile) {
-      fileList.innerHTML = '';
-      startButton.disabled = true;
+  // Elements
+  const step1 = document.getElementById('step-1');
+  const step2 = document.getElementById('step-2');
+  const createInvBtn = document.getElementById('create-inv-btn');
+  const createLoader = document.getElementById('create-loader');
+  const titleInput = document.getElementById('investigation-title') as HTMLInputElement;
+  const invIdBadge = document.getElementById('inv-id-badge');
+  const dropZone = document.getElementById('drop-zone');
+  const fileInput = document.getElementById('file-input') as HTMLInputElement;
+  const fileList = document.getElementById('file-list');
+  const startAnalysisBtn = document.getElementById('start-analysis-btn');
+  const analysisLoader = document.getElementById('analysis-loader');
+  const errorToast = document.getElementById('error-toast');
+  const errorToastMsg = document.getElementById('error-toast-msg');
+  const closeError = document.getElementById('close-error');
+
+  function showError(msg: string) {
+    if (errorToast && errorToastMsg) {
+      errorToastMsg.textContent = msg;
+      errorToast.classList.remove('translate-y-24');
+    }
+  }
+
+  closeError?.addEventListener('click', () => {
+    errorToast?.classList.add('translate-y-24');
+  });
+
+  // Step 1 -> Step 2
+  createInvBtn?.addEventListener('click', async () => {
+    const contextInput = document.querySelector('input[name="context"]:checked') as HTMLInputElement;
+    if (!contextInput) {
+      showError('Please select an investigation context.');
       return;
     }
 
-    startButton.disabled = false;
-    fileList.innerHTML = `
-      <div class="flex items-center justify-between p-3 bg-white border border-slate-200 rounded-lg group">
-        <div class="flex items-center gap-3">
-          <div class="p-2 bg-blue-50 text-bank-blue rounded">
-            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-4 h-4"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/></svg>
-          </div>
-          <div>
-            <p class="text-sm font-bold text-slate-900">${selectedFile.name}</p>
-            <p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest">${(selectedFile.size / (1024 * 1024)).toFixed(2)} MB • Ready</p>
-          </div>
-        </div>
-        <button type="button" id="remove-file" class="p-1.5 text-slate-400 hover:text-rose-500 hover:bg-rose-50 rounded transition-all">
-          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-4 h-4"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
-        </button>
-      </div>
-    `;
-
-    document.getElementById('remove-file').addEventListener('click', () => {
-      selectedFile = null;
-      updateFileList();
-    });
-  }
-
-  fileInput.addEventListener('change', (e) => {
-    if (e.target.files.length > 0) {
-      selectedFile = e.target.files[0];
-      updateFileList();
-    }
-  });
-
-  dropZone.addEventListener('dragover', (e) => {
-    e.preventDefault();
-    dropZone.classList.add('border-bank-blue', 'bg-slate-50/50');
-  });
-
-  dropZone.addEventListener('dragleave', () => {
-    dropZone.classList.remove('border-bank-blue', 'bg-slate-50/50');
-  });
-
-  dropZone.addEventListener('drop', (e) => {
-    e.preventDefault();
-    dropZone.classList.remove('border-bank-blue', 'bg-slate-50/50');
-    if (e.dataTransfer.files.length > 0) {
-      selectedFile = e.dataTransfer.files[0];
-      updateFileList();
-    }
-  });
-
-  form.addEventListener('submit', async (e) => {
-    e.preventDefault();
-    if (!selectedFile) return;
-
-    // UI Feedback
-    startButton.disabled = true;
-    buttonText.textContent = 'Analyzing...';
-    buttonLoader.classList.remove('hidden');
-
-    const formData = new FormData();
-    formData.append('file', selectedFile);
+    createInvBtn.classList.add('opacity-70', 'pointer-events-none');
+    createLoader?.classList.remove('hidden');
 
     try {
-      // Connect to the local FastAPI backend
-      const response = await fetch('http://127.0.0.1:8000/api/v1/investigate', {
-        method: 'POST',
-        body: formData,
+      const inv = await api.createInvestigation({
+        context: contextInput.value,
+        title: titleInput.value || undefined
       });
 
-      if (!response.ok) throw new Error('Forensic analysis failed');
-
-      const result = await response.json();
+      currentInvestigationId = inv.id;
+      if (invIdBadge) invIdBadge.textContent = `ID: ${inv.id.substring(0, 8)}...`;
       
-      // Store the result in session storage to pass to the report page
-      sessionStorage.setItem('last_investigation_result', JSON.stringify(result));
-      
-      // Navigate to a dynamic results page (we'll use a fixed ID for simplicity or generate one)
-      window.location.href = `/investigate/local-analysis`;
+      step1?.classList.add('hidden');
+      step2?.classList.remove('hidden');
+      window.scrollTo(0, 0);
     } catch (error) {
-      console.error(error);
-      alert('Error during forensic analysis: ' + error.message);
-      startButton.disabled = false;
-      buttonText.textContent = 'Start Forensic Analysis';
-      buttonLoader.classList.add('hidden');
+      console.error('Failed to create investigation:', error);
+      showError(error instanceof Error ? error.message : 'Failed to create investigation');
+    } finally {
+      createInvBtn.classList.remove('opacity-70', 'pointer-events-none');
+      createLoader?.classList.add('hidden');
     }
+  });
+
+  // File Handling
+  fileInput?.addEventListener('change', (e) => {
+    const files = Array.from(fileInput.files || []);
+    addFiles(files);
+  });
+
+  dropZone?.addEventListener('dragover', (e) => {
+    e.preventDefault();
+    dropZone.classList.add('border-bank-blue', 'bg-blue-50/50');
+  });
+
+  dropZone?.addEventListener('dragleave', () => {
+    dropZone.classList.remove('border-bank-blue', 'bg-blue-50/50');
+  });
+
+  dropZone?.addEventListener('drop', (e) => {
+    e.preventDefault();
+    dropZone.classList.remove('border-bank-blue', 'bg-blue-50/50');
+    const files = Array.from(e.dataTransfer?.files || []);
+    addFiles(files);
+  });
+
+  function addFiles(files: File[]) {
+    const validTypes = ['application/pdf', 'image/png', 'image/jpeg', 'image/jpg'];
+    const filtered = files.filter(f => {
+      if (!validTypes.includes(f.type)) {
+        showError(`File ${f.name} is not a supported format.`);
+        return false;
+      }
+      if (f.size > 20 * 1024 * 1024) {
+        showError(`File ${f.name} exceeds 20MB limit.`);
+        return false;
+      }
+      return true;
+    });
+
+    selectedFiles = [...selectedFiles, ...filtered];
+    renderFileList();
+    updateAnalysisBtn();
+  }
+
+  function renderFileList() {
+    if (!fileList) return;
+    fileList.innerHTML = selectedFiles.map((file, index) => `
+      <div class="flex items-center justify-between p-3 bg-white border border-slate-200 rounded-lg group">
+        <div class="flex items-center gap-3">
+          <div class="p-2 bg-slate-100 text-slate-500 rounded">
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-file"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/></svg>
+          </div>
+          <div>
+            <p class="text-sm font-bold text-slate-900">${file.name}</p>
+            <p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest">${(file.size / (1024 * 1024)).toFixed(2)} MB</p>
+          </div>
+        </div>
+        <button onclick="window.removeFile(${index})" class="p-1.5 text-slate-400 hover:text-rose-500 hover:bg-rose-50 rounded transition-all opacity-0 group-hover:opacity-100">
+          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-x"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+        </button>
+      </div>
+    `).join('');
+  }
+
+  // Exposed for inline onclick
+  (window as any).removeFile = (index: number) => {
+    selectedFiles.splice(index, 1);
+    renderFileList();
+    updateAnalysisBtn();
+  };
+
+  function updateAnalysisBtn() {
+    if (selectedFiles.length > 0) {
+      startAnalysisBtn?.classList.remove('opacity-50', 'pointer-events-none');
+    } else {
+      startAnalysisBtn?.classList.add('opacity-50', 'pointer-events-none');
+    }
+  }
+
+  // Final Action
+  startAnalysisBtn?.addEventListener('click', async () => {
+    if (!currentInvestigationId || selectedFiles.length === 0) return;
+
+    startAnalysisBtn.classList.add('opacity-70', 'pointer-events-none');
+    analysisLoader?.classList.remove('hidden');
+
+    try {
+      // 1. Upload Documents
+      await api.uploadDocuments(currentInvestigationId, selectedFiles);
+      
+      // 2. Start Analysis
+      await api.analyzeInvestigation(currentInvestigationId);
+
+      // 3. Redirect to Investigation Page
+      window.location.href = `/investigate/${currentInvestigationId}`;
+    } catch (error) {
+      console.error('Failed to complete setup:', error);
+      showError(error instanceof Error ? error.message : 'Failed to upload or analyze documents');
+      startAnalysisBtn.classList.remove('opacity-70', 'pointer-events-none');
+      analysisLoader?.classList.add('hidden');
+    }
+  });
+
+  document.getElementById('back-to-step-1')?.addEventListener('click', () => {
+    step2?.classList.add('hidden');
+    step1?.classList.remove('hidden');
+  });
+
+  document.getElementById('cancel-btn')?.addEventListener('click', () => {
+    window.location.href = '/investigations';
   });
 </script>

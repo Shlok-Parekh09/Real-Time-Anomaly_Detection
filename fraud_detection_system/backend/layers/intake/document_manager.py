@@ -7,11 +7,17 @@ from models.database import Document
 from core.config import settings
 
 def save_upload_file(upload_file: UploadFile, investigation_id: str) -> str:
-    """Saves an uploaded file to the investigation's directory."""
+    """Saves an uploaded file to the investigation's directory after sanitizing the filename."""
     investigation_dir = Path(settings.UPLOAD_DIR) / investigation_id
     investigation_dir.mkdir(parents=True, exist_ok=True)
     
-    file_path = investigation_dir / upload_file.filename
+    # Extract only the base name to prevent directory traversal
+    import os
+    base_name = os.path.basename(upload_file.filename)
+    # Further strip any traversal characters
+    safe_filename = base_name.replace("..", "").replace("/", "").replace("\\", "")
+    
+    file_path = investigation_dir / safe_filename
     with file_path.open("wb") as buffer:
         shutil.copyfileobj(upload_file.file, buffer)
     
