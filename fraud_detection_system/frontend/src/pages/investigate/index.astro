@@ -6,17 +6,9 @@ import {
   ExternalLink, ArrowRight, CornerDownRight, History, MoreVertical,
   Scale, HardDrive, Cpu, FileCheck, Eye, Loader2, RefreshCcw
 } from "lucide-astro";
-
-export function getStaticPaths() {
-  return [
-    { params: { id: 'latest' } },
-  ];
-}
-
-const { id } = Astro.params;
 ---
 
-<Layout title={`Investigation ${id} | Anobis`} activeTab="investigations">
+<Layout title="Investigation Workspace | Anobis" activeTab="investigations">
   <div id="investigation-container" class="flex h-full overflow-hidden">
     <!-- Main Content Area -->
     <div class="flex-1 flex flex-col min-w-0 bg-slate-50 overflow-hidden">
@@ -27,7 +19,7 @@ const { id } = Astro.params;
             <ChevronLeft class="w-5 h-5" />
           </a>
           <div class="h-4 w-px bg-slate-200"></div>
-          <p class="text-xs font-bold text-slate-500 uppercase tracking-widest">Case: <span class="text-slate-900" id="display-id">{id}</span></p>
+          <p class="text-xs font-bold text-slate-500 uppercase tracking-widest">Case: <span class="text-slate-900" id="display-id">Loading...</span></p>
           <div class="h-4 w-px bg-slate-200"></div>
           <span id="header-status-pill" class="status-pill">Loading...</span>
         </div>
@@ -40,7 +32,7 @@ const { id } = Astro.params;
             <Printer class="w-3.5 h-3.5" />
             Export Report
           </button>
-          <button class="btn-primary py-1 text-xs">
+          <button id="resolve-btn" class="btn-primary py-1 text-xs">
             Mark as Resolved
           </button>
         </div>
@@ -84,22 +76,94 @@ const { id } = Astro.params;
                   <ShieldCheck class="w-6 h-6" />
                 </div>
                 <div>
-                  <h2 class="text-xl font-bold text-slate-900" id="res-title">Investigation Summary</h2>
+                  <h2 class="text-xl font-bold text-slate-900" id="res-title">Forensic Audit & Analysis Report</h2>
                   <p class="text-slate-500 text-sm font-medium" id="res-context">Loading context...</p>
                 </div>
               </div>
             </div>
             
             <div class="bg-slate-50 p-4 rounded-lg border border-slate-100 relative group">
-              <div id="summary-content" class="text-sm text-slate-700 leading-relaxed font-medium pr-10">
+              <div id="summary-content" class="text-xs text-slate-700 leading-relaxed font-medium pr-10">
                 <!-- English Summary -->
               </div>
-              <div id="hindi-summary-content" class="hidden mt-4 pt-4 border-t border-slate-200 text-sm text-slate-700 leading-relaxed font-medium">
+              <div id="hindi-summary-content" class="hidden mt-4 pt-4 border-t border-slate-200 text-xs text-slate-700 leading-relaxed font-medium">
                 <!-- Hindi Summary -->
               </div>
               <button id="toggle-hindi" class="absolute top-3 right-3 p-1.5 text-slate-400 hover:text-bank-blue hover:bg-white rounded transition-all shadow-sm" title="Translate to Hindi">
                 <Languages class="w-4 h-4" />
               </button>
+            </div>
+
+            <!-- 3-Column Forensic Analyst Verification Rows -->
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4 pt-2">
+              <!-- Identity Verification Card -->
+              <div class="p-4 bg-slate-50 border border-slate-200 rounded-lg flex flex-col justify-between space-y-3">
+                <div class="space-y-2">
+                  <div class="flex items-center justify-between">
+                    <span class="text-[9px] font-bold text-slate-400 uppercase tracking-wider">Identity Alignment</span>
+                    <span id="id-status-badge" class="px-2 py-0.5 text-[8px] font-bold rounded uppercase tracking-widest bg-slate-200 text-slate-700">Checking...</span>
+                  </div>
+                  <p id="id-explanation" class="text-[10px] text-slate-600 font-medium leading-relaxed">Checking document details...</p>
+                </div>
+                <div class="border-t border-slate-200/60 pt-2 space-y-1">
+                  <span class="text-[8px] font-bold text-slate-400 uppercase tracking-widest block">Actionable Check</span>
+                  <p id="id-recommendation" class="text-[10px] text-slate-800 font-bold leading-tight">Pending check...</p>
+                </div>
+              </div>
+
+              <!-- Financial Consistency Card -->
+              <div class="p-4 bg-slate-50 border border-slate-200 rounded-lg flex flex-col justify-between space-y-3">
+                <div class="space-y-2">
+                  <div class="flex items-center justify-between">
+                    <span class="text-[9px] font-bold text-slate-400 uppercase tracking-wider">Financial Math Check</span>
+                    <span id="fin-status-badge" class="px-2 py-0.5 text-[8px] font-bold rounded uppercase tracking-widest bg-slate-200 text-slate-700">Checking...</span>
+                  </div>
+                  <p id="fin-explanation" class="text-[10px] text-slate-600 font-medium leading-relaxed">Verifying income calculations...</p>
+                </div>
+                <div class="border-t border-slate-200/60 pt-2 space-y-1">
+                  <span class="text-[8px] font-bold text-slate-400 uppercase tracking-widest block">Actionable Check</span>
+                  <p id="fin-recommendation" class="text-[10px] text-slate-800 font-bold leading-tight">Pending check...</p>
+                </div>
+              </div>
+
+              <!-- Metadata Analysis Card -->
+              <div class="p-4 bg-slate-50 border border-slate-200 rounded-lg flex flex-col justify-between space-y-3">
+                <div class="space-y-2">
+                  <div class="flex items-center justify-between">
+                    <span class="text-[9px] font-bold text-slate-400 uppercase tracking-wider">Metadata Forensics</span>
+                    <span id="meta-status-badge" class="px-2 py-0.5 text-[8px] font-bold rounded uppercase tracking-widest bg-slate-200 text-slate-700">Checking...</span>
+                  </div>
+                  <p id="meta-explanation" class="text-[10px] text-slate-600 font-medium leading-relaxed">Analyzing tool signatures...</p>
+                </div>
+                <div class="border-t border-slate-200/60 pt-2 space-y-1">
+                  <span class="text-[8px] font-bold text-slate-400 uppercase tracking-widest block">Actionable Check</span>
+                  <p id="meta-recommendation" class="text-[10px] text-slate-800 font-bold leading-tight">Pending check...</p>
+                </div>
+              </div>
+            </div>
+
+            <!-- Risk & Action Items Checklist -->
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2 border-t border-slate-100">
+              <div class="space-y-2">
+                <span class="text-[10px] font-bold text-slate-400 uppercase tracking-widest block">Risk & Recommendation</span>
+                <div class="p-3 bg-slate-900 text-white rounded-lg flex items-center justify-between">
+                  <div>
+                    <span class="text-[9px] text-slate-400 font-bold uppercase tracking-wider">Final Assessment</span>
+                    <p id="final-decision-badge" class="text-xs font-black uppercase tracking-wider text-rose-400">Loading...</p>
+                  </div>
+                  <div class="text-right">
+                    <span class="text-[9px] text-slate-400 font-bold uppercase tracking-wider">Risk Level</span>
+                    <p id="risk-score-text" class="text-xs font-bold text-slate-200">Checking...</p>
+                  </div>
+                </div>
+              </div>
+              
+              <div class="space-y-2">
+                <span class="text-[10px] font-bold text-slate-400 uppercase tracking-widest block">Recommended Manual Checks</span>
+                <div id="checklist-container" class="space-y-1.5 text-[10px] font-medium text-slate-600">
+                  <!-- Checklist item list -->
+                </div>
+              </div>
             </div>
           </div>
 
@@ -124,6 +188,50 @@ const { id } = Astro.params;
               <h3 class="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-3">Evidence Quick-List</h3>
               <div class="space-y-2 flex-1 overflow-y-auto" id="evidence-summary-list">
                 <!-- Evidence Quick List -->
+              </div>
+            </div>
+          </div>
+
+          <!-- Dataset Intelligence (Case-Based Reasoning Match) -->
+          <div class="investigation-card p-6 bg-white border border-slate-200 shadow-sm space-y-4 rounded-xl">
+            <div class="flex items-center gap-2 border-b border-slate-100 pb-3">
+              <h3 class="font-bold text-slate-900 text-xs uppercase tracking-wider flex items-center gap-1.5">
+                <Cpu class="w-4 h-4 text-bank-blue" />
+                Dataset Intelligence (Forensic Baseline Match)
+              </h3>
+            </div>
+            
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+              <div class="md:col-span-2 space-y-3">
+                <p class="text-[10px] text-slate-400 font-bold uppercase tracking-widest">Similarity Match Score</p>
+                <div class="flex items-center gap-3">
+                  <span id="similarity-percent-text" class="text-3xl font-black text-slate-900">--%</span>
+                  <span id="similarity-badge" class="px-2 py-0.5 text-[9px] font-black rounded uppercase tracking-widest bg-slate-100 text-slate-600">Checking...</span>
+                </div>
+                <p id="similarity-explanation" class="text-xs text-slate-600 font-medium leading-relaxed">Explanation loading...</p>
+              </div>
+              
+              <div class="p-4 bg-slate-50 rounded-lg border border-slate-100 space-y-2 flex flex-col justify-between">
+                <div>
+                  <span class="text-[9px] font-bold text-slate-400 uppercase tracking-widest block mb-1">Baseline Promotion</span>
+                  <p class="text-[10px] text-slate-500 font-medium leading-normal">Commit this verified case to the local baseline repository.</p>
+                </div>
+                <button id="approve-reference-btn" class="w-full text-center py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-[10px] font-bold rounded uppercase tracking-widest transition-all cursor-pointer">Approve Baseline</button>
+              </div>
+            </div>
+            
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6 pt-2 border-t border-slate-100">
+              <div class="space-y-2">
+                <p class="text-[10px] font-bold text-emerald-600 uppercase tracking-widest">Top Genuine Matches</p>
+                <div id="genuine-matches-list" class="space-y-1.5 text-xs text-slate-600">
+                  <!-- Genuine matches -->
+                </div>
+              </div>
+              <div class="space-y-2">
+                <p class="text-[10px] font-bold text-rose-600 uppercase tracking-widest">Top Fraud Matches</p>
+                <div id="fraud-matches-list" class="space-y-1.5 text-xs text-slate-600">
+                  <!-- Fraud matches -->
+                </div>
               </div>
             </div>
           </div>
@@ -255,9 +363,8 @@ const { id } = Astro.params;
 <script>
   import { api } from '../../services/api';
   
-  const id = window.location.pathname.split('/').pop() || '';
-  
   // Elements
+  const displayId = document.getElementById('display-id');
   const analysisProgressView = document.getElementById('analysis-progress-view');
   const resultsView = document.getElementById('results-view');
   const globalLoading = document.getElementById('global-loading');
@@ -284,6 +391,31 @@ const { id } = Astro.params;
   const evidenceSummaryList = document.getElementById('evidence-summary-list');
   const headerStatusPill = document.getElementById('header-status-pill');
 
+  // Similarity elements
+  const similarityPercentText = document.getElementById('similarity-percent-text');
+  const similarityBadge = document.getElementById('similarity-badge');
+  const similarityExplanation = document.getElementById('similarity-explanation');
+  const genuineMatchesList = document.getElementById('genuine-matches-list');
+  const fraudMatchesList = document.getElementById('fraud-matches-list');
+  const approveReferenceBtn = document.getElementById('approve-reference-btn');
+
+  // Detailed forensic summary card elements
+  const idStatusBadge = document.getElementById('id-status-badge');
+  const idExplanation = document.getElementById('id-explanation');
+  const idRecommendation = document.getElementById('id-recommendation');
+  
+  const finStatusBadge = document.getElementById('fin-status-badge');
+  const finExplanation = document.getElementById('fin-explanation');
+  const finRecommendation = document.getElementById('fin-recommendation');
+  
+  const metaStatusBadge = document.getElementById('meta-status-badge');
+  const metaExplanation = document.getElementById('meta-explanation');
+  const metaRecommendation = document.getElementById('meta-recommendation');
+  
+  const finalDecisionBadge = document.getElementById('final-decision-badge');
+  const riskScoreText = document.getElementById('risk-score-text');
+  const checklistContainer = document.getElementById('checklist-container');
+
   // Tabs / Workbench
   const tabView = document.getElementById('tab-view');
   const tabText = document.getElementById('tab-text');
@@ -296,8 +428,29 @@ const { id } = Astro.params;
 
   let pollingInterval: any = null;
   let caseData: any = null;
+  let id = '';
+
+  function getInvestigationId() {
+    // Try search query param: /investigate/?id=some-uuid
+    const urlParams = new URLSearchParams(window.location.search);
+    let cid = urlParams.get('id') || '';
+    
+    // Fallback: Try trailing path part: /investigate/some-uuid
+    if (!cid || cid === 'index.html' || cid === 'index.astro') {
+      const parts = window.location.pathname.split('/').filter(Boolean);
+      const last = parts[parts.length - 1];
+      if (last && last !== 'investigate' && last !== 'index.html') {
+        cid = last;
+      } else {
+        cid = 'latest';
+      }
+    }
+    return cid;
+  }
 
   async function init() {
+    id = getInvestigationId();
+    if (displayId) displayId.textContent = id.substring(0, 8) + '...';
     showView('loading');
     await fetchAndRender();
   }
@@ -316,6 +469,10 @@ const { id } = Astro.params;
         stopPolling();
         const results = await api.getInvestigationResults(id);
         caseData = results;
+        if (displayId && results.investigation_id) {
+          displayId.textContent = results.investigation_id.substring(0, 8) + '...';
+          id = results.investigation_id; // Sync if defaulted to 'latest'
+        }
         renderResults(results);
         showView('results');
       } else if (status.status === 'FAILED') {
@@ -346,6 +503,7 @@ const { id } = Astro.params;
     if (currentStageMsg) currentStageMsg.textContent = stage.replace(/_/g, ' ');
   }
 
+  // Update status pill styling
   function updateHeaderStatus(status: string) {
     if (!headerStatusPill) return;
     headerStatusPill.textContent = status;
@@ -381,9 +539,72 @@ const { id } = Astro.params;
       toggleHindi?.classList.toggle('hidden', !hindiText);
     }
 
-    // Scores
+    // Update Identity verification card
+    const idVerify = summary.identity_verification || {};
+    if (idExplanation) idExplanation.textContent = idVerify.explanation || 'No identity checks reported.';
+    if (idRecommendation) idRecommendation.textContent = idVerify.recommendation || 'Verify ID documents.';
+    if (idStatusBadge) {
+      idStatusBadge.textContent = idVerify.status || 'PASS';
+      idStatusBadge.className = `px-2 py-0.5 text-[8px] font-bold rounded uppercase tracking-widest ${
+        idVerify.status === 'FAIL' ? 'bg-rose-100 text-rose-700' :
+        idVerify.status === 'WARNING' ? 'bg-amber-100 text-amber-700' : 'bg-emerald-100 text-emerald-700'
+      }`;
+    }
+
+    // Update Financial consistency card
+    const finVerify = summary.financial_consistency || {};
+    if (finExplanation) finExplanation.textContent = finVerify.explanation || 'No transaction discrepancies detected.';
+    if (finRecommendation) finRecommendation.textContent = finVerify.recommendation || 'No manual action needed.';
+    if (finStatusBadge) {
+      finStatusBadge.textContent = finVerify.status || 'PASS';
+      finStatusBadge.className = `px-2 py-0.5 text-[8px] font-bold rounded uppercase tracking-widest ${
+        finVerify.status === 'FAIL' ? 'bg-rose-100 text-rose-700' :
+        finVerify.status === 'WARNING' ? 'bg-amber-100 text-amber-700' : 'bg-emerald-100 text-emerald-700'
+      }`;
+    }
+
+    // Update Metadata forensics card
+    const metaVerify = summary.metadata_analysis || {};
+    if (metaExplanation) metaExplanation.textContent = metaVerify.explanation || 'No metadata alteration flags raised.';
+    if (metaRecommendation) metaRecommendation.textContent = metaVerify.recommendation || 'No manual action needed.';
+    if (metaStatusBadge) {
+      metaStatusBadge.textContent = metaVerify.status || 'PASS';
+      metaStatusBadge.className = `px-2 py-0.5 text-[8px] font-bold rounded uppercase tracking-widest ${
+        metaVerify.status === 'FAIL' ? 'bg-rose-100 text-rose-700' :
+        metaVerify.status === 'WARNING' ? 'bg-amber-100 text-amber-700' : 'bg-emerald-100 text-emerald-700'
+      }`;
+    }
+
+    // Update Risk checklist & decisions
+    if (finalDecisionBadge) {
+      const recText = summary.final_recommendation || data.scores?.recommendation || 'MANUAL_REVIEW';
+      finalDecisionBadge.textContent = recText.replace(/_/g, ' ');
+      finalDecisionBadge.className = `text-xs font-black uppercase tracking-wider ${
+        recText.toLowerCase().includes('reject') ? 'text-rose-400' :
+        recText.toLowerCase().includes('approve') ? 'text-emerald-400' : 'text-amber-400'
+      }`;
+    }
+    
     const scores = data.scores || {};
-    const trust = scores.trust_score !== null && scores.trust_score !== undefined ? Math.round(scores.trust_score * 100) : 0;
+    const trust = scores.trust_score !== null && scores.trust_score !== undefined ? Math.round(scores.trust_score) : 0;
+    
+    if (riskScoreText) {
+      if (trust > 80) riskScoreText.textContent = `${100 - trust}% (Low Risk)`;
+      else if (trust < 50) riskScoreText.textContent = `${100 - trust}% (High Risk)`;
+      else riskScoreText.textContent = `${100 - trust}% (Medium Risk)`;
+    }
+
+    if (checklistContainer) {
+      const checks = summary.recommended_next_steps || summary.recommended_manual_checks || ["Perform standard verification checklist."];
+      checklistContainer.innerHTML = checks.map((c: string) => `
+        <label class="flex items-start gap-1.5 cursor-pointer">
+          <input type="checkbox" class="mt-0.5 rounded border-slate-300 text-bank-blue focus:ring-0 w-3 h-3" />
+          <span>${c}</span>
+        </label>
+      `).join('');
+    }
+
+    // Update circular progress and trust text
     if (trustScoreText) trustScoreText.textContent = `${trust}%`;
     if (trustCircle) {
       const circumference = 2 * Math.PI * 42;
@@ -402,12 +623,65 @@ const { id } = Astro.params;
     }
     if (resRecommendation) resRecommendation.textContent = scores.recommendation || 'No recommendation provided.';
 
+    // Similarity Match
+    renderSimilarity(data.dataset_similarity || {});
+
     // Findings
     renderFindings(data.findings || []);
     renderEvidenceSummary(data.findings || []);
 
     // Populate Workbench Document Selector
     populateDocSelector(data.documents || []);
+  }
+
+  function renderSimilarity(sim: any) {
+    const score = sim.similarity_score !== undefined ? Math.round(sim.similarity_score) : 0;
+    if (similarityPercentText) similarityPercentText.textContent = `${score}%`;
+    
+    if (similarityBadge) {
+      similarityBadge.textContent = sim.is_closest_fraud ? 'CORRELATED FRAUD' : 'CORRELATED GENUINE';
+      similarityBadge.className = `px-2 py-0.5 text-[9px] font-black rounded uppercase tracking-widest ${
+        sim.is_closest_fraud ? 'bg-rose-100 text-rose-700' : 'bg-emerald-100 text-emerald-700'
+      }`;
+    }
+    
+    if (similarityExplanation) {
+      similarityExplanation.textContent = sim.explanation || 'No explanation available.';
+    }
+    
+    if (genuineMatchesList) {
+      const genuine = sim.top_similar_genuine || [];
+      if (genuine.length === 0) {
+        genuineMatchesList.innerHTML = `<p class="text-slate-400 italic text-[10px]">No matches found.</p>`;
+      } else {
+        genuineMatchesList.innerHTML = genuine.map((g: any) => `
+          <div class="p-2 bg-slate-50 border border-slate-100 rounded flex flex-col gap-0.5">
+            <div class="flex items-center justify-between font-bold">
+              <span class="text-slate-700 truncate w-32">${g.filename}</span>
+              <span class="text-emerald-600">${Math.round(g.similarity_score)}% Match</span>
+            </div>
+            <p class="text-[9px] text-slate-400 font-medium">${g.label}</p>
+          </div>
+        `).join('');
+      }
+    }
+    
+    if (fraudMatchesList) {
+      const fraud = sim.top_similar_fraud || [];
+      if (fraud.length === 0) {
+        fraudMatchesList.innerHTML = `<p class="text-slate-400 italic text-[10px]">No matches found.</p>`;
+      } else {
+        fraudMatchesList.innerHTML = fraud.map((f: any) => `
+          <div class="p-2 bg-slate-50 border border-slate-100 rounded flex flex-col gap-0.5">
+            <div class="flex items-center justify-between font-bold">
+              <span class="text-slate-700 truncate w-32">${f.filename}</span>
+              <span class="text-rose-600">${Math.round(f.similarity_score)}% Match</span>
+            </div>
+            <p class="text-[9px] text-slate-400 font-medium">${f.label}</p>
+          </div>
+        `).join('');
+      }
+    }
   }
 
   function renderFindings(findings: any[]) {
@@ -454,12 +728,12 @@ const { id } = Astro.params;
               <div class="mt-6 space-y-3">
                 <p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest border-b border-slate-100 pb-2">Technical Evidence</p>
                 ${f.evidence.map((ev: any) => `
-                  <div class="bg-slate-50 rounded-lg p-3 border border-slate-100 flex flex-col justify-between gap-2">
+                  <div id="ev-card-${ev.document_id}-${ev.page || 1}" class="technical-evidence-card bg-slate-50 rounded-lg p-3 border border-slate-100 flex flex-col justify-between gap-2 transition-all duration-300">
                     <div>
                       <div class="flex items-center justify-between mb-2">
                          <span class="text-[10px] font-bold text-slate-500 uppercase tracking-tighter">${ev.document} ${ev.page ? `• Page ${ev.page}` : ''}</span>
                          ${ev.document_id ? `
-                           <button onclick="window.viewEvidence('${ev.document_id}', ${ev.page || 1})" class="text-[9px] font-bold text-bank-blue hover:underline uppercase flex items-center gap-0.5 cursor-pointer">
+                           <button onclick="window.viewEvidence('${ev.document_id}', ${ev.page || 1})" class="text-[9px] font-bold text-bank-blue hover:underline uppercase flex items-center gap-0.5 cursor-pointer border-0 bg-transparent">
                              View Document &rarr;
                            </button>
                          ` : ''}
@@ -532,7 +806,6 @@ const { id } = Astro.params;
   function selectDocument(docId: string, pageNum?: number) {
     if (!caseData || !caseData.documents) return;
     
-    // Find the full document info inside caseData
     const doc = caseData.documents.find((d: any) => d.id === docId);
     if (!doc) return;
 
@@ -606,9 +879,20 @@ const { id } = Astro.params;
     switchTab('view');
     selectDocument(docId, pageNum);
     
-    // Smooth scroll the workbench into view on smaller displays
-    const docSelectorEl = document.getElementById('doc-selector');
-    docSelectorEl?.scrollIntoView({ behavior: 'smooth' });
+    // Remove previous visual rings from all technical evidence cards
+    document.querySelectorAll('.technical-evidence-card').forEach(card => {
+      card.classList.remove('ring-2', 'ring-bank-blue', 'border-bank-blue', 'bg-blue-50/30');
+    });
+    
+    // Add visual ring to matching card
+    const targetCard = document.getElementById(`ev-card-${docId}-${pageNum}`);
+    if (targetCard) {
+      targetCard.classList.add('ring-2', 'ring-bank-blue', 'border-bank-blue', 'bg-blue-50/30');
+      targetCard.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    } else {
+      const docSelectorEl = document.getElementById('doc-selector');
+      docSelectorEl?.scrollIntoView({ behavior: 'smooth' });
+    }
   };
 
   // Click listeners
@@ -624,6 +908,30 @@ const { id } = Astro.params;
   exportReportBtn?.addEventListener('click', () => {
     const baseUrl = import.meta.env.PUBLIC_API_URL || 'http://localhost:8000';
     window.location.href = `${baseUrl}/api/v1/investigations/${id}/report`;
+  });
+
+  approveReferenceBtn?.addEventListener('click', async () => {
+    if (!id || id === 'latest') return;
+    approveReferenceBtn.classList.add('opacity-50', 'pointer-events-none');
+    try {
+      const res = await api.approveReference(id);
+      approveReferenceBtn.textContent = 'Baseline Approved ✓';
+      approveReferenceBtn.className = 'w-full text-center py-1.5 bg-slate-400 text-white text-[10px] font-bold rounded uppercase tracking-widest pointer-events-none';
+      alert(res.message || 'Forensic pattern committed to local reference repository!');
+    } catch (e) {
+      console.error(e);
+      alert('Failed to promote to reference: ' + (e instanceof Error ? e.message : 'Unknown error'));
+      approveReferenceBtn.classList.remove('opacity-50', 'pointer-events-none');
+    }
+  });
+
+  document.getElementById('resolve-btn')?.addEventListener('click', () => {
+    const btn = document.getElementById('resolve-btn') as HTMLButtonElement;
+    if (btn) {
+      btn.textContent = 'Case Resolved ✓';
+      btn.className = 'btn-secondary py-1 text-xs opacity-60 pointer-events-none';
+      btn.setAttribute('aria-label', 'Case marked resolved in this review session');
+    }
   });
 
   init();

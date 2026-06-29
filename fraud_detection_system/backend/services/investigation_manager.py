@@ -22,6 +22,36 @@ class InvestigationManager:
     Orchestrates the multi-step investigation pipeline asynchronously.
     """
     
+    async def process_document(self, file_path: str, filename: str):
+        """
+        Processes a single document for instant direct analysis (legacy API support).
+        """
+        import os
+        from layers.forensics.digital_forensics import digital_forensics
+        
+        with open(file_path, "rb") as f:
+            file_bytes = f.read()
+            
+        ext = os.path.splitext(filename)[1].lower()
+        content_type = "application/pdf" if ext == ".pdf" else "image/jpeg"
+        
+        # Run digital forensics
+        forensic_results = digital_forensics.analyze(file_bytes, filename, content_type, {})
+        
+        # Calculate a simple score
+        score = 100.0
+        if forensic_results:
+            score = max(0.0, 100.0 - (len(forensic_results) * 15))
+            
+        class DirectAnalysisResult:
+            def __init__(self, score, status, anomalies):
+                self.fraud_probability_score = round(100.0 - score, 2)
+                self.status = status
+                self.anomalies = anomalies
+                self.ai_summary = f"Direct analysis of document complete. Identified {len(anomalies)} potential anomaly/anomalies."
+                
+        return DirectAnalysisResult(score, "COMPLETED", forensic_results)
+
     async def run_analysis(self, investigation_id: str):
         """
         The main entry point for the analysis pipeline.
@@ -312,19 +342,171 @@ class InvestigationManager:
         investigation.recommendation = r
         db.commit()
 
+    def _build_evidence_graph(self, db: Session, investigation: Investigation) -> Dict[str, Any]:
+        """
+        Creates a structured relationship graph mapping:
+        Applicant -> Documents -> Entities -> Evidence -> Findings -> Recommendation
+        """
+        nodes = []
+        edges = []
+        
+        # 1. Applicant node
+        applicant_id = "applicant-1"
+        # Try to find applicant name from documents
+        applicant_name = "Unknown Applicant"
+        for doc in investigation.documents:
+            if doc.entities_json and doc.entities_json.get("name"):
+                applicant_name = doc.entities_json["name"]
+                break
+                
+        nodes.append({
+            "id": applicant_id,
+            "type": "Applicant",
+            "label": applicant_name
+        })
+        
+        # 2. Documents & Entities
+        for doc in investigation.documents:
+            doc_node_id = f"doc-{doc.id}"
+            nodes.append({
+                "id": doc_node_id,
+                "type": "Document",
+                "label": doc.filename,
+                "classification": doc.classification or "Unknown"
+            })
+            # Edge: Applicant -> Document
+            edges.append({
+                "source": applicant_id,
+                "target": doc_node_id,
+                "relation": "submitted"
+            })
+            
+            # Entities extracted from doc
+            entities = doc.entities_json or {}
+            for key, val in entities.items():
+                if val:
+                    ent_node_id = f"ent-{doc.id}-{key}"
+                    nodes.append({
+                        "id": ent_node_id,
+                        "type": "Entity",
+                        "label": f"{key}: {val}"
+                    })
+                    # Edge: Document -> Entity
+                    edges.append({
+                        "source": doc_node_id,
+                        "target": ent_node_id,
+                        "relation": "contains"
+                    })
+                    
+        # 3. Findings & Evidence
+        for idx, f in enumerate(investigation.findings):
+            finding_node_id = f"finding-{f.id}"
+            nodes.append({
+                "id": finding_node_id,
+                "type": "Finding",
+                "label": f.name,
+                "severity": f.severity,
+                "layer": f.layer_source
+            })
+            
+            # Edges from Evidence to Findings
+            for ev in f.evidence_items:
+                ev_node_id = f"ev-{ev.id}"
+                nodes.append({
+                    "id": ev_node_id,
+                    "type": "Evidence",
+                    "label": ev.description or "Tampering Indicator",
+                    "observation": ev.description
+                })
+                # Edge: Document -> Evidence
+                edges.append({
+                    "source": f"doc-{ev.document_id}",
+                    "target": ev_node_id,
+                    "relation": "contains_evidence"
+                })
+                # Edge: Evidence -> Finding
+                edges.append({
+                    "source": ev_node_id,
+                    "target": finding_node_id,
+                    "relation": "supports"
+                })
+                
+        # 4. Recommendation node
+        rec_node_id = "rec-1"
+        nodes.append({
+            "id": rec_node_id,
+            "type": "Recommendation",
+            "label": investigation.recommendation or "MANUAL_REVIEW"
+        })
+        
+        # Edges from Findings to Recommendation
+        for f in investigation.findings:
+            edges.append({
+                "source": f"finding-{f.id}",
+                "target": rec_node_id,
+                "relation": "leads_to"
+            })
+            
+        return {"nodes": nodes, "edges": edges}
+
     def _generate_ai_summary(self, db: Session, investigation: Investigation):
         """
-        Wraps the AI Summary Generator.
+        Wraps the AI Summary Generator. Runs Dataset Similarity & builds Evidence Graph before calling LLM.
         """
-        # Prepare data for AI
+        from layers.scoring.similarity_engine import similarity_engine
+        
+        # 1. Run similarity check
+        try:
+            similarity_data = similarity_engine.search_similar_cases(db, investigation)
+        except Exception as e:
+            logger.error(f"Failed to calculate similarity during pipeline: {e}")
+            similarity_data = {
+                "similarity_score": 0.0,
+                "explanation": f"Failed to compute similarity: {str(e)}",
+                "top_similar_genuine": [],
+                "top_similar_fraud": []
+            }
+            
+        # 2. Build Evidence Graph
+        evidence_graph = self._build_evidence_graph(db, investigation)
+        
+        # Compile all structured data to pass to LLM
         data = {
             "context": investigation.context,
             "trust_score": investigation.trust_score,
             "confidence_score": investigation.confidence_score,
             "recommendation": investigation.recommendation,
             "findings": [
-                {"name": f.name, "severity": f.severity, "description": f.description}
+                {
+                    "id": f.id,
+                    "name": f.name,
+                    "severity": f.severity,
+                    "description": f.description,
+                    "layer_source": f.layer_source,
+                    "evidence": [
+                        {
+                            "document": e.document.filename,
+                            "page": e.page_number,
+                            "text": e.extracted_text,
+                            "description": e.description
+                        } for e in f.evidence_items
+                    ]
+                }
                 for f in investigation.findings
+            ],
+            "documents": [
+                {
+                    "filename": d.filename,
+                    "classification": d.classification,
+                    "ocr_confidence": d.metadata_json.get("ocr_confidence", 100.0) if d.metadata_json else 100.0,
+                    "metadata": d.metadata_json.get("raw_metadata", {}) if d.metadata_json else {}
+                } for d in investigation.documents
+            ],
+            "dataset_similarity": similarity_data,
+            "evidence_graph": evidence_graph,
+            "timeline": [
+                {"timestamp": ev.timestamp.isoformat(), "message": ev.message}
+                for ev in investigation.events
             ]
         }
         

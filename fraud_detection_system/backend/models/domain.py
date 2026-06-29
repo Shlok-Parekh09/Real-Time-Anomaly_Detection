@@ -89,3 +89,14 @@ class InvestigationSchema(InvestigationBase):
 class InvestigationFullSchema(InvestigationSchema):
     findings: List[FindingSchema] = []
     events: List[InvestigationEventSchema] = []
+
+class AnomalyFeature(BaseModel):
+    type: str
+    description: str
+    risk_level: str
+
+class InvestigationResponse(BaseModel):
+    fraud_probability_score: float
+    status: str
+    anomalies: List[Any] = []
+    ai_summary: Optional[str] = ""

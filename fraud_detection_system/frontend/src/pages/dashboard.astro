@@ -109,8 +109,8 @@ import { FileText, CheckCircle, AlertTriangle, ShieldAlert, Plus, ArrowRight, Ex
           <h3 class="text-lg font-bold">Internal Audit & Compliance</h3>
           <p class="text-slate-400 mt-2 text-sm max-w-md">Our system automatically monitors cross-document consistency for all loan and mortgage applications to ensure 100% regulatory compliance.</p>
           <div class="mt-6 flex gap-4">
-            <button class="px-4 py-2 bg-white text-slate-900 rounded-md font-bold text-sm hover:bg-slate-100 transition-colors">Generate Quarterly Report</button>
-            <button class="px-4 py-2 bg-slate-800 text-white border border-slate-700 rounded-md font-bold text-sm hover:bg-slate-700 transition-colors">Audit Logs</button>
+            <button id="quarterly-report-btn" class="px-4 py-2 bg-white text-slate-900 rounded-md font-bold text-sm hover:bg-slate-100 transition-colors">Export Audit Snapshot</button>
+            <button id="audit-logs-btn" class="px-4 py-2 bg-slate-800 text-white border border-slate-700 rounded-md font-bold text-sm hover:bg-slate-700 transition-colors">Audit Logs</button>
           </div>
         </div>
         <!-- Decorative abstract shape -->
@@ -122,23 +122,23 @@ import { FileText, CheckCircle, AlertTriangle, ShieldAlert, Plus, ArrowRight, Ex
         <div class="mt-4 space-y-4">
           <div class="flex items-center justify-between">
             <span class="text-sm text-slate-500 font-medium">AI Analysis Engine</span>
-            <span class="flex items-center text-xs font-bold text-emerald-600">
-              <span class="w-1.5 h-1.5 bg-emerald-500 rounded-full mr-2"></span>
-              Operational
+            <span id="dashboard-ai-status" class="flex items-center text-xs font-bold text-slate-500">
+              <span class="w-1.5 h-1.5 bg-slate-400 rounded-full mr-2"></span>
+              Checking
             </span>
           </div>
           <div class="flex items-center justify-between">
             <span class="text-sm text-slate-500 font-medium">Cross-Document Validation</span>
-            <span class="flex items-center text-xs font-bold text-emerald-600">
-              <span class="w-1.5 h-1.5 bg-emerald-500 rounded-full mr-2"></span>
-              Operational
+            <span id="dashboard-knn-status" class="flex items-center text-xs font-bold text-slate-500">
+              <span class="w-1.5 h-1.5 bg-slate-400 rounded-full mr-2"></span>
+              Checking
             </span>
           </div>
           <div class="flex items-center justify-between">
             <span class="text-sm text-slate-500 font-medium">Metadata Forensic Lab</span>
-            <span class="flex items-center text-xs font-bold text-emerald-600">
-              <span class="w-1.5 h-1.5 bg-emerald-500 rounded-full mr-2"></span>
-              Operational
+            <span id="dashboard-ocr-status" class="flex items-center text-xs font-bold text-slate-500">
+              <span class="w-1.5 h-1.5 bg-slate-400 rounded-full mr-2"></span>
+              Checking
             </span>
           </div>
         </div>
@@ -155,6 +155,28 @@ import { FileText, CheckCircle, AlertTriangle, ShieldAlert, Plus, ArrowRight, Ex
   const errorState = document.getElementById('recent-error-state');
   const retryBtn = document.getElementById('retry-dashboard');
   const metricsGrid = document.getElementById('metrics-grid');
+  let lastInvestigations: any[] = [];
+
+  function setStatus(elId: string, ok: boolean, label: string) {
+    const el = document.getElementById(elId);
+    if (!el) return;
+    el.className = `flex items-center text-xs font-bold ${ok ? 'text-emerald-600' : 'text-rose-600'}`;
+    el.innerHTML = `<span class="w-1.5 h-1.5 ${ok ? 'bg-emerald-500' : 'bg-rose-500'} rounded-full mr-2"></span>${label}`;
+  }
+
+  async function loadSystemHealth() {
+    try {
+      const baseUrl = import.meta.env.PUBLIC_API_URL || 'http://localhost:8000';
+      const res = await fetch(`${baseUrl}/api/v1/system/health`).then(r => r.json());
+      setStatus('dashboard-ai-status', res.ai === 'ready', res.ai === 'ready' ? 'Gemma Ready' : 'Offline');
+      setStatus('dashboard-knn-status', res.knn === 'ready', res.knn === 'ready' ? 'Ready' : 'Offline');
+      setStatus('dashboard-ocr-status', res.ocr === 'ready', res.ocr === 'ready' ? 'Ready' : 'Unavailable');
+    } catch {
+      setStatus('dashboard-ai-status', false, 'Offline');
+      setStatus('dashboard-knn-status', false, 'Offline');
+      setStatus('dashboard-ocr-status', false, 'Unavailable');
+    }
+  }
 
   async function loadDashboardData() {
     if (!recentBody) return;
@@ -176,6 +198,7 @@ import { FileText, CheckCircle, AlertTriangle, ShieldAlert, Plus, ArrowRight, Ex
 
     try {
       const investigations = await api.getInvestigations();
+      lastInvestigations = investigations;
       
       // Update Metrics based on calculated Trust Scores
       if (metricsGrid) {
@@ -232,7 +255,7 @@ import { FileText, CheckCircle, AlertTriangle, ShieldAlert, Plus, ArrowRight, Ex
                </span>
             </td>
             <td class="px-6 py-4 text-right">
-              <a href="/investigate/${inv.id}" class="text-slate-400 hover:text-bank-blue transition-colors">
+              <a href="/investigate/?id=${inv.id}" class="text-slate-400 hover:text-bank-blue transition-colors">
                 <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-external-link ml-auto"><path d="M15 3h6v6"/><path d="M10 14 21 3"/><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/></svg>
               </a>
             </td>
@@ -248,5 +271,43 @@ import { FileText, CheckCircle, AlertTriangle, ShieldAlert, Plus, ArrowRight, Ex
   }
 
   retryBtn?.addEventListener('click', loadDashboardData);
+  
+  document.getElementById('quarterly-report-btn')?.addEventListener('click', () => {
+    if (lastInvestigations.length === 0) {
+      alert('No investigations available to export.');
+      return;
+    }
+    const completed = lastInvestigations.filter(i => i.status === 'COMPLETED');
+    const snapshot = {
+      generated_at: new Date().toISOString(),
+      total_investigations: lastInvestigations.length,
+      completed: completed.length,
+      auto_approved: completed.filter(i => i.recommendation === 'AUTO_APPROVE').length,
+      manual_review: completed.filter(i => i.recommendation !== 'AUTO_APPROVE').length,
+      investigations: lastInvestigations.map(i => ({
+        id: i.id,
+        title: i.title,
+        context: i.context,
+        status: i.status,
+        trust_score: i.trust_score,
+        confidence_score: i.confidence_score,
+        recommendation: i.recommendation,
+      })),
+    };
+    const blob = new Blob([JSON.stringify(snapshot, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `Anobis_Audit_Snapshot_${new Date().toISOString().slice(0, 10)}.json`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  });
+  document.getElementById('audit-logs-btn')?.addEventListener('click', () => {
+    window.location.href = '/investigations';
+  });
+
   loadDashboardData();
+  loadSystemHealth();
 </script>

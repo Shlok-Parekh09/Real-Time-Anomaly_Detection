@@ -273,7 +273,7 @@ const contexts = [
       await api.analyzeInvestigation(currentInvestigationId);
 
       // 3. Redirect to Investigation Page
-      window.location.href = `/investigate/${currentInvestigationId}`;
+      window.location.href = `/investigate/?id=${currentInvestigationId}`;
     } catch (error) {
       console.error('Failed to complete setup:', error);
       showError(error instanceof Error ? error.message : 'Failed to upload or analyze documents');

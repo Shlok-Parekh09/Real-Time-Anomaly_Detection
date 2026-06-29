@@ -15,6 +15,7 @@ skills-lock.json
 
 # Build outputs
 **/dist/
+.anobis-logs/
 
 # Dependencies
 **/node_modules/

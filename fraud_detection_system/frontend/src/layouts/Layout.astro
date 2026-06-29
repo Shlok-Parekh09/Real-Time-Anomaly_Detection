@@ -62,6 +62,47 @@ const { title = "Anobis | Investigation Platform", activeTab = 'dashboard' } = A
 				</div>
 				
 				<div class="flex items-center gap-4">
+					<!-- AI Engine Health Pill (Phase 10) -->
+					<div class="relative group">
+						<button id="ai-health-pill" class="flex items-center gap-1.5 px-3 py-1 bg-slate-100 border border-slate-200 text-[10px] font-bold rounded-full transition-all duration-300">
+							<span class="text-slate-400">AI:</span>
+							<span id="ai-health-status" class="flex items-center gap-1">
+								<span class="w-1.5 h-1.5 rounded-full bg-slate-400 animate-pulse"></span>
+								<span>Checking...</span>
+							</span>
+						</button>
+						<!-- Interactive Hover Card -->
+						<div class="absolute right-0 top-full mt-2 w-64 bg-white border border-slate-200 rounded-lg shadow-xl p-4 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto transition-all duration-200 z-50">
+							<p class="text-[10px] font-bold text-slate-400 uppercase tracking-wider border-b border-slate-100 pb-2 mb-3">AI Engine Status Dashboard</p>
+							<div class="space-y-2">
+								<div class="flex items-center justify-between text-[11px]">
+									<span class="text-slate-500 font-medium">AI Engine:</span>
+									<span id="health-detail-ai" class="font-bold text-slate-700">Checking...</span>
+								</div>
+								<div class="flex items-center justify-between text-[11px]">
+									<span class="text-slate-500 font-medium">Model:</span>
+									<span id="health-detail-model" class="font-semibold text-slate-800">gemma4:e4b</span>
+								</div>
+								<div class="flex items-center justify-between text-[11px]">
+									<span class="text-slate-500 font-medium">Inference Latency:</span>
+									<span id="health-detail-inference" class="font-mono text-slate-600">-- ms</span>
+								</div>
+								<div class="flex items-center justify-between text-[11px]">
+									<span class="text-slate-500 font-medium">Dataset State:</span>
+									<span id="health-detail-dataset" class="font-semibold text-slate-700">--</span>
+								</div>
+								<div class="flex items-center justify-between text-[11px]">
+									<span class="text-slate-500 font-medium">KNN Engine:</span>
+									<span id="health-detail-knn" class="font-semibold text-slate-700">--</span>
+								</div>
+								<div id="health-detail-reason-row" class="hidden border-t border-slate-100 pt-2 mt-2">
+									<p class="text-[9px] font-bold text-rose-500">Reason:</p>
+									<p id="health-detail-reason" class="text-[9px] text-slate-500 leading-relaxed font-semibold mt-0.5">--</p>
+								</div>
+							</div>
+						</div>
+					</div>
+
 					<button class="p-2 text-slate-500 hover:bg-slate-100 rounded-full relative">
 						<Bell class="w-5 h-5" />
 						<span class="absolute top-2 right-2 w-2 h-2 bg-rose-500 rounded-full border-2 border-white"></span>
@@ -69,8 +110,8 @@ const { title = "Anobis | Investigation Platform", activeTab = 'dashboard' } = A
 					<div class="h-8 w-px bg-slate-200"></div>
 					<div class="flex items-center gap-3 pl-2">
 						<div class="text-right">
-							<p class="text-sm font-semibold text-slate-900">Arjun Sharma</p>
-							<p class="text-xs text-slate-500">Senior Auditor</p>
+							<p class="text-sm font-semibold text-slate-900">Admin</p>
+							<p class="text-xs text-slate-500">Lead Auditor</p>
 						</div>
 						<div class="w-10 h-10 bg-slate-200 rounded-full flex items-center justify-center overflow-hidden border border-slate-300">
 							<User class="w-6 h-6 text-slate-400" />
@@ -84,5 +125,76 @@ const { title = "Anobis | Investigation Platform", activeTab = 'dashboard' } = A
 				<slot />
 			</main>
 		</div>
+		<script>
+			async function updateAiHealth() {
+				const statusEl = document.getElementById('ai-health-status');
+				const pillEl = document.getElementById('ai-health-pill');
+				
+				const dAi = document.getElementById('health-detail-ai');
+				const dModel = document.getElementById('health-detail-model');
+				const dInference = document.getElementById('health-detail-inference');
+				const dDataset = document.getElementById('health-detail-dataset');
+				const dKnn = document.getElementById('health-detail-knn');
+				const dReasonRow = document.getElementById('health-detail-reason-row');
+				const dReason = document.getElementById('health-detail-reason');
+				
+				if (!statusEl || !pillEl) return;
+				
+				try {
+					const res = await fetch((import.meta.env.PUBLIC_API_URL || 'http://localhost:8000') + '/api/v1/system/health')
+						.then(r => r.json());
+						
+					const datasetLoaded = res.dataset === 'loaded';
+					const aiReady = res.ai === 'ready';
+					
+					// Update Hover Card details
+					if (dModel) dModel.textContent = res.model || 'gemma4:e4b';
+					if (dInference) dInference.textContent = aiReady ? `${res.startup_latency_ms} ms` : 'N/A';
+					if (dDataset) {
+						dDataset.textContent = datasetLoaded ? 'Loaded' : 'Empty';
+						dDataset.className = datasetLoaded ? 'font-bold text-emerald-600' : 'font-bold text-slate-500';
+					}
+					if (dKnn) {
+						dKnn.textContent = res.knn === 'ready' ? 'Ready' : 'Offline';
+						dKnn.className = res.knn === 'ready' ? 'font-bold text-emerald-600' : 'font-bold text-rose-500';
+					}
+					
+					if (aiReady) {
+						statusEl.innerHTML = `
+							<span class="w-1.5 h-1.5 rounded-full bg-emerald-500 inline-block"></span>
+							<span class="text-emerald-700">Ready</span>
+						`;
+						pillEl.className = "flex items-center gap-1.5 px-3 py-1 bg-emerald-50 border border-emerald-200 text-[10px] font-bold rounded-full transition-all duration-300";
+						
+						if (dAi) dAi.innerHTML = '<span class="text-emerald-600 font-bold">🟢 Ready</span>';
+						if (dReasonRow) dReasonRow.classList.add('hidden');
+					} else {
+						const failReason = res.reason || 'gemma4:e4b not installed';
+						statusEl.innerHTML = `
+							<span class="w-1.5 h-1.5 rounded-full bg-rose-500 inline-block"></span>
+							<span class="text-rose-700">Offline</span>
+						`;
+						pillEl.className = "flex items-center gap-1.5 px-3 py-1 bg-rose-50 border border-rose-200 text-[10px] font-bold rounded-full transition-all duration-300";
+						
+						if (dAi) dAi.innerHTML = '<span class="text-rose-600 font-bold">🔴 Offline</span>';
+						if (dReasonRow) dReasonRow.classList.remove('hidden');
+						if (dReason) dReason.textContent = failReason;
+					}
+				} catch (e) {
+					statusEl.innerHTML = `
+						<span class="w-1.5 h-1.5 rounded-full bg-rose-500 inline-block"></span>
+						<span class="text-rose-700">System Offline</span>
+					`;
+					pillEl.className = "flex items-center gap-1.5 px-3 py-1 bg-rose-50 border border-rose-200 text-[10px] font-bold rounded-full transition-all duration-300";
+					
+					if (dAi) dAi.innerHTML = '<span class="text-rose-600 font-bold">🔴 System Offline</span>';
+					if (dReasonRow) dReasonRow.classList.remove('hidden');
+					if (dReason) dReason.textContent = 'Unable to connect to local backend API';
+				}
+			}
+			
+			updateAiHealth();
+			setInterval(updateAiHealth, 10000);
+		</script>
 	</body>
 </html>

@@ -11,6 +11,22 @@ class ReportGenerator:
         """
         Creates a comprehensive JSON structure for the frontend and archival.
         """
+        # Calculate dataset similarity (CBR intelligence)
+        from core.database import SessionLocal
+        db = SessionLocal()
+        try:
+            from layers.scoring.similarity_engine import similarity_engine
+            similarity_data = similarity_engine.search_similar_cases(db, investigation)
+        except Exception as e:
+            similarity_data = {
+                "similarity_score": 0.0,
+                "explanation": f"Failed to compute similarity: {str(e)}",
+                "top_similar_genuine": [],
+                "top_similar_fraud": []
+            }
+        finally:
+            db.close()
+
         report = {
             "investigation_id": investigation.id,
             "context": investigation.context,
@@ -22,12 +38,16 @@ class ReportGenerator:
                 "recommendation": investigation.recommendation
             },
             "ai_summary": investigation.ai_summary_json,
+            "dataset_similarity": similarity_data,
             "documents": [
                 {
                     "id": d.id,
                     "filename": d.filename,
                     "classification": d.classification,
-                    "file_type": d.file_type
+                    "file_type": d.file_type,
+                    "extracted_text": d.extracted_text,
+                    "entities_json": d.entities_json,
+                    "metadata_json": d.metadata_json
                 } for d in investigation.documents
             ],
             "findings": [
@@ -187,8 +207,8 @@ class ReportGenerator:
 
         # Risk assessment scores
         story.append(Paragraph("Executive Risk Assessment & Scores", h2_style))
-        trust_pct = int(investigation.trust_score * 100) if investigation.trust_score is not None else 0
-        conf_pct = int(investigation.confidence_score * 100) if investigation.confidence_score is not None else 0
+        trust_pct = int(investigation.trust_score) if investigation.trust_score is not None else 0
+        conf_pct = int(investigation.confidence_score) if investigation.confidence_score is not None else 0
         rec_text = (investigation.recommendation or "MANUAL_REVIEW").replace('_', ' ')
         
         trust_color = '#059669' if trust_pct > 80 else '#D97706' if trust_pct > 50 else '#DC2626'

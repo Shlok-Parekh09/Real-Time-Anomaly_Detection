@@ -280,6 +280,9 @@ import "../styles/global.css";
           closeIcon?.classList.remove('scale-50', 'opacity-0', 'rotate-180');
         }
       });
+      // Early warmup for local LLM (Qwen2.5)
+      import { api } from '../services/api';
+      api.warmupLlm().catch(err => console.warn('LLM Warmup skipped/failed:', err));
     </script>
 
   </body>

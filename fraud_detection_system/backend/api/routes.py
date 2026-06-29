@@ -13,6 +13,14 @@ import os
 
 router = APIRouter()
 
+def _run_analysis_background(investigation_id: str) -> None:
+    """
+    Runs the async investigation pipeline inside Starlette's sync background
+    threadpool so CPU/OCR/LLM work does not block status polling endpoints.
+    """
+    import asyncio
+    asyncio.run(investigation_manager.run_analysis(investigation_id))
+
 @router.get("/investigations", response_model=List[domain.InvestigationSchema])
 def list_investigations(
     skip: int = 0,
@@ -96,7 +104,7 @@ async def analyze_investigation(
         raise HTTPException(status_code=400, detail="No documents uploaded for this investigation")
 
     # Start the async pipeline
-    background_tasks.add_task(investigation_manager.run_analysis, id)
+    background_tasks.add_task(_run_analysis_background, id)
     
     return {"status": "PROCESSING", "message": "Analysis started in background"}
 
@@ -184,3 +192,150 @@ def get_investigation_events(id: str, db: Session = Depends(get_db)):
         raise HTTPException(status_code=404, detail="Investigation not found")
     
     return investigation.events
+
+
+@router.post("/investigations/{id}/approve-reference")
+def approve_reference(id: str, db: Session = Depends(get_db)):
+    investigation = db.query(database.Investigation).filter(database.Investigation.id == id).first()
+    if not investigation:
+        raise HTTPException(status_code=404, detail="Investigation not found")
+    if investigation.status != "COMPLETED":
+        raise HTTPException(status_code=400, detail="Only completed investigations can be approved as references")
+
+    from layers.scoring.similarity_engine import similarity_engine
+    from trusted_repository.repository_manager import repository_manager
+
+    features = similarity_engine.generate_feature_vector(db, investigation)
+    repository_manager.add_entry(
+        features=features,
+        metadata={
+            "investigation_id": investigation.id,
+            "title": investigation.title or f"Investigation: {investigation.context}",
+            "context": investigation.context,
+            "approved_at": investigation.updated_at.isoformat() if investigation.updated_at else None,
+            "document_count": len(investigation.documents),
+        }
+    )
+        
+    log_event(
+        db,
+        id,
+        "REFERENCE_APPROVED",
+        "This case was manually approved and committed to the local forensic reference repository as a trusted baseline."
+    )
+    return {"status": "SUCCESS", "message": "Forensic pattern committed to local reference repository!"}
+
+
+@router.post("/system/warmup")
+def warmup_llm():
+    """
+    Warms up the Ollama local model to preload tokenizers and models in memory.
+    """
+    from core.config import settings
+    import urllib.request
+    import json
+    import logging
+    
+    logger = logging.getLogger(__name__)
+    
+    if not settings.USE_LOCAL_LLM:
+        return {"status": "SKIPPED", "message": "Local LLM is disabled"}
+        
+    url = f"{settings.OLLAMA_BASE_URL}/api/generate"
+    payload = {
+        "model": settings.OLLAMA_MODEL,
+        "prompt": "ping",
+        "stream": False
+    }
+    
+    try:
+        req = urllib.request.Request(
+            url,
+            data=json.dumps(payload).encode('utf-8'),
+            headers={'Content-Type': 'application/json'},
+            method='POST'
+        )
+        with urllib.request.urlopen(req, timeout=settings.OLLAMA_WARMUP_TIMEOUT_SECONDS) as response:
+            res_body = response.read().decode('utf-8')
+            res_data = json.loads(res_body)
+            return {"status": "SUCCESS", "message": f"Warmup completed. Model {settings.OLLAMA_MODEL} loaded."}
+    except Exception as e:
+        logger.warning(f"Ollama warmup request timed out/failed: {e}")
+        return {"status": "TIMEOUT", "message": "Warmup request dispatched."}
+
+
+@router.get("/system/health")
+def get_system_health(db: Session = Depends(get_db)):
+    """
+    Returns complete forensic system health check.
+    """
+    from core.config import settings
+    import urllib.request
+    import json
+    import os
+    
+    # 1. Database status
+    db_ok = True
+    try:
+        from sqlalchemy import text
+        db.execute(text("SELECT 1"))
+    except Exception:
+        db_ok = False
+        
+    # 2. Uploads directory check
+    uploads_ok = os.path.exists(settings.UPLOAD_DIR)
+    
+    # 3. Ollama check & loaded model
+    ollama_status = "offline"
+    loaded_model = "None"
+    
+    if settings.USE_LOCAL_LLM:
+        try:
+            # Check model list in Ollama
+            url = f"{settings.OLLAMA_BASE_URL}/api/tags"
+            req = urllib.request.Request(url)
+            with urllib.request.urlopen(req, timeout=2.0) as response:
+                if response.status == 200:
+                    ollama_status = "ready"
+                    res_body = response.read().decode('utf-8')
+                    res_data = json.loads(res_body)
+                    models = [m.get("name") for m in res_data.get("models", [])]
+                    # Check if the configured model exists in Ollama
+                    if settings.OLLAMA_MODEL in models or any(settings.OLLAMA_MODEL in m for m in models):
+                        loaded_model = settings.OLLAMA_MODEL
+                    elif models:
+                        loaded_model = f"{settings.OLLAMA_MODEL} (Not Installed, Found: {', '.join(models)})"
+                    else:
+                        loaded_model = "No models installed"
+        except Exception:
+            ollama_status = "offline"
+            
+    # 4. OCR status (tesseract check)
+    ocr_status = "ready"
+    try:
+        import pytesseract
+        # Quick check if binary exists
+        pytesseract.get_tesseract_version()
+    except Exception:
+        ocr_status = "unavailable"
+        
+    # 5. Dataset status
+    dataset_status = "loaded"
+    ref_dir = os.path.join(settings.DATASET_DIR, "reference")
+    if not os.path.exists(ref_dir) or len(os.listdir(ref_dir)) == 0:
+        dataset_status = "empty"
+
+    from core.system_state import startup_time_log
+
+    return {
+        "backend": "healthy" if db_ok and uploads_ok else "degraded",
+        "database": "healthy" if db_ok else "disconnected",
+        "ocr": "ready" if ocr_status == "ready" else "unavailable",
+        "dataset": "loaded" if dataset_status == "loaded" else "empty",
+        "knn": "ready" if dataset_status == "loaded" else "offline",
+        "ollama": startup_time_log.get("ollama_status", "offline"),
+        "model": startup_time_log.get("model", "gemma4:e4b"),
+        "ai": startup_time_log.get("ai", "offline"),
+        "warm": startup_time_log.get("warm", False),
+        "startup_latency_ms": startup_time_log.get("warmup_duration_ms", 0)
+    }

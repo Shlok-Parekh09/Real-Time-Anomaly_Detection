@@ -18,6 +18,12 @@ class TrustedRepository:
         Adds a new trusted entry to the repository.
         """
         data = json.loads(self.repo_path.read_text())
+        investigation_id = metadata.get("investigation_id")
+        if investigation_id:
+            data = [
+                entry for entry in data
+                if entry.get("metadata", {}).get("investigation_id") != investigation_id
+            ]
         data.append({
             "features": features,
             "metadata": metadata

@@ -121,9 +121,70 @@ def validate_bank_statement_math(text: str) -> dict:
     
     has_mismatch = mismatches > 0 and checks > 0 and (mismatches / checks) > 0.3
     
+    validation_results = []
+    if has_mismatch:
+        validation_results.append({
+            "type": "altered_bank_math",
+            "severity": "high",
+            "description": f"Running balances do not match calculated values (found {mismatches} mathematical mismatch(es) out of {checks} row check(s))."
+        })
+        
     return {
         "has_balance_mismatch": has_mismatch,
         "mismatches": mismatches,
         "checks": checks,
-        "total_amounts_found": len(amounts)
+        "total_amounts_found": len(amounts),
+        "validation_results": validation_results
+    }
+
+
+def validate_payslip_math(text: str) -> dict:
+    """
+    Validates basic math on a payslip (Gross Pay - Deductions = Net Pay).
+    """
+    gross = None
+    deductions = None
+    net = None
+    
+    # Extract using standard keywords and amount formats
+    # Note: Using multi-stage matching or optional decimals
+    gross_match = re.search(r"(?i)(?:gross|basic|earnings|total\s+earnings|gross\s+salary)[:\s\-]*([0-9,]+\.\d{2}|[0-9,]+)", text)
+    ded_match = re.search(r"(?i)(?:deduction|total\s+deductions|deductions)[:\s\-]*([0-9,]+\.\d{2}|[0-9,]+)", text)
+    net_match = re.search(r"(?i)(?:net|net\s+pay|take\s+home|salary\s+amount|net\s+salary)[:\s\-]*([0-9,]+\.\d{2}|[0-9,]+)", text)
+    
+    def parse_amount(val_str):
+        if not val_str:
+            return None
+        val_clean = val_str.replace(",", "").strip()
+        try:
+            return float(val_clean)
+        except ValueError:
+            return None
+            
+    if gross_match:
+        gross = parse_amount(gross_match.group(1))
+    if ded_match:
+        deductions = parse_amount(ded_match.group(1))
+    if net_match:
+        net = parse_amount(net_match.group(1))
+        
+    validation_results = []
+    has_mismatch = False
+    
+    if gross is not None and deductions is not None and net is not None:
+        expected_net = gross - deductions
+        if abs(expected_net - net) > 2.0:
+            has_mismatch = True
+            validation_results.append({
+                "type": "altered_payslip_math",
+                "severity": "high",
+                "description": f"Payslip math mismatch: Gross ({gross}) - Deductions ({deductions}) should be Net ({expected_net}), but Net is reported as {net}."
+            })
+            
+    return {
+        "has_payslip_mismatch": has_mismatch,
+        "validation_results": validation_results,
+        "gross": gross,
+        "deductions": deductions,
+        "net": net
     }

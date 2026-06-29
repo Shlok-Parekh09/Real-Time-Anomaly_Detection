@@ -43,7 +43,7 @@ app = FastAPI(
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
-    allow_credentials=True,
+    allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],
     expose_headers=["*"],
@@ -126,15 +126,115 @@ async def investigate_document(file: UploadFile = File(...)):
             os.remove(temp_path)
 
 
+import time
+import urllib.request
+import json
+import asyncio
+
+from core.system_state import startup_time_log
+
+@app.on_event("startup")
+def startup_event():
+    """
+    Check Ollama connectivity, verify gemma4:e4b model exists,
+    and warm up local LLM. Refuses to enter AI mode if gemma4:e4b is missing.
+    """
+    global startup_time_log
+    start_t = time.time()
+    logger.info("[STARTUP] Initializing Gemma 4 E4B Forensic Auditor checks...")
+    
+    if not settings.USE_LOCAL_LLM:
+        logger.info("[STARTUP] Local LLM is disabled by configuration.")
+        startup_time_log["ollama_status"] = "disabled"
+        startup_time_log["reason"] = "Local LLM disabled by config"
+        return
+        
+    gemma_model = "gemma4:e4b"
+    url_tags = f"{settings.OLLAMA_BASE_URL}/api/tags"
+    try:
+        req = urllib.request.Request(url_tags)
+        with urllib.request.urlopen(req, timeout=3.0) as response:
+            if response.status == 200:
+                res_body = response.read().decode('utf-8')
+                res_data = json.loads(res_body)
+                models = [m.get("name") for m in res_data.get("models", [])]
+                logger.info(f"[STARTUP] Connected to Ollama. Installed models: {models}")
+                
+                # Verify gemma4:e4b exists
+                model_ok = False
+                for m in models:
+                    if gemma_model in m or m.startswith(gemma_model):
+                        model_ok = True
+                        settings.OLLAMA_MODEL = m # Bind to the exact tag
+                        break
+                        
+                if not model_ok:
+                    logger.warning(
+                        f"\n\n[STARTUP_WARNING] REQUIRED MODEL '{gemma_model}' IS NOT LOADED!\n"
+                        f"Please pull it: 'ollama pull {gemma_model}'\n"
+                        f"AI mode will be disabled.\n"
+                    )
+                    startup_time_log["ollama_status"] = "connected"
+                    startup_time_log["model"] = gemma_model
+                    startup_time_log["ai"] = "offline"
+                    startup_time_log["reason"] = "Gemma4:E4B not loaded"
+                else:
+                    # Warmup model
+                    logger.info(f"[STARTUP] Warming up Ollama model '{settings.OLLAMA_MODEL}'...")
+                    url_gen = f"{settings.OLLAMA_BASE_URL}/api/generate"
+                    payload = {
+                        "model": settings.OLLAMA_MODEL,
+                        "prompt": "ping",
+                        "stream": False
+                    }
+                    try:
+                        req_gen = urllib.request.Request(
+                            url_gen,
+                            data=json.dumps(payload).encode('utf-8'),
+                            headers={'Content-Type': 'application/json'},
+                            method='POST'
+                        )
+                        with urllib.request.urlopen(req_gen, timeout=settings.OLLAMA_WARMUP_TIMEOUT_SECONDS) as gen_res:
+                            gen_res.read()
+                            duration_ms = int((time.time() - start_t) * 1000)
+                            logger.info(f"[STARTUP] Ollama warmup completed successfully in {duration_ms} ms.")
+                            startup_time_log["warmup_duration_ms"] = duration_ms
+                            startup_time_log["model"] = gemma_model
+                            startup_time_log["ollama_status"] = "connected"
+                            startup_time_log["ai"] = "ready"
+                            startup_time_log["warm"] = True
+                            startup_time_log["reason"] = ""
+                    except Exception as e:
+                        logger.warning(f"[STARTUP] Pre-warming request timed out: {e}")
+                        startup_time_log["ollama_status"] = "connected"
+                        startup_time_log["model"] = gemma_model
+                        startup_time_log["ai"] = "ready"
+                        startup_time_log["warm"] = False
+                        startup_time_log["reason"] = "Warmup timed out"
+            else:
+                logger.warning("[STARTUP_WARNING] Ollama returned non-200 response.")
+                startup_time_log["ollama_status"] = "offline"
+                startup_time_log["ai"] = "offline"
+                startup_time_log["reason"] = "Ollama tags check failed"
+    except Exception as e:
+        logger.warning(
+            f"\n\n[STARTUP_WARNING] Could not connect to local Ollama service: {e}\n"
+            f"If you plan to run local AI summaries, please start Ollama first (http://localhost:11434).\n"
+        )
+        startup_time_log["ollama_status"] = "offline"
+        startup_time_log["ai"] = "offline"
+        startup_time_log["reason"] = "Unable to connect to Ollama"
+
+
 @app.get("/api/v1/health")
 def api_health():
     """Detailed health check for the API."""
-    # Check database connectivity
     db_ok = True
     try:
+        from sqlalchemy import text
         from core.database import SessionLocal
         db = SessionLocal()
-        db.execute("SELECT 1")
+        db.execute(text("SELECT 1"))
         db.close()
     except Exception:
         db_ok = False
