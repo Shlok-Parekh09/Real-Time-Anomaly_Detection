@@ -5,7 +5,7 @@ import { Search, Filter, Plus, ChevronRight, ExternalLink, FileText, Download, M
 ---
 
 <Layout title="Investigations | Anobis" activeTab="investigations">
-  <div class="p-8 max-w-7xl mx-auto space-y-6">
+  <div class="p-8 max-w-7xl mx-auto space-y-6 z-10 relative">
     <div class="flex items-center justify-between">
       <div>
         <h1 class="text-2xl font-bold text-slate-900">Investigations</h1>
@@ -24,17 +24,17 @@ import { Search, Filter, Plus, ChevronRight, ExternalLink, FileText, Download, M
     </div>
 
     <!-- Filters & Search -->
-    <div class="flex flex-col md:flex-row gap-4 items-center justify-between bg-white p-4 rounded-lg border border-slate-200 shadow-sm">
+    <div class="flex flex-col md:flex-row gap-4 items-center justify-between investigation-card p-4">
       <div class="relative w-full md:w-96">
         <Search class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-        <input type="text" id="search-input" placeholder="Filter by title or context..." class="w-full pl-10 pr-4 py-2 bg-slate-50 border-slate-200 rounded-md text-sm focus:ring-1 focus:ring-bank-blue transition-all" />
+        <input type="text" id="search-input" placeholder="Filter by title or context…" class="w-full pl-10 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-md text-sm outline-none focus:bg-white focus-visible:ring-1 focus-visible:ring-bank-blue transition-all" />
       </div>
       <div class="flex items-center gap-2 w-full md:w-auto">
         <button id="more-filters-btn" class="btn-secondary py-1.5 text-xs flex-1 md:flex-none">
           <Filter class="w-3.5 h-3.5" />
           More Filters
         </button>
-        <select id="status-filter" class="bg-slate-50 border border-slate-200 rounded-md text-xs font-bold py-1.5 px-3 text-slate-700 outline-none focus:ring-1 focus:ring-bank-blue">
+        <select id="status-filter" class="bg-slate-50 border border-slate-200 rounded-md text-xs font-bold py-1.5 px-3 text-slate-700 outline-none focus-visible:ring-1 focus-visible:ring-bank-blue cursor-pointer">
           <option value="ALL">All Status</option>
           <option value="COMPLETED">Completed</option>
           <option value="PROCESSING">In Progress</option>
@@ -50,44 +50,26 @@ import { Search, Filter, Plus, ChevronRight, ExternalLink, FileText, Download, M
         <table class="table-standard">
           <thead class="table-header">
             <tr>
-              <th class="px-6 py-4">Title / ID</th>
-              <th class="px-6 py-4">Context</th>
-              <th class="px-6 py-4">Status</th>
-              <th class="px-6 py-4">Trust / Conf</th>
-              <th class="px-6 py-4">Recommendation</th>
-              <th class="px-6 py-4">Created</th>
-              <th class="px-6 py-4 text-right">Action</th>
+              <th class="px-6 py-4 text-left">Context</th>
+              <th class="px-6 py-4 text-left">Title</th>
+              <th class="px-6 py-4 text-center">Trust</th>
+              <th class="px-6 py-4 text-left">Status</th>
+              <th class="px-6 py-4 text-left">Date</th>
+              <th class="px-6 py-4 text-center">Reference Standard</th>
+              <th class="px-6 py-4 text-right">Actions</th>
             </tr>
           </thead>
           <tbody id="investigations-body" class="table-body">
             <!-- Loading Skeletons -->
             {[1, 2, 3, 4, 5].map(() => (
-              <tr class="skeleton-row animate-pulse">
-                <td class="px-6 py-4">
-                  <div class="h-4 bg-slate-100 rounded w-3/4 mb-2"></div>
-                  <div class="h-3 bg-slate-50 rounded w-1/2"></div>
-                </td>
-                <td class="px-6 py-4">
-                  <div class="h-4 bg-slate-100 rounded w-full"></div>
-                </td>
-                <td class="px-6 py-4">
-                  <div class="h-6 bg-slate-100 rounded-full w-20"></div>
-                </td>
-                <td class="px-6 py-4">
-                  <div class="flex items-center gap-2">
-                    <div class="w-12 h-1.5 bg-slate-100 rounded-full"></div>
-                    <div class="w-8 h-3 bg-slate-50 rounded"></div>
-                  </div>
-                </td>
-                <td class="px-6 py-4">
-                  <div class="h-4 bg-slate-100 rounded w-full"></div>
-                </td>
-                <td class="px-6 py-4">
-                  <div class="h-4 bg-slate-100 rounded w-24"></div>
-                </td>
-                <td class="px-6 py-4 text-right">
-                  <div class="h-8 w-8 bg-slate-50 rounded ml-auto"></div>
-                </td>
+              <tr class="animate-pulse">
+                <td class="px-6 py-4"><div class="h-4 bg-slate-100 rounded w-20"></div></td>
+                <td class="px-6 py-4"><div class="h-4 bg-slate-100 rounded w-32"></div></td>
+                <td class="px-6 py-4"><div class="h-4 bg-slate-100 rounded w-10 mx-auto"></div></td>
+                <td class="px-6 py-4"><div class="h-4 bg-slate-100 rounded w-16"></div></td>
+                <td class="px-6 py-4"><div class="h-4 bg-slate-100 rounded w-16"></div></td>
+                <td class="px-6 py-4 text-center"><div class="h-5 bg-slate-100 rounded-full w-9 mx-auto"></div></td>
+                <td class="px-6 py-4 text-right"><div class="h-4 bg-slate-100 rounded w-16 ml-auto"></div></td>
               </tr>
             ))}
           </tbody>
@@ -179,6 +161,36 @@ import { Search, Filter, Plus, ChevronRight, ExternalLink, FileText, Download, M
     }
   }
 
+  // Helper to format backend enums into human-readable strings
+  function formatEnum(val: string | null | undefined): string {
+    if (!val) return 'N/A';
+    const mapping: Record<string, string> = {
+      'MANUAL_REVIEW': 'Manual Review Required',
+      'AUTO_APPROVE': 'Auto Approved',
+      'AUTO_REJECT': 'Auto Rejected',
+      'CROSS_DOC': 'Cross-Document Inconsistency',
+      'OCR_FAILED': 'OCR Extraction Failed',
+      'LOW_CONFIDENCE': 'Scan Resolution Alert',
+      'METADATA_TAMPERING': 'Potential Metadata Manipulation',
+      'PIXEL_TAMPERING': 'Potential Image Tampering',
+      'FONT_INCONSISTENCY': 'Font Consistency Error',
+      'PENDING': 'Pending',
+      'PROCESSING': 'Analyzing',
+      'IN_PROGRESS': 'In Progress',
+      'COMPLETED': 'Analysis Complete',
+      'FAILED': 'Failed',
+      'PASS': 'Verified',
+      'FAIL': 'Issue Detected',
+      'HIGH': 'High',
+      'MEDIUM': 'Medium',
+      'LOW': 'Low',
+      'CRITICAL': 'Critical',
+    };
+    const mapped = mapping[val.toUpperCase()];
+    if (mapped) return mapped;
+    return val.replace(/_/g, ' ').toLowerCase().replace(/\b\w/g, c => c.toUpperCase());
+  }
+
   function renderInvestigations(investigations: Investigation[]) {
     if (!investigationsBody) return;
 
@@ -202,63 +214,129 @@ import { Search, Filter, Plus, ChevronRight, ExternalLink, FileText, Download, M
         year: 'numeric'
       });
 
-      const trustScore = inv.trust_score !== null ? Math.round(inv.trust_score) : null;
-      const confidenceScore = inv.confidence_score !== null ? Math.round(inv.confidence_score) : null;
+      const trustVal = inv.trust_score !== null ? Math.round(inv.trust_score) : null;
       
-      let statusClass = 'bg-slate-50 text-slate-700 border-slate-200';
-      if (inv.status === 'COMPLETED') statusClass = 'bg-emerald-50 text-emerald-700 border-emerald-200';
-      if (inv.status === 'PROCESSING' || inv.status === 'IN_PROGRESS') statusClass = 'bg-blue-50 text-blue-700 border-blue-200';
-      if (inv.status === 'FAILED') statusClass = 'bg-rose-50 text-rose-700 border-rose-200';
-      if (inv.status === 'PENDING') statusClass = 'bg-amber-50 text-amber-700 border-amber-200';
+      // Status styling with colored dots/pills
+      let statusPillClass = 'bg-slate-50 text-slate-700 border-slate-200';
+      let statusDotClass = 'bg-slate-400';
+      if (inv.status === 'COMPLETED') {
+        statusPillClass = 'bg-emerald-50 text-emerald-700 border-emerald-200';
+        statusDotClass = 'bg-emerald-500';
+      } else if (inv.status === 'PROCESSING' || inv.status === 'IN_PROGRESS') {
+        statusPillClass = 'bg-blue-50 text-blue-700 border-blue-200';
+        statusDotClass = 'bg-blue-500 animate-pulse';
+      } else if (inv.status === 'FAILED') {
+        statusPillClass = 'bg-rose-50 text-rose-700 border-rose-200';
+        statusDotClass = 'bg-rose-500';
+      } else if (inv.status === 'PENDING') {
+        statusPillClass = 'bg-amber-50 text-amber-700 border-amber-200';
+        statusDotClass = 'bg-amber-500';
+      }
 
       let scoreColor = 'text-slate-400';
-      let scoreBg = 'bg-slate-100';
-      if (trustScore !== null) {
-        if (trustScore > 80) { scoreColor = 'text-emerald-600'; scoreBg = 'bg-emerald-500'; }
-        else if (trustScore > 50) { scoreColor = 'text-amber-600'; scoreBg = 'bg-amber-500'; }
+      let scoreBg = 'bg-slate-200';
+      if (trustVal !== null) {
+        if (trustVal >= 80) { scoreColor = 'text-emerald-600'; scoreBg = 'bg-emerald-500'; }
+        else if (trustVal >= 50) { scoreColor = 'text-amber-600'; scoreBg = 'bg-amber-500'; }
         else { scoreColor = 'text-rose-600'; scoreBg = 'bg-rose-500'; }
       }
 
+      // Baseline toggle states
+      const isBaseline = !!inv.is_baseline;
+      const toggleDisabled = inv.status !== 'COMPLETED' ? 'opacity-40 cursor-not-allowed pointer-events-none' : '';
+
       return `
-        <tr class="hover:bg-slate-50 transition-colors group">
-          <td class="px-6 py-4">
-            <p class="text-sm font-bold text-slate-900">${inv.title || 'Untitled Investigation'}</p>
-            <span class="font-mono text-[10px] font-bold text-slate-400 uppercase tracking-tighter">${inv.id}</span>
-          </td>
+        <tr class="hover:bg-slate-50 transition-colors group border-b border-slate-100">
           <td class="px-6 py-4 text-sm text-slate-600 font-medium">
             ${inv.context}
           </td>
           <td class="px-6 py-4">
-            <span class="px-2 py-0.5 rounded-full text-[10px] font-bold border ${statusClass}">
-              ${inv.status}
-            </span>
+            <p class="text-sm font-bold text-slate-900">${inv.title || 'Untitled Investigation'}</p>
+            <span class="font-mono text-[10px] font-bold text-slate-400 uppercase tracking-tighter block mt-0.5">${inv.id}</span>
           </td>
           <td class="px-6 py-4">
-            <div class="flex flex-col gap-1">
-              <div class="flex items-center gap-2">
-                <div class="w-12 h-1.5 bg-slate-100 rounded-full overflow-hidden">
-                  <div class="h-full rounded-full ${scoreBg}" style="width: ${trustScore || 0}%"></div>
-                </div>
-                <span class="text-[10px] font-bold ${scoreColor}">${trustScore !== null ? trustScore + '%' : 'N/A'}</span>
+            <div class="flex items-center gap-2 justify-center">
+              <div class="w-16 h-1.5 bg-slate-100 rounded-full overflow-hidden shrink-0">
+                <div class="h-full rounded-full ${scoreBg}" style="width: ${trustVal || 0}%"></div>
               </div>
-              <span class="text-[9px] text-slate-400 font-bold uppercase tracking-widest">Conf: ${confidenceScore !== null ? confidenceScore + '%' : 'N/A'}</span>
+              <span class="text-xs font-bold ${scoreColor}">${trustVal !== null ? trustVal + '%' : 'N/A'}</span>
             </div>
           </td>
-          <td class="px-6 py-4 text-sm text-slate-600 font-medium">
-            ${inv.recommendation || '<span class="text-slate-300 italic">Pending analysis...</span>'}
+          <td class="px-6 py-4">
+            <span class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-bold border ${statusPillClass}">
+              <span class="w-1.5 h-1.5 rounded-full ${statusDotClass}"></span>
+              ${formatEnum(inv.status)}
+            </span>
           </td>
           <td class="px-6 py-4 text-sm text-slate-500 font-medium">
             ${date}
           </td>
+          <td class="px-6 py-4 text-center">
+            <button class="baseline-toggle inline-flex items-center justify-center px-3 py-1.5 h-8 text-xs font-semibold ${isBaseline ? 'text-blue-700 bg-blue-50/50 hover:bg-blue-50 border border-blue-200 hover:border-blue-300 font-semibold' : 'text-slate-600 bg-white hover:bg-slate-50 border border-slate-200 hover:border-slate-300 font-medium'} rounded transition-all cursor-pointer ${toggleDisabled}" data-id="${inv.id}">
+              ${isBaseline ? 'Approved Reference' : 'Approve Reference'}
+            </button>
+          </td>
           <td class="px-6 py-4 text-right">
-            <a href="/investigate/?id=${inv.id}" class="p-1.5 text-slate-400 hover:text-bank-blue hover:bg-blue-50 rounded transition-all inline-block">
-              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-external-link"><path d="M15 3h6v6"/><path d="M10 14 21 3"/><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/></svg>
-            </a>
+            <div class="flex items-center justify-end gap-2">
+              <a href="/investigate/?id=${inv.id}" class="inline-flex items-center justify-center gap-1 px-3 py-1.5 h-8 text-xs font-semibold text-slate-700 hover:text-slate-900 bg-slate-100 hover:bg-slate-200 border border-slate-200 hover:border-slate-300 rounded transition-all whitespace-nowrap">
+                View
+              </a>
+              <button class="delete-btn inline-flex items-center justify-center gap-1 px-3 py-1.5 h-8 text-xs font-semibold text-rose-700 hover:text-rose-900 bg-rose-50 hover:bg-rose-100 border border-rose-100 rounded transition-all cursor-pointer whitespace-nowrap" data-id="${inv.id}">
+                Delete
+              </button>
+            </div>
           </td>
         </tr>
       `;
     }).join('');
   }
+
+  // Handle toggling baseline and delete events via event delegation
+  document.addEventListener('click', async (e) => {
+    const target = e.target as HTMLElement;
+    
+    // Toggle baseline
+    const toggleBtn = target.closest('.baseline-toggle');
+    if (toggleBtn) {
+      const id = toggleBtn.getAttribute('data-id');
+      if (!id) return;
+      
+      try {
+        const res = await api.toggleBaseline(id);
+        
+        if (res.is_baseline) {
+          toggleBtn.className = `baseline-toggle inline-flex items-center justify-center px-3 py-1.5 h-8 text-xs font-semibold text-blue-700 bg-blue-50/50 hover:bg-blue-50 border border-blue-200 hover:border-blue-300 font-semibold rounded transition-all cursor-pointer`;
+          toggleBtn.innerHTML = `Approved Reference`;
+        } else {
+          toggleBtn.className = `baseline-toggle inline-flex items-center justify-center px-3 py-1.5 h-8 text-xs font-semibold text-slate-600 bg-white hover:bg-slate-50 border border-slate-200 hover:border-slate-300 font-medium rounded transition-all cursor-pointer`;
+          toggleBtn.innerHTML = `Approve Reference`;
+        }
+      } catch (err) {
+        console.error('Failed to toggle baseline:', err);
+        alert(err instanceof Error ? err.message : 'Failed to toggle baseline');
+        loadInvestigations();
+      }
+      return;
+    }
+    
+    // Delete investigation
+    const deleteBtn = target.closest('.delete-btn');
+    if (deleteBtn) {
+      const id = deleteBtn.getAttribute('data-id');
+      if (!id) return;
+      
+      if (!confirm('Are you sure you want to delete this investigation? This action cannot be undone.')) return;
+      
+      try {
+        await api.deleteInvestigation(id);
+        loadInvestigations();
+      } catch (err) {
+        console.error('Failed to delete investigation:', err);
+        alert(err instanceof Error ? err.message : 'Failed to delete investigation');
+      }
+      return;
+    }
+  });
 
   function filterInvestigations() {
     const status = statusFilter.value;
@@ -280,14 +358,13 @@ import { Search, Filter, Plus, ChevronRight, ExternalLink, FileText, Download, M
       alert('No investigations available to export.');
       return;
     }
-    const headers = ['ID', 'Context', 'Title', 'Status', 'Trust Score', 'Confidence Score', 'Recommendation', 'Created At'];
+    const headers = ['ID', 'Context', 'Title', 'Status', 'Trust Score', 'Recommendation', 'Created At'];
     const rows = allInvestigations.map(inv => [
       inv.id,
       inv.context,
       inv.title || 'Untitled',
       inv.status,
       inv.trust_score || 'N/A',
-      inv.confidence_score || 'N/A',
       inv.recommendation || 'N/A',
       inv.created_at
     ]);

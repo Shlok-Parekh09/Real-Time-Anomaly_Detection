@@ -1,12 +1,12 @@
 ---
 import Layout from '../layouts/Layout.astro';
 import MetricsCard from '../components/MetricsCard.astro';
-import { FileText, CheckCircle, AlertTriangle, ShieldAlert, Plus, ArrowRight, ExternalLink, RefreshCcw, AlertCircle } from "lucide-astro";
+import { FileText, CheckCircle, AlertTriangle, ShieldAlert, Plus, ArrowRight, ExternalLink, RefreshCcw, AlertCircle, Percent, ShieldCheck, Trash2, Eye } from "lucide-astro";
 
 ---
 
 <Layout title="Dashboard | Anobis" activeTab="dashboard">
-  <div class="p-8 max-w-7xl mx-auto space-y-8">
+  <div class="p-8 max-w-7xl mx-auto space-y-8 z-10 relative">
     <!-- Page Header -->
     <div class="flex items-center justify-between">
       <div>
@@ -20,30 +20,36 @@ import { FileText, CheckCircle, AlertTriangle, ShieldAlert, Plus, ArrowRight, Ex
     </div>
 
     <!-- Metrics Grid -->
-    <div id="metrics-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+    <div id="metrics-grid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-6">
       <MetricsCard 
         title="Total Processed" 
-        value="..." 
+        value="…" 
         icon={FileText} 
         colorClass="bg-slate-100 text-slate-600"
       />
       <MetricsCard 
         title="Verified" 
-        value="..." 
+        value="…" 
         icon={CheckCircle} 
         colorClass="bg-emerald-100 text-emerald-600"
       />
       <MetricsCard 
         title="Suspicious" 
-        value="..." 
+        value="…" 
         icon={AlertTriangle} 
         colorClass="bg-amber-100 text-amber-600"
       />
       <MetricsCard 
         title="Fraudulent" 
-        value="..." 
+        value="…" 
         icon={ShieldAlert} 
         colorClass="bg-rose-100 text-rose-600"
+      />
+      <MetricsCard 
+        title="Avg Trust Score" 
+        value="…" 
+        icon={ShieldCheck} 
+        colorClass="bg-blue-100 text-blue-600"
       />
     </div>
 
@@ -60,11 +66,12 @@ import { FileText, CheckCircle, AlertTriangle, ShieldAlert, Plus, ArrowRight, Ex
         <table class="table-standard">
           <thead class="table-header">
             <tr>
-              <th class="px-6 py-3">Investigation ID</th>
-              <th class="px-6 py-3">Context</th>
-              <th class="px-6 py-3">Title</th>
-              <th class="px-6 py-3">Date</th>
-              <th class="px-6 py-3">Status</th>
+              <th class="px-6 py-3 text-left">Context</th>
+              <th class="px-6 py-3 text-left">Title</th>
+              <th class="px-6 py-3 text-center">Trust</th>
+              <th class="px-6 py-3 text-left">Status</th>
+              <th class="px-6 py-3 text-left">Date</th>
+              <th class="px-6 py-3 text-center">Reference Standard</th>
               <th class="px-6 py-3 text-right">Actions</th>
             </tr>
           </thead>
@@ -72,12 +79,21 @@ import { FileText, CheckCircle, AlertTriangle, ShieldAlert, Plus, ArrowRight, Ex
             <!-- Loading Skeletons -->
             {[1, 2, 3].map(() => (
               <tr class="animate-pulse">
-                <td class="px-6 py-4"><div class="h-4 bg-slate-100 rounded w-24"></div></td>
-                <td class="px-6 py-4"><div class="h-4 bg-slate-100 rounded w-32"></div></td>
-                <td class="px-6 py-4"><div class="h-4 bg-slate-100 rounded w-40"></div></td>
                 <td class="px-6 py-4"><div class="h-4 bg-slate-100 rounded w-20"></div></td>
-                <td class="px-6 py-4"><div class="h-6 bg-slate-100 rounded-full w-16"></div></td>
-                <td class="px-6 py-4 text-right"><div class="h-4 bg-slate-100 rounded w-4 ml-auto"></div></td>
+                <td class="px-6 py-4">
+                  <div class="h-4 bg-slate-100 rounded w-32 mb-1"></div>
+                  <div class="h-3 bg-slate-50 rounded w-16"></div>
+                </td>
+                <td class="px-6 py-4">
+                  <div class="flex items-center gap-2 justify-center">
+                    <div class="w-16 h-1.5 bg-slate-100 rounded-full"></div>
+                    <div class="h-3 bg-slate-100 rounded w-6"></div>
+                  </div>
+                </td>
+                <td class="px-6 py-4"><div class="h-5 bg-slate-100 rounded-full w-24"></div></td>
+                <td class="px-6 py-4"><div class="h-4 bg-slate-100 rounded w-16"></div></td>
+                <td class="px-6 py-4 text-center"><div class="h-8 bg-slate-100 rounded w-28 mx-auto"></div></td>
+                <td class="px-6 py-4 text-right"><div class="h-8 bg-slate-100 rounded w-24 ml-auto"></div></td>
               </tr>
             ))}
           </tbody>
@@ -104,43 +120,70 @@ import { FileText, CheckCircle, AlertTriangle, ShieldAlert, Plus, ArrowRight, Ex
     
     <!-- Quick Actions / Info -->
     <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-      <div class="lg:col-span-2 investigation-card p-6 bg-slate-900 text-white relative overflow-hidden">
-        <div class="relative z-10">
-          <h3 class="text-lg font-bold">Internal Audit & Compliance</h3>
-          <p class="text-slate-400 mt-2 text-sm max-w-md">Our system automatically monitors cross-document consistency for all loan and mortgage applications to ensure 100% regulatory compliance.</p>
-          <div class="mt-6 flex gap-4">
-            <button id="quarterly-report-btn" class="px-4 py-2 bg-white text-slate-900 rounded-md font-bold text-sm hover:bg-slate-100 transition-colors">Export Audit Snapshot</button>
-            <button id="audit-logs-btn" class="px-4 py-2 bg-slate-800 text-white border border-slate-700 rounded-md font-bold text-sm hover:bg-slate-700 transition-colors">Audit Logs</button>
-          </div>
+      <!-- Recent Activity Timeline -->
+      <div class="lg:col-span-2 bg-white border border-slate-200 rounded-lg p-6">
+        <div class="flex items-center justify-between border-b border-slate-100 pb-4 mb-4">
+          <h3 class="font-bold text-slate-900">Recent Activity Timeline</h3>
+          <button id="quarterly-report-btn" class="px-2.5 py-1 text-xs font-semibold bg-slate-100 hover:bg-slate-200 border border-slate-200 hover:border-slate-300 text-slate-700 rounded transition-all cursor-pointer">Export Snapshots</button>
         </div>
-        <!-- Decorative abstract shape -->
-        <div class="absolute -right-12 -top-12 w-64 h-64 bg-slate-800 rounded-full opacity-50 blur-3xl"></div>
+        <div id="recent-activity-list" class="space-y-4">
+          <div class="text-xs font-semibold text-slate-400">Loading recent case activity…</div>
+        </div>
       </div>
       
-      <div class="investigation-card p-6 border-slate-200">
-        <h3 class="font-bold text-slate-900">System Status</h3>
-        <div class="mt-4 space-y-4">
-          <div class="flex items-center justify-between">
-            <span class="text-sm text-slate-500 font-medium">AI Analysis Engine</span>
-            <span id="dashboard-ai-status" class="flex items-center text-xs font-bold text-slate-500">
-              <span class="w-1.5 h-1.5 bg-slate-400 rounded-full mr-2"></span>
-              Checking
-            </span>
+      <!-- System Status -->
+      <div class="bg-white border border-slate-200 rounded-lg p-6 flex flex-col justify-between">
+        <div>
+          <h3 class="font-bold text-slate-900 border-b border-slate-100 pb-3 mb-4">System Status</h3>
+          <div class="grid grid-cols-1 gap-y-3.5">
+            <div class="flex items-center justify-between text-xs border-b border-slate-100 pb-2">
+              <span id="dashboard-provider-label" class="text-slate-500 font-semibold">AI Provider</span>
+              <span id="system-status-gemma" class="inline-flex items-center gap-1 font-bold text-emerald-600">
+                <span class="w-1.5 h-1.5 bg-emerald-500 rounded-full"></span>
+                Running
+              </span>
+            </div>
+            <div class="flex items-center justify-between text-xs border-b border-slate-100 pb-2">
+              <span id="dashboard-model-label" class="text-slate-500 font-semibold">AI Model</span>
+              <span id="system-status-ollama" class="inline-flex items-center gap-1 font-bold text-emerald-600">
+                <span class="w-1.5 h-1.5 bg-emerald-500 rounded-full"></span>
+                Connected
+              </span>
+            </div>
+            <div class="flex items-center justify-between text-xs border-b border-slate-100 pb-2">
+              <span class="text-slate-500 font-semibold">OCR</span>
+              <span id="system-status-ocr" class="inline-flex items-center gap-1 font-bold text-emerald-600">
+                <span class="w-1.5 h-1.5 bg-emerald-500 rounded-full"></span>
+                Ready
+              </span>
+            </div>
+            <div class="flex items-center justify-between text-xs border-b border-slate-100 pb-2">
+              <span class="text-slate-500 font-semibold">Dataset</span>
+              <span id="system-status-dataset" class="inline-flex items-center gap-1 font-bold text-emerald-600">
+                <span class="w-1.5 h-1.5 bg-emerald-500 rounded-full"></span>
+                Indexed
+              </span>
+            </div>
+            <div class="flex items-center justify-between text-xs border-b border-slate-100 pb-2">
+              <span class="text-slate-500 font-semibold">KNN</span>
+              <span id="system-status-knn" class="inline-flex items-center gap-1 font-bold text-emerald-600">
+                <span class="w-1.5 h-1.5 bg-emerald-500 rounded-full"></span>
+                Ready
+              </span>
+            </div>
+            <div class="flex items-center justify-between text-xs">
+              <span class="text-slate-500 font-semibold">PDF Engine</span>
+              <span class="inline-flex items-center gap-1 font-bold text-emerald-600">
+                <span class="w-1.5 h-1.5 bg-emerald-500 rounded-full"></span>
+                Ready
+              </span>
+            </div>
           </div>
-          <div class="flex items-center justify-between">
-            <span class="text-sm text-slate-500 font-medium">Cross-Document Validation</span>
-            <span id="dashboard-knn-status" class="flex items-center text-xs font-bold text-slate-500">
-              <span class="w-1.5 h-1.5 bg-slate-400 rounded-full mr-2"></span>
-              Checking
-            </span>
-          </div>
-          <div class="flex items-center justify-between">
-            <span class="text-sm text-slate-500 font-medium">Metadata Forensic Lab</span>
-            <span id="dashboard-ocr-status" class="flex items-center text-xs font-bold text-slate-500">
-              <span class="w-1.5 h-1.5 bg-slate-400 rounded-full mr-2"></span>
-              Checking
-            </span>
-          </div>
+        </div>
+        
+        <div class="mt-4 pt-4 border-t border-slate-100 flex items-center justify-between text-[10px] font-bold text-slate-400 uppercase tracking-widest">
+          <span>Sandbox Mode</span>
+          <span class="text-emerald-500">Offline-First</span>
         </div>
       </div>
     </div>
@@ -155,26 +198,66 @@ import { FileText, CheckCircle, AlertTriangle, ShieldAlert, Plus, ArrowRight, Ex
   const errorState = document.getElementById('recent-error-state');
   const retryBtn = document.getElementById('retry-dashboard');
   const metricsGrid = document.getElementById('metrics-grid');
+  const recentActivityList = document.getElementById('recent-activity-list');
   let lastInvestigations: any[] = [];
+
+  function formatEnum(val: string | null | undefined): string {
+    if (!val) return 'N/A';
+    const mapping: Record<string, string> = {
+      'MANUAL_REVIEW': 'Manual Review Required',
+      'AUTO_APPROVE': 'Auto Approved',
+      'AUTO_REJECT': 'Auto Rejected',
+      'CROSS_DOC': 'Cross-Document Inconsistency',
+      'OCR_FAILED': 'OCR Extraction Failed',
+      'LOW_CONFIDENCE': 'Scan Resolution Alert',
+      'METADATA_TAMPERING': 'Potential Metadata Manipulation',
+      'PIXEL_TAMPERING': 'Potential Image Tampering',
+      'FONT_INCONSISTENCY': 'Font Consistency Error',
+      'PENDING': 'Pending',
+      'PROCESSING': 'Analyzing',
+      'IN_PROGRESS': 'In Progress',
+      'COMPLETED': 'Analysis Complete',
+      'FAILED': 'Failed',
+      'PASS': 'Verified',
+      'FAIL': 'Issue Detected',
+      'HIGH': 'High',
+      'MEDIUM': 'Medium',
+      'LOW': 'Low',
+      'CRITICAL': 'Critical',
+    };
+    const mapped = mapping[val.toUpperCase()];
+    if (mapped) return mapped;
+    return val.replace(/_/g, ' ').toLowerCase().replace(/\b\w/g, c => c.toUpperCase());
+  }
 
   function setStatus(elId: string, ok: boolean, label: string) {
     const el = document.getElementById(elId);
     if (!el) return;
-    el.className = `flex items-center text-xs font-bold ${ok ? 'text-emerald-600' : 'text-rose-600'}`;
-    el.innerHTML = `<span class="w-1.5 h-1.5 ${ok ? 'bg-emerald-500' : 'bg-rose-500'} rounded-full mr-2"></span>${label}`;
+    el.className = `inline-flex items-center gap-1 font-bold ${ok ? 'text-emerald-600' : 'text-rose-600'}`;
+    el.innerHTML = `<span class="w-1.5 h-1.5 ${ok ? 'bg-emerald-500' : 'bg-rose-500'} rounded-full"></span>${label}`;
   }
 
   async function loadSystemHealth() {
     try {
-      const baseUrl = import.meta.env.PUBLIC_API_URL || 'http://localhost:8000';
+      const baseUrl = import.meta.env.PUBLIC_API_URL || 'http://localhost:8001';
       const res = await fetch(`${baseUrl}/api/v1/system/health`).then(r => r.json());
-      setStatus('dashboard-ai-status', res.ai === 'ready', res.ai === 'ready' ? 'Gemma Ready' : 'Offline');
-      setStatus('dashboard-knn-status', res.knn === 'ready', res.knn === 'ready' ? 'Ready' : 'Offline');
-      setStatus('dashboard-ocr-status', res.ocr === 'ready', res.ocr === 'ready' ? 'Ready' : 'Unavailable');
+      
+      const pLabel = document.getElementById('dashboard-provider-label');
+      const mLabel = document.getElementById('dashboard-model-label');
+      if (pLabel) pLabel.textContent = `Provider: ${res.provider || 'Local Ollama'}`;
+      if (mLabel) mLabel.textContent = `Model: ${res.model || 'gemma4:e4b'}`;
+
+      setStatus('system-status-gemma', res.ai === 'ready', res.ai === 'ready' ? 'Ready' : 'Offline');
+      setStatus('system-status-ollama', res.ai === 'ready', res.execution_mode || 'Offline');
+      setStatus('system-status-ocr', res.ocr === 'ready', res.ocr === 'ready' ? 'Ready' : 'Offline');
+      setStatus('system-status-knn', res.knn === 'ready', res.knn === 'ready' ? 'Ready' : 'Offline');
+      setStatus('system-status-dataset', res.knn === 'ready', res.knn === 'ready' ? 'Indexed' : 'Offline');
     } catch {
-      setStatus('dashboard-ai-status', false, 'Offline');
-      setStatus('dashboard-knn-status', false, 'Offline');
-      setStatus('dashboard-ocr-status', false, 'Unavailable');
+      setStatus('system-status-gemma', false, 'Offline');
+      setStatus('system-status-ollama', false, 'Offline');
+      setStatus('system-status-ocr', false, 'Offline');
+      setStatus('system-status-knn', false, 'Offline');
+      setStatus('system-status-dataset', false, 'Offline');
     }
   }
 
@@ -184,12 +267,21 @@ import { FileText, CheckCircle, AlertTriangle, ShieldAlert, Plus, ArrowRight, Ex
     // Reset UI
     recentBody.innerHTML = Array(3).fill(0).map(() => `
       <tr class="animate-pulse">
-        <td class="px-6 py-4"><div class="h-4 bg-slate-100 rounded w-24"></div></td>
-        <td class="px-6 py-4"><div class="h-4 bg-slate-100 rounded w-32"></div></td>
-        <td class="px-6 py-4"><div class="h-4 bg-slate-100 rounded w-40"></div></td>
         <td class="px-6 py-4"><div class="h-4 bg-slate-100 rounded w-20"></div></td>
-        <td class="px-6 py-4"><div class="h-6 bg-slate-100 rounded-full w-16"></div></td>
-        <td class="px-6 py-4 text-right"><div class="h-4 bg-slate-100 rounded w-4 ml-auto"></div></td>
+        <td class="px-6 py-4">
+          <div class="h-4 bg-slate-100 rounded w-32 mb-1"></div>
+          <div class="h-3 bg-slate-50 rounded w-16"></div>
+        </td>
+        <td class="px-6 py-4">
+          <div class="flex items-center gap-2 justify-center">
+            <div class="w-16 h-1.5 bg-slate-100 rounded-full"></div>
+            <div class="h-3 bg-slate-100 rounded w-6"></div>
+          </div>
+        </td>
+        <td class="px-6 py-4"><div class="h-5 bg-slate-100 rounded-full w-24"></div></td>
+        <td class="px-6 py-4"><div class="h-4 bg-slate-100 rounded w-16"></div></td>
+        <td class="px-6 py-4 text-center"><div class="h-8 bg-slate-100 rounded w-28 mx-auto"></div></td>
+        <td class="px-6 py-4 text-right"><div class="h-8 bg-slate-100 rounded w-24 ml-auto"></div></td>
       </tr>
     `).join('');
     emptyState?.classList.add('hidden');
@@ -200,22 +292,44 @@ import { FileText, CheckCircle, AlertTriangle, ShieldAlert, Plus, ArrowRight, Ex
       const investigations = await api.getInvestigations();
       lastInvestigations = investigations;
       
-      // Update Metrics based on calculated Trust Scores
+      // Calculate Metrics
       if (metricsGrid) {
         const total = investigations.length;
         const verified = investigations.filter(i => i.status === 'COMPLETED' && i.trust_score !== null && i.trust_score >= 80).length;
         const suspicious = investigations.filter(i => i.status === 'COMPLETED' && i.trust_score !== null && i.trust_score < 80 && i.trust_score >= 50).length;
         const fraudulent = investigations.filter(i => i.status === 'COMPLETED' && i.trust_score !== null && i.trust_score < 50).length;
 
-        const metricValues = metricsGrid.querySelectorAll('.text-2xl.font-bold');
-        if (metricValues[0]) metricValues[0].textContent = total.toString();
+        // Calculate count of investigations created today
+        const todayStr = new Date().toDateString();
+        const createdToday = investigations.filter(i => new Date(i.created_at).toDateString() === todayStr).length;
+
+        const completed = investigations.filter(i => i.status === 'COMPLETED');
+        const trustScores = completed.map(i => i.trust_score).filter(s => s !== null) as number[];
+        
+        const avgTrust = trustScores.length > 0 ? Math.round(trustScores.reduce((a, b) => a + b, 0) / trustScores.length) : 0;
+
+        const metricValues = metricsGrid.querySelectorAll('.metrics-value');
+        const metricSecondaries = metricsGrid.querySelectorAll('.metrics-secondary');
+        
+        if (metricValues[0]) metricValues[0].textContent = `${total} cases`;
+        if (metricSecondaries[0]) metricSecondaries[0].textContent = `+${createdToday} today`;
+
         if (metricValues[1]) metricValues[1].textContent = verified.toString();
+        if (metricSecondaries[1]) metricSecondaries[1].textContent = total > 0 ? `${Math.round((verified/total)*100)}%` : '0%';
+
         if (metricValues[2]) metricValues[2].textContent = suspicious.toString();
+        if (metricSecondaries[2]) metricSecondaries[2].textContent = total > 0 ? `${Math.round((suspicious/total)*100)}%` : '0%';
+
         if (metricValues[3]) metricValues[3].textContent = fraudulent.toString();
+        if (metricSecondaries[3]) metricSecondaries[3].textContent = total > 0 ? `${Math.round((fraudulent/total)*100)}%` : '0%';
+
+        if (metricValues[4]) metricValues[4].textContent = total > 0 ? `${avgTrust}%` : 'N/A';
+        if (metricSecondaries[4]) metricSecondaries[4].textContent = 'Reference avg';
       }
 
       // Render Recent (top 5)
       const recent = investigations.slice(0, 5);
+      renderRecentActivity(recent);
       
       if (recent.length === 0) {
         recentBody.parentElement?.querySelector('table')?.classList.add('hidden');
@@ -229,35 +343,77 @@ import { FileText, CheckCircle, AlertTriangle, ShieldAlert, Plus, ArrowRight, Ex
           day: 'numeric'
         });
 
-        let statusClass = 'bg-slate-50 text-slate-700 border-slate-200';
-        if (inv.status === 'COMPLETED') statusClass = 'bg-emerald-50 text-emerald-700 border-emerald-200';
-        if (inv.status === 'PROCESSING') statusClass = 'bg-blue-50 text-blue-700 border-blue-200';
-        if (inv.status === 'FAILED') statusClass = 'bg-rose-50 text-rose-700 border-rose-200';
-        if (inv.status === 'PENDING') statusClass = 'bg-amber-50 text-amber-700 border-amber-200';
+        // Status styling with colored dots/pills
+        let statusPillClass = 'bg-slate-50 text-slate-700 border-slate-200';
+        let statusDotClass = 'bg-slate-400';
+        if (inv.status === 'COMPLETED') {
+          statusPillClass = 'bg-emerald-50 text-emerald-700 border-emerald-200';
+          statusDotClass = 'bg-emerald-500';
+        } else if (inv.status === 'PROCESSING' || inv.status === 'IN_PROGRESS') {
+          statusPillClass = 'bg-blue-50 text-blue-700 border-blue-200';
+          statusDotClass = 'bg-blue-500 animate-pulse';
+        } else if (inv.status === 'FAILED') {
+          statusPillClass = 'bg-rose-50 text-rose-700 border-rose-200';
+          statusDotClass = 'bg-rose-500';
+        } else if (inv.status === 'PENDING') {
+          statusPillClass = 'bg-amber-50 text-amber-700 border-amber-200';
+          statusDotClass = 'bg-amber-500';
+        }
+
+        const trustVal = inv.trust_score !== null ? Math.round(inv.trust_score) : null;
+
+        // Trust score progress bar classes
+        let scoreColor = 'text-slate-400';
+        let scoreBg = 'bg-slate-200';
+        if (trustVal !== null) {
+          if (trustVal >= 80) { scoreColor = 'text-emerald-600'; scoreBg = 'bg-emerald-500'; }
+          else if (trustVal >= 50) { scoreColor = 'text-amber-600'; scoreBg = 'bg-amber-500'; }
+          else { scoreColor = 'text-rose-600'; scoreBg = 'bg-rose-500'; }
+        }
+
+        const isBaseline = !!inv.is_baseline;
+        const toggleDisabled = inv.status !== 'COMPLETED' ? 'opacity-40 cursor-not-allowed pointer-events-none' : '';
 
         return `
-          <tr class="hover:bg-slate-50 transition-colors group">
-            <td class="px-6 py-4">
-              <span class="font-mono text-xs font-semibold text-slate-900 bg-slate-100 px-2 py-1 rounded">${inv.id.substring(0, 8)}...</span>
-            </td>
+          <tr class="hover:bg-slate-50 transition-colors group border-b border-slate-100">
             <td class="px-6 py-4">
               <p class="text-sm font-medium text-slate-700">${inv.context}</p>
             </td>
             <td class="px-6 py-4">
               <p class="text-sm font-semibold text-slate-900">${inv.title || 'Untitled'}</p>
+              <span class="font-mono text-[9px] font-bold text-slate-400 uppercase tracking-tighter block mt-0.5">${inv.id.substring(0, 8)}…</span>
+            </td>
+            <td class="px-6 py-4">
+              <div class="flex items-center gap-2 justify-center">
+                <div class="w-16 h-1.5 bg-slate-100 rounded-full overflow-hidden shrink-0">
+                  <div class="h-full rounded-full ${scoreBg}" style="width: ${trustVal || 0}%"></div>
+                </div>
+                <span class="text-xs font-bold ${scoreColor}">${trustVal !== null ? trustVal + '%' : 'N/A'}</span>
+              </div>
+            </td>
+            <td class="px-6 py-4">
+              <span class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-bold border ${statusPillClass}">
+                <span class="w-1.5 h-1.5 rounded-full ${statusDotClass}"></span>
+                ${formatEnum(inv.status)}
+              </span>
             </td>
             <td class="px-6 py-4">
               <p class="text-sm text-slate-500 font-medium">${date}</p>
             </td>
-            <td class="px-6 py-4">
-               <span class="px-2 py-0.5 rounded-full text-[10px] font-bold border ${statusClass}">
-                ${inv.status}
-               </span>
+            <td class="px-6 py-4 text-center">
+              <button class="baseline-toggle inline-flex items-center justify-center px-3 py-1.5 h-8 text-xs font-semibold ${isBaseline ? 'text-blue-700 bg-blue-50/50 hover:bg-blue-50 border border-blue-200 hover:border-blue-300 font-semibold' : 'text-slate-600 bg-white hover:bg-slate-50 border border-slate-200 hover:border-slate-300 font-medium'} rounded transition-all cursor-pointer ${toggleDisabled}" data-id="${inv.id}">
+                ${isBaseline ? 'Approved Reference' : 'Approve Reference'}
+              </button>
             </td>
             <td class="px-6 py-4 text-right">
-              <a href="/investigate/?id=${inv.id}" class="text-slate-400 hover:text-bank-blue transition-colors">
-                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-external-link ml-auto"><path d="M15 3h6v6"/><path d="M10 14 21 3"/><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/></svg>
-              </a>
+              <div class="flex items-center justify-end gap-2">
+                <a href="/investigate/?id=${inv.id}" class="inline-flex items-center justify-center gap-1 px-3 py-1.5 h-8 text-xs font-semibold text-slate-700 hover:text-slate-900 bg-slate-100 hover:bg-slate-200 border border-slate-200 hover:border-slate-300 rounded transition-all whitespace-nowrap">
+                  View
+                </a>
+                <button class="delete-btn inline-flex items-center justify-center gap-1 px-3 py-1.5 h-8 text-xs font-semibold text-rose-700 hover:text-rose-900 bg-rose-50 hover:bg-rose-100 border border-rose-100 rounded transition-all cursor-pointer whitespace-nowrap" data-id="${inv.id}">
+                  Delete
+                </button>
+              </div>
             </td>
           </tr>
         `;
@@ -269,6 +425,89 @@ import { FileText, CheckCircle, AlertTriangle, ShieldAlert, Plus, ArrowRight, Ex
       errorState?.classList.remove('hidden');
     }
   }
+
+  function renderRecentActivity(investigations: any[]) {
+    if (!recentActivityList) return;
+    if (investigations.length === 0) {
+      recentActivityList.innerHTML = '<div class="text-xs font-semibold text-slate-400">No investigation activity yet.</div>';
+      return;
+    }
+
+    recentActivityList.innerHTML = investigations.map((inv, index) => {
+      const status = formatEnum(inv.status);
+      const trustText = inv.trust_score !== null && inv.trust_score !== undefined ? `Trust ${Math.round(inv.trust_score)}%` : 'Awaiting score';
+      const created = new Date(inv.updated_at || inv.created_at).toLocaleString('en-US', {
+        month: 'short',
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit'
+      });
+      const toneClass = inv.status === 'FAILED'
+        ? 'bg-rose-50 text-rose-600'
+        : inv.status === 'COMPLETED'
+          ? 'bg-emerald-50 text-emerald-600'
+          : 'bg-blue-50 text-blue-600';
+      return `
+        <div class="flex items-start gap-3 ${index > 0 ? 'border-t border-slate-100 pt-3' : ''}">
+          <span class="w-5 h-5 flex items-center justify-center ${toneClass} rounded-full text-[10px] font-bold shrink-0">${inv.status === 'FAILED' ? '!' : '✔'}</span>
+          <div class="flex-1 min-w-0">
+            <p class="text-xs font-bold text-slate-800">${status}</p>
+            <p class="text-[10px] text-slate-400 font-semibold mt-0.5 uppercase tracking-wide">${inv.title || inv.context} · ${trustText}</p>
+          </div>
+          <span class="text-[10px] font-bold text-slate-400 whitespace-nowrap">${created}</span>
+        </div>
+      `;
+    }).join('');
+  }
+
+  // Handle toggling baseline and delete events via event delegation
+  document.addEventListener('click', async (e) => {
+    const target = e.target as HTMLElement;
+    
+    // Toggle baseline
+    const toggleBtn = target.closest('.baseline-toggle');
+    if (toggleBtn) {
+      const id = toggleBtn.getAttribute('data-id');
+      if (!id) return;
+      
+      try {
+        // Toggle baseline on backend
+        const res = await api.toggleBaseline(id);
+        
+        // Sync button classes and content based on backend state
+        if (res.is_baseline) {
+          toggleBtn.className = `baseline-toggle inline-flex items-center justify-center px-3 py-1.5 h-8 text-xs font-semibold text-blue-700 bg-blue-50/50 hover:bg-blue-50 border border-blue-200 hover:border-blue-300 font-semibold rounded transition-all cursor-pointer`;
+          toggleBtn.innerHTML = `Approved Reference`;
+        } else {
+          toggleBtn.className = `baseline-toggle inline-flex items-center justify-center px-3 py-1.5 h-8 text-xs font-semibold text-slate-600 bg-white hover:bg-slate-50 border border-slate-200 hover:border-slate-300 font-medium rounded transition-all cursor-pointer`;
+          toggleBtn.innerHTML = `Approve Reference`;
+        }
+      } catch (err) {
+        console.error('Failed to toggle baseline:', err);
+        alert(err instanceof Error ? err.message : 'Failed to toggle baseline');
+        loadDashboardData();
+      }
+      return;
+    }
+    
+    // Delete investigation
+    const deleteBtn = target.closest('.delete-btn');
+    if (deleteBtn) {
+      const id = deleteBtn.getAttribute('data-id');
+      if (!id) return;
+      
+      if (!confirm('Are you sure you want to delete this investigation? This action cannot be undone.')) return;
+      
+      try {
+        await api.deleteInvestigation(id);
+        loadDashboardData();
+      } catch (err) {
+        console.error('Failed to delete investigation:', err);
+        alert(err instanceof Error ? err.message : 'Failed to delete investigation');
+      }
+      return;
+    }
+  });
 
   retryBtn?.addEventListener('click', loadDashboardData);
   
@@ -290,7 +529,6 @@ import { FileText, CheckCircle, AlertTriangle, ShieldAlert, Plus, ArrowRight, Ex
         context: i.context,
         status: i.status,
         trust_score: i.trust_score,
-        confidence_score: i.confidence_score,
         recommendation: i.recommendation,
       })),
     };

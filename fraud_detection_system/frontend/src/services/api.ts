@@ -1,6 +1,6 @@
 import type { Investigation, InvestigationFull, InvestigationStatusResponse } from '../types/api';
 
-const BASE_URL = import.meta.env.PUBLIC_API_URL || 'http://localhost:8000';
+const BASE_URL = import.meta.env.PUBLIC_API_URL || 'http://localhost:8001';
 
 class ApiService {
   private async request<T>(path: string, options: RequestInit = {}): Promise<T> {
@@ -98,8 +98,51 @@ class ApiService {
     });
   }
 
+  async toggleBaseline(id: string): Promise<{ status: string; is_baseline: boolean }> {
+    return this.request<{ status: string; is_baseline: boolean }>(`/api/v1/investigations/${id}/toggle-baseline`, {
+      method: 'POST',
+    });
+  }
+
+  async deleteInvestigation(id: string): Promise<void> {
+    const url = `${BASE_URL}/api/v1/investigations/${id}`;
+    const response = await fetch(url, {
+      method: 'DELETE',
+    });
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({ detail: 'Failed to delete' }));
+      throw new Error(error.detail || 'Failed to delete');
+    }
+  }
+
   async warmupLlm(): Promise<{ status: string; message: string }> {
     return this.request<{ status: string; message: string }>('/api/v1/system/warmup', {
+      method: 'POST',
+    });
+  }
+
+  async getSettings(): Promise<any> {
+    return this.request<any>('/api/v1/system/settings');
+  }
+
+  async saveSettings(settings: any): Promise<any> {
+    return this.request<any>('/api/v1/system/settings', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(settings),
+    });
+  }
+
+  async reindexReferenceLibrary(): Promise<{ status: string; message: string; indexed: number }> {
+    return this.request<{ status: string; message: string; indexed: number }>('/api/v1/system/reindex-reference', {
+      method: 'POST',
+    });
+  }
+
+  async flushOcrCache(): Promise<{ status: string; message: string; removed: number }> {
+    return this.request<{ status: string; message: string; removed: number }>('/api/v1/system/flush-ocr-cache', {
       method: 'POST',
     });
   }

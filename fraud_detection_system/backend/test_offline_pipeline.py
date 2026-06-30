@@ -11,6 +11,9 @@ from datetime import datetime
 # Setup paths to import backend modules
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
+# Configure separate test database so E2E script doesn't delete active database
+os.environ["DATABASE_URL"] = "sqlite:///test_pipeline.db"
+
 from core.database import SessionLocal, engine, Base
 from models.database import Investigation, Document, Finding, Evidence
 from services.investigation_manager import investigation_manager
@@ -19,7 +22,7 @@ from layers.ai.summary_generator import summary_generator
 
 async def run_validation():
     # Clean up outdated local DB to force schema rebuild
-    db_file = os.path.abspath(os.path.join(os.path.dirname(__file__), "fraud_investigations.db"))
+    db_file = os.path.abspath(os.path.join(os.path.dirname(__file__), "test_pipeline.db"))
     if os.path.exists(db_file):
         try:
             os.remove(db_file)
@@ -29,6 +32,10 @@ async def run_validation():
 
     # Make sure tables are created
     Base.metadata.create_all(bind=engine)
+    
+    # Call startup checks to verify Ollama status and warm up model
+    from main import startup_event
+    startup_event()
     
     db = SessionLocal()
     try:
@@ -86,7 +93,6 @@ async def run_validation():
         print(f"Pipeline Execution Status: {investigation.status}")
         print(f"Current Stage: {investigation.current_stage}")
         print(f"Calculated Trust Score: {investigation.trust_score}")
-        print(f"Calculated Confidence Score: {investigation.confidence_score}")
         print(f"Auditor Recommendation: {investigation.recommendation}")
         
         print("\n=== Step 3: Verifying Forensic Findings ===")

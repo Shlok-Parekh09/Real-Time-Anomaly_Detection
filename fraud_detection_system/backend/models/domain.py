@@ -79,6 +79,7 @@ class InvestigationSchema(InvestigationBase):
     confidence_score: Optional[float] = None
     recommendation: Optional[str] = None
     ai_summary_json: Optional[Any] = None
+    is_baseline: bool = False
     created_at: datetime
     updated_at: datetime
     documents: List[DocumentSchema] = []

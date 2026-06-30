@@ -49,6 +49,7 @@ export interface Investigation {
   confidence_score: number | null;
   recommendation: string | null;
   ai_summary_json: any | null;
+  is_baseline: boolean;
   created_at: string;
   updated_at: string;
   documents: Document[];

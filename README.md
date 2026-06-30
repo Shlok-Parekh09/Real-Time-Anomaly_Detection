@@ -21,7 +21,7 @@ Anobis provides an offline forensic workspace where an investigator can:
 1. Create a case.
 2. Upload multiple documents.
 3. Run an automated forensic pipeline.
-4. Review trust/confidence scores.
+4. Review the Trust Score and forensic findings.
 5. Inspect OCR text, extracted entities, metadata, findings, and source documents.
 6. Read a local Gemma-generated bilingual explanation.
 7. Export a forensic PDF report.
@@ -104,7 +104,6 @@ Use this flow during judging:
    - Local AI summary generation
 7. Review the result page:
    - Trust score
-   - Confidence score
    - Recommendation
    - AI executive summary in English and Hindi
    - Dataset similarity/KNN matches
@@ -184,7 +183,7 @@ curl http://127.0.0.1:8001/api/v1/system/health
 - Reads native PDF text with PyMuPDF.
 - Converts image uploads into searchable PDFs.
 - Runs Tesseract OCR on scanned/image-based documents.
-- Extracts raw text, document metadata, OCR confidence, coordinates, and entities.
+- Extracts raw text, document metadata, OCR quality indicators, coordinates, and entities.
 
 ### Document Intelligence
 
@@ -197,7 +196,7 @@ curl http://127.0.0.1:8001/api/v1/system/health
 - Checks PDF metadata and structure.
 - Detects suspicious creator/producer signatures.
 - Flags design/editor tools such as Canva, Photoshop, Illustrator, and Acrobat.
-- Supports image/OCR quality indicators and low-confidence evidence paths.
+- Supports image/OCR quality indicators and low-quality extraction evidence paths.
 
 ### Cross-Document Validation
 
@@ -206,14 +205,13 @@ curl http://127.0.0.1:8001/api/v1/system/health
 - Validates financial and contextual relationships when enough data is present.
 - Logs contradictions as findings.
 
-### Trust and Confidence Scoring
+### Trust Scoring
 
-Anobis produces two separate 0-100 scores:
+Anobis exposes one judge-facing score:
 
-- **Trust Score**: How trustworthy the document bundle appears based on findings and severity deductions.
-- **Confidence Score**: How confident the engine is in its analysis based on OCR quality, entity extraction, document completeness, and evidence clarity.
+- **Trust Score**: A normalized 0-100 integrity score calculated from deterministic forensic findings, severity deductions, document completeness, and cross-document consistency.
 
-This separation is important. A clean but low-quality scan can have high trust but low confidence, meaning the case should still be manually reviewed.
+Internal extraction-quality gates still influence manual-review recommendations, but they are not shown as a separate public score.
 
 ### Dataset Intelligence and KNN
 
@@ -245,7 +243,7 @@ The AI layer receives deterministic findings, scores, metadata, similarity outpu
 - Hindi executive summary
 - Risk narrative
 - Evidence analysis
-- Confidence reasoning
+- Extraction-quality reasoning
 - Missing evidence
 - Manual review questions
 - Recommended next steps
@@ -261,7 +259,7 @@ The response includes provenance fields:
 }
 ```
 
-If the model is unavailable, Anobis falls back to a deterministic template and marks the response offline. For a judged demo, verify that `ai_status` is `ready`.
+If the model is unavailable, Anobis falls back to a deterministic offline summary and marks the response offline. For a judged demo, verify that `ai_status` is `ready`.
 
 ---
 
@@ -286,7 +284,7 @@ Investigation Manager
     +--> Digital/Metadata Forensics
     +--> Context Validation
     +--> Cross-Document Validation
-    +--> Trust and Confidence Scoring
+    +--> Trust Scoring and Quality Gates
     +--> Dataset Similarity / KNN
     +--> Local Gemma AI Summary
     +--> PDF Report Generation
@@ -531,7 +529,7 @@ curl -X POST http://127.0.0.1:8001/api/v1/investigations \
 6. **Forensics**: Inspects metadata, structure, creators, suspicious editing traces.
 7. **Context validation**: Applies domain-specific banking/financial checks.
 8. **Cross-document validation**: Finds contradictions across the document bundle.
-9. **Scoring**: Computes trust and confidence as normalized 0-100 values.
+9. **Scoring**: Computes a normalized 0-100 Trust Score plus internal quality gates.
 10. **Similarity**: Compares against genuine/fraud/reference datasets.
 11. **AI synthesis**: Gemma generates grounded bilingual reasoning from deterministic outputs.
 12. **Reporting**: JSON results and PDF report are produced.
@@ -594,7 +592,7 @@ Install it:
 ollama pull gemma4:e4b
 ```
 
-### AI says offline or template fallback
+### AI says offline or deterministic fallback
 
 Check:
 
@@ -631,7 +629,7 @@ Use this checklist to evaluate the project quickly:
 - Can a user create an investigation?
 - Can multiple documents be uploaded?
 - Does status polling update during analysis?
-- Are trust/confidence scores normalized from 0 to 100?
+- Is the Trust Score normalized from 0 to 100?
 - Does the result page show OCR text, metadata, findings, and document preview?
 - Does the AI summary show `ai_mode: ollama` and `ai_model: gemma4:e4b`?
 - Does PDF export work?
@@ -648,7 +646,7 @@ MVP is complete and demo-ready:
 - OCR/extraction: complete
 - Forensics: complete
 - Cross-document validation: complete
-- Trust/confidence scoring: complete
+- Trust scoring and internal quality gates: complete
 - Dataset/KNN similarity: complete
 - Local Gemma reasoning: complete
 - PDF export: complete
@@ -658,4 +656,3 @@ MVP is complete and demo-ready:
 Known practical constraint:
 
 - Local Gemma inference speed depends on machine CPU/GPU resources.
-

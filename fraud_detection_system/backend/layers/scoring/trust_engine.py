@@ -4,7 +4,7 @@ from core.config import settings
 
 class TrustEngine:
     """
-    Calculates Trust and Confidence scores based on findings and extraction metrics.
+    Calculates Trust score based on findings.
     Generates actionable recommendations for investigators.
     """
     
@@ -35,15 +35,14 @@ class TrustEngine:
         extraction_metrics: Dict[str, Any],
         expected_docs_count: int,
         actual_docs_count: int
-    ) -> Tuple[float, float, str]:
+    ) -> Tuple[float, Optional[float], str]:
         """
-        Calculates Trust Score, Confidence Score and Recommendation.
+        Calculates Trust Score and Recommendation. Confidence score is deprecated.
         """
         trust_score = self._calculate_trust_score(findings, expected_docs_count, actual_docs_count)
-        confidence_score = self._calculate_confidence_score(extraction_metrics, expected_docs_count, actual_docs_count)
-        recommendation = self._generate_recommendation(trust_score, confidence_score)
+        recommendation = self._generate_recommendation(trust_score, None)
         
-        return trust_score, confidence_score, recommendation
+        return trust_score, None, recommendation
 
     def _calculate_trust_score(self, findings: List[Dict[str, Any]], expected: int, actual: int) -> float:
         score = 100.0
@@ -102,15 +101,13 @@ class TrustEngine:
     def _generate_recommendation(self, trust: float, confidence: float) -> str:
         """
         Logic:
-        - Confidence < 60 -> MANUAL_REVIEW
-        - Trust > 85 and Confidence > 80 -> AUTO_APPROVE
-        - Trust 50-85 -> MANUAL_REVIEW
-        - Trust < 50 -> HIGH_RISK_MANUAL_REVIEW
+        - Read auto_approve_cases and min_trust_threshold from settings_store.
         """
-        if confidence < 60:
-            return "MANUAL_REVIEW"
-            
-        if trust > 85 and confidence > 80:
+        from core.settings_store import settings_store
+        auto_approve = settings_store.get("auto_approve_cases", True)
+        min_trust = settings_store.get("min_trust_threshold", 85.0)
+
+        if auto_approve and trust >= min_trust:
             return "AUTO_APPROVE"
             
         if trust < 50:

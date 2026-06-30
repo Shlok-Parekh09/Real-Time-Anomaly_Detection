@@ -226,42 +226,106 @@ def approve_reference(id: str, db: Session = Depends(get_db)):
     return {"status": "SUCCESS", "message": "Forensic pattern committed to local reference repository!"}
 
 
+@router.post("/investigations/{id}/toggle-baseline")
+def toggle_baseline(id: str, db: Session = Depends(get_db)):
+    investigation = db.query(database.Investigation).filter(database.Investigation.id == id).first()
+    if not investigation:
+        raise HTTPException(status_code=404, detail="Investigation not found")
+    if investigation.status != "COMPLETED":
+        raise HTTPException(status_code=400, detail="Only completed investigations can be added to the baseline")
+
+    from layers.scoring.similarity_engine import similarity_engine
+    from trusted_repository.repository_manager import repository_manager
+
+    # Toggle the boolean
+    investigation.is_baseline = not getattr(investigation, "is_baseline", False)
+    db.commit()
+
+    if investigation.is_baseline:
+        features = similarity_engine.generate_feature_vector(db, investigation)
+        repository_manager.add_entry(
+            features=features,
+            metadata={
+                "investigation_id": investigation.id,
+                "title": investigation.title or f"Investigation: {investigation.context}",
+                "context": investigation.context,
+                "approved_at": investigation.updated_at.isoformat() if investigation.updated_at else None,
+                "document_count": len(investigation.documents),
+            }
+        )
+        log_event(
+            db,
+            id,
+            "REFERENCE_APPROVED",
+            "This case was committed to the local forensic reference repository as a trusted baseline."
+        )
+    else:
+        repository_manager.remove_entry(investigation.id)
+        log_event(
+            db,
+            id,
+            "REFERENCE_REMOVED",
+            "This case was removed from the local forensic reference repository."
+        )
+
+    return {"status": "SUCCESS", "is_baseline": investigation.is_baseline}
+
+
+@router.delete("/investigations/{id}", status_code=204)
+def delete_investigation(id: str, db: Session = Depends(get_db)):
+    investigation = db.query(database.Investigation).filter(database.Investigation.id == id).first()
+    if not investigation:
+        raise HTTPException(status_code=404, detail="Investigation not found")
+        
+    # Also remove from trusted repository if it is there
+    if getattr(investigation, "is_baseline", False):
+        from trusted_repository.repository_manager import repository_manager
+        repository_manager.remove_entry(investigation.id)
+
+    db.delete(investigation)
+    db.commit()
+    return Response(status_code=204)
+
+
 @router.post("/system/warmup")
 def warmup_llm():
     """
-    Warms up the Ollama local model to preload tokenizers and models in memory.
+    Manually triggers LLM pre-warming if local Ollama is the active provider.
     """
     from core.config import settings
+    from core.settings_store import settings_store
+    from core.ai_provider_manager import ai_provider_manager
     import urllib.request
     import json
     import logging
     
     logger = logging.getLogger(__name__)
     
-    if not settings.USE_LOCAL_LLM:
-        return {"status": "SKIPPED", "message": "Local LLM is disabled"}
+    execution_mode, provider, model, endpoint = ai_provider_manager.get_active_config()
+    
+    if provider == "Gemini API":
+        return {"status": "SKIPPED", "message": "Warmup not required for cloud-hosted Gemini API."}
         
-    url = f"{settings.OLLAMA_BASE_URL}/api/generate"
+    url = f"{endpoint}/api/generate"
     payload = {
-        "model": settings.OLLAMA_MODEL,
+        "model": model,
         "prompt": "ping",
         "stream": False
     }
     
     try:
-        req = urllib.request.Request(
+        req_gen = urllib.request.Request(
             url,
             data=json.dumps(payload).encode('utf-8'),
             headers={'Content-Type': 'application/json'},
             method='POST'
         )
-        with urllib.request.urlopen(req, timeout=settings.OLLAMA_WARMUP_TIMEOUT_SECONDS) as response:
-            res_body = response.read().decode('utf-8')
-            res_data = json.loads(res_body)
-            return {"status": "SUCCESS", "message": f"Warmup completed. Model {settings.OLLAMA_MODEL} loaded."}
+        with urllib.request.urlopen(req_gen, timeout=settings.OLLAMA_WARMUP_TIMEOUT_SECONDS) as response:
+            response.read()
+            return {"status": "SUCCESS", "message": f"Warmup completed. Model {model} loaded on Ollama."}
     except Exception as e:
-        logger.warning(f"Ollama warmup request timed out/failed: {e}")
-        return {"status": "TIMEOUT", "message": "Warmup request dispatched."}
+        logger.warning(f"Ollama warmup request failed: {e}")
+        return {"status": "TIMEOUT", "message": "Warmup request timed out or failed."}
 
 
 @router.get("/system/health")
@@ -270,6 +334,8 @@ def get_system_health(db: Session = Depends(get_db)):
     Returns complete forensic system health check.
     """
     from core.config import settings
+    from core.settings_store import settings_store
+    from core.ai_provider_manager import ai_provider_manager
     import urllib.request
     import json
     import os
@@ -285,31 +351,12 @@ def get_system_health(db: Session = Depends(get_db)):
     # 2. Uploads directory check
     uploads_ok = os.path.exists(settings.UPLOAD_DIR)
     
-    # 3. Ollama check & loaded model
-    ollama_status = "offline"
-    loaded_model = "None"
+    # 3. AI provider readiness status
+    is_ready, err_msg = ai_provider_manager.is_ai_ready()
+    ai_status = "ready" if is_ready else "offline"
     
-    if settings.USE_LOCAL_LLM:
-        try:
-            # Check model list in Ollama
-            url = f"{settings.OLLAMA_BASE_URL}/api/tags"
-            req = urllib.request.Request(url)
-            with urllib.request.urlopen(req, timeout=2.0) as response:
-                if response.status == 200:
-                    ollama_status = "ready"
-                    res_body = response.read().decode('utf-8')
-                    res_data = json.loads(res_body)
-                    models = [m.get("name") for m in res_data.get("models", [])]
-                    # Check if the configured model exists in Ollama
-                    if settings.OLLAMA_MODEL in models or any(settings.OLLAMA_MODEL in m for m in models):
-                        loaded_model = settings.OLLAMA_MODEL
-                    elif models:
-                        loaded_model = f"{settings.OLLAMA_MODEL} (Not Installed, Found: {', '.join(models)})"
-                    else:
-                        loaded_model = "No models installed"
-        except Exception:
-            ollama_status = "offline"
-            
+    execution_mode, provider, model, endpoint = ai_provider_manager.get_active_config()
+    
     # 4. OCR status (tesseract check)
     ocr_status = "ready"
     try:
@@ -327,15 +374,96 @@ def get_system_health(db: Session = Depends(get_db)):
 
     from core.system_state import startup_time_log
 
+    latency = ai_provider_manager.last_latency_ms if ai_provider_manager.last_latency_ms > 0 else startup_time_log.get("warmup_duration_ms", 0)
+
     return {
         "backend": "healthy" if db_ok and uploads_ok else "degraded",
         "database": "healthy" if db_ok else "disconnected",
         "ocr": "ready" if ocr_status == "ready" else "unavailable",
-        "dataset": "loaded" if dataset_status == "loaded" else "empty",
+        "dataset": dataset_status,
         "knn": "ready" if dataset_status == "loaded" else "offline",
-        "ollama": startup_time_log.get("ollama_status", "offline"),
-        "model": startup_time_log.get("model", "gemma4:e4b"),
-        "ai": startup_time_log.get("ai", "offline"),
+        "ollama": "ready" if provider == "Local Ollama" and is_ready else "offline",
+        "model": model,
+        "provider": provider,
+        "endpoint": endpoint,
+        "execution_mode": execution_mode,
+        "ai": ai_status,
+        "ai_mode": settings_store.get("ai_mode", "offline"),
+        "gemini_configured": bool(settings_store.get("gemini_api_key", "")),
         "warm": startup_time_log.get("warm", False),
-        "startup_latency_ms": startup_time_log.get("warmup_duration_ms", 0)
+        "startup_latency_ms": latency,
+        "reason": err_msg
     }
+
+
+@router.get("/system/settings")
+def get_settings():
+    """
+    Retrieves current Anobis settings.
+    """
+    from core.settings_store import settings_store
+    return settings_store.all
+
+
+@router.post("/system/settings")
+def save_settings(settings: dict):
+    """
+    Updates and saves settings configuration.
+    """
+    from core.settings_store import settings_store
+    return settings_store.save(settings)
+
+
+@router.post("/system/reindex-reference")
+def reindex_reference_library(db: Session = Depends(get_db)):
+    """
+    Rebuilds the local trusted reference repository from completed baseline cases.
+    """
+    from layers.scoring.similarity_engine import similarity_engine
+    from trusted_repository.repository_manager import repository_manager
+    from datetime import datetime
+
+    completed_baselines = db.query(database.Investigation).filter(
+        database.Investigation.status == "COMPLETED",
+        database.Investigation.is_baseline == True
+    ).all()
+
+    for investigation in completed_baselines:
+        features = similarity_engine.generate_feature_vector(db, investigation)
+        repository_manager.add_entry(
+            features=features,
+            metadata={
+                "investigation_id": investigation.id,
+                "title": investigation.title or f"Investigation: {investigation.context}",
+                "context": investigation.context,
+                "approved_at": datetime.utcnow().isoformat(),
+                "document_count": len(investigation.documents),
+            }
+        )
+
+    return {
+        "status": "SUCCESS",
+        "message": f"Reference library indexed from {len(completed_baselines)} approved baseline investigation(s).",
+        "indexed": len(completed_baselines)
+    }
+
+
+@router.post("/system/flush-ocr-cache")
+def flush_ocr_cache():
+    """
+    Clears cached OCR extraction artifacts.
+    """
+    import shutil
+    cache_dir = os.path.join("uploads", "ocr_cache")
+    removed = 0
+    if os.path.exists(cache_dir):
+        for name in os.listdir(cache_dir):
+            path = os.path.join(cache_dir, name)
+            if os.path.isfile(path):
+                os.remove(path)
+                removed += 1
+            elif os.path.isdir(path):
+                shutil.rmtree(path)
+                removed += 1
+    os.makedirs(cache_dir, exist_ok=True)
+    return {"status": "SUCCESS", "message": f"OCR cache cleared ({removed} artifact(s) removed).", "removed": removed}

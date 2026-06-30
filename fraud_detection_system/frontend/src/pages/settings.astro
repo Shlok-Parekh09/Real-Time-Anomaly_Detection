@@ -1,0 +1,571 @@
+---
+import Layout from '../layouts/Layout.astro';
+import { Save, Cpu, Sliders, Shield, Database, HardDrive, Download, Activity, RefreshCcw } from "lucide-astro";
+---
+
+<Layout title="Settings | Anobis" activeTab="settings">
+  <div class="p-8 max-w-5xl mx-auto space-y-8 z-10 relative">
+    <div>
+      <h1 class="text-2xl font-bold text-slate-900">Platform Settings</h1>
+      <p class="text-slate-500 mt-1 font-medium font-sans">Configure forensic analysis layers, thresholds, infrastructure settings, and AI routing parameters.</p>
+    </div>
+
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+      
+      <!-- Left sidebar tabs or inline list for organization -->
+      <div class="lg:col-span-1 space-y-2">
+        <div class="investigation-card p-4 space-y-1 sticky top-6">
+          <p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest px-3 mb-2">Configuration Groups</p>
+          <a href="#ai-synthesis" class="flex items-center gap-2.5 px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 rounded transition-all">
+            <Cpu class="w-4 h-4 text-slate-500" />
+            AI & LLM Services
+          </a>
+          <a href="#investigation-behavior" class="flex items-center gap-2.5 px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 rounded transition-all">
+            <Sliders class="w-4 h-4 text-slate-500" />
+            Investigation Rules
+          </a>
+          <a href="#active-layers" class="flex items-center gap-2.5 px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 rounded transition-all">
+            <Shield class="w-4 h-4 text-slate-500" />
+            Forensic Analyst Layers
+          </a>
+          <a href="#performance" class="flex items-center gap-2.5 px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 rounded transition-all">
+            <Activity class="w-4 h-4 text-slate-500" />
+            Performance & GPU
+          </a>
+          <a href="#database" class="flex items-center gap-2.5 px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 rounded transition-all">
+            <Database class="w-4 h-4 text-slate-500" />
+            Database & Backups
+          </a>
+          <a href="#export" class="flex items-center gap-2.5 px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 rounded transition-all">
+            <Download class="w-4 h-4 text-slate-500" />
+            Export & Report Format
+          </a>
+
+        </div>
+      </div>
+
+      <!-- Right column panels -->
+      <div class="lg:col-span-2 space-y-6">
+        
+        <!-- 1. AI & LLM Engine Settings -->
+        <div id="ai-synthesis" class="investigation-card scroll-mt-6">
+          <div class="px-6 py-4 border-b border-slate-200/60 flex items-center gap-2 bg-slate-50/40">
+            <Cpu class="w-5 h-5 text-slate-700" />
+            <h2 class="font-bold text-slate-900 text-sm tracking-tight">AI Synthesis & Routing Options</h2>
+          </div>
+          <div class="p-6 space-y-4">
+            <div>
+              <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">AI Execution Mode</label>
+              <select id="ai-mode" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded text-sm focus:bg-white focus:border-slate-300 outline-none focus-visible:ring-1 focus-visible:ring-bank-blue transition-all font-semibold cursor-pointer">
+                <option value="offline">Offline Mode (Local Ollama)</option>
+                <option value="enhanced">Enhanced Mode (Uses configured Gemini API)</option>
+              </select>
+            </div>
+
+            <div id="gemini-key-container" class="hidden">
+              <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Gemini API Key</label>
+              <input id="gemini-key" type="password" placeholder="AIzaSy…" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded text-sm focus:bg-white focus:border-slate-300 outline-none focus-visible:ring-1 focus-visible:ring-bank-blue transition-all font-semibold" />
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Local Ollama Endpoint</label>
+                <input id="ollama-url" type="text" value="http://localhost:11434" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded text-sm focus:bg-white focus:border-slate-300 outline-none focus-visible:ring-1 focus-visible:ring-bank-blue transition-all font-semibold" />
+              </div>
+              <div>
+                <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Synthesis Model Name</label>
+                <input id="ollama-model" type="text" value="gemma4:e4b" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded text-sm focus:bg-white focus:border-slate-300 outline-none focus-visible:ring-1 focus-visible:ring-bank-blue transition-all font-semibold" />
+              </div>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4 pt-2">
+              <div>
+                <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">AI Temperature</label>
+                <input id="ai-temp" type="number" step="0.1" value="0.1" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded text-sm focus:bg-white focus:border-slate-300 outline-none focus-visible:ring-1 focus-visible:ring-bank-blue transition-all font-bold text-center" />
+              </div>
+              <div>
+                <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Reasoning Depth</label>
+                <select id="reasoning-depth" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded text-sm focus:bg-white focus:border-slate-300 outline-none focus-visible:ring-1 focus-visible:ring-bank-blue transition-all font-semibold cursor-pointer">
+                  <option value="standard">Standard Analytical</option>
+                  <option value="deep">Detailed Forensic Reasoning</option>
+                </select>
+              </div>
+              <div>
+                <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Summary Verbosity</label>
+                <select id="summary-verbosity" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded text-sm focus:bg-white focus:border-slate-300 outline-none focus-visible:ring-1 focus-visible:ring-bank-blue transition-all font-semibold cursor-pointer">
+                  <option value="concise">Concise Bulletpoints</option>
+                  <option value="standard">Standard Narrative</option>
+                  <option value="detailed">Detailed Case File</option>
+                </select>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 2. Investigation Behavior -->
+        <div id="investigation-behavior" class="investigation-card scroll-mt-6">
+          <div class="px-6 py-4 border-b border-slate-200/60 flex items-center gap-2 bg-slate-50/40">
+            <Sliders class="w-5 h-5 text-slate-700" />
+            <h2 class="font-bold text-slate-900 text-sm tracking-tight">Investigation rules & Decision Logic</h2>
+          </div>
+          <div class="p-6 space-y-4">
+            <label class="flex items-center gap-3 cursor-pointer">
+              <input id="auto-approve" type="checkbox" class="rounded border-slate-300 text-blue-600 focus:ring-blue-500 w-4 h-4" />
+              <div>
+                <p class="text-sm font-semibold text-slate-900">Auto-approve trusted cases</p>
+                <p class="text-xs text-slate-400 font-medium font-sans">Permits automatic verification completion if Trust Score is above threshold.</p>
+              </div>
+            </label>
+
+            <label class="flex items-center gap-3 cursor-pointer border-t border-slate-100 pt-3">
+              <input id="auto-baseline-learning" type="checkbox" class="rounded border-slate-300 text-blue-600 focus:ring-blue-500 w-4 h-4" />
+              <div>
+                <p class="text-sm font-semibold text-slate-900">Automatic Reference Learning</p>
+                <p class="text-xs text-slate-400 font-medium font-sans">Automatically promotes completed high-trust investigations to the Reference Database.</p>
+              </div>
+            </label>
+
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4 border-t border-slate-100 pt-4">
+              <div>
+                <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Minimum Trust Cutoff</label>
+                <div class="flex items-center gap-2">
+                  <input id="min-trust" type="number" value="85" class="w-20 px-3 py-2 bg-slate-50 border border-slate-200 rounded text-sm text-center font-bold" />
+                  <span class="text-xs font-bold text-slate-400">% Trust</span>
+                </div>
+              </div>
+              <div>
+                <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Baseline Similarity</label>
+                <div class="flex items-center gap-2">
+                  <input id="baseline-sim" type="number" value="60" class="w-20 px-3 py-2 bg-slate-50 border border-slate-200 rounded text-sm text-center font-bold" />
+                  <span class="text-xs font-bold text-slate-400">% Match</span>
+                </div>
+              </div>
+              <div>
+                <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Maximum OCR Retries</label>
+                <input id="ocr-retries" type="number" value="3" class="w-20 px-3 py-2 bg-slate-50 border border-slate-200 rounded text-sm text-center font-bold" />
+              </div>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 border-t border-slate-100 pt-4">
+              <div>
+                <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Entity Matching Strictness</label>
+                <select id="entity-strictness" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded text-sm focus:bg-white focus:border-slate-300 outline-none focus-visible:ring-1 focus-visible:ring-bank-blue transition-all font-semibold cursor-pointer">
+                  <option value="low">Relaxed (Fuzzy Name & Context Match)</option>
+                  <option value="medium">Balanced (Standard Matching)</option>
+                  <option value="strict">Strict (Exact Matches Only)</option>
+                </select>
+              </div>
+              <div>
+                <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">OCR Extraction Language</label>
+                <select id="ocr-lang" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded text-sm focus:bg-white focus:border-slate-300 outline-none focus-visible:ring-1 focus-visible:ring-bank-blue transition-all font-semibold cursor-pointer">
+                  <option value="en">English (Native Latin Fonts)</option>
+                  <option value="hi">Hindi (Devanagari Fonts)</option>
+                  <option value="both">Multilingual (English + Hindi)</option>
+                </select>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 3. Forensic Verification Layers -->
+        <div id="active-layers" class="investigation-card scroll-mt-6">
+          <div class="px-6 py-4 border-b border-slate-200/60 flex items-center gap-2 bg-slate-50/40">
+            <Shield class="w-5 h-5 text-slate-700" />
+            <h2 class="font-bold text-slate-900 text-sm tracking-tight">Active Forensic Verification Layers</h2>
+          </div>
+          <div class="p-6 space-y-3">
+            <label class="flex items-center gap-3 cursor-pointer">
+              <input id="metadata-analysis" type="checkbox" class="rounded border-slate-300 text-blue-600 focus:ring-blue-500 w-4 h-4" />
+              <div>
+                <p class="text-sm font-semibold text-slate-900">Metadata Forensics & Structure Analysis</p>
+                <p class="text-xs text-slate-400 font-medium">Validates internal font, object streams, and metadata anomalies.</p>
+              </div>
+            </label>
+            <label class="flex items-center gap-3 cursor-pointer border-t border-slate-100 pt-3">
+              <input type="checkbox" checked disabled class="rounded border-slate-300 text-slate-400 focus:ring-slate-500 w-4 h-4 bg-slate-50" />
+              <div>
+                <p class="text-sm font-semibold text-slate-500">KNN Template & Similarity Classifier</p>
+                <p class="text-xs text-slate-400 font-medium">Compares document structures against the verified baseline repository.</p>
+              </div>
+            </label>
+            <label class="flex items-center gap-3 cursor-pointer border-t border-slate-100 pt-3">
+              <input id="cross-doc-matching" type="checkbox" class="rounded border-slate-300 text-blue-600 focus:ring-blue-500 w-4 h-4" />
+              <div>
+                <p class="text-sm font-semibold text-slate-900">Cross-Document Entity Correlation</p>
+                <p class="text-xs text-slate-400 font-medium">Flags identity mismatch and inconsistent dates across files in a single case.</p>
+              </div>
+            </label>
+          </div>
+        </div>
+
+        <!-- 4. Performance & Infrastructure -->
+        <div id="performance" class="investigation-card scroll-mt-6">
+          <div class="px-6 py-4 border-b border-slate-200/60 flex items-center gap-2 bg-slate-50/40">
+            <Activity class="w-5 h-5 text-slate-700" />
+            <h2 class="font-bold text-slate-900 text-sm tracking-tight">Performance & Infrastructure Settings</h2>
+          </div>
+          <div class="p-6 space-y-4">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <label class="flex items-center gap-3 cursor-pointer">
+                <input id="parallel-proc" type="checkbox" class="rounded border-slate-300 text-blue-600 focus:ring-blue-500 w-4 h-4" />
+                <div>
+                  <p class="text-xs font-bold text-slate-900">Parallel Page Processing</p>
+                  <p class="text-[10px] text-slate-400 font-medium">Extracts OCR pages in parallel threads for faster processing.</p>
+                </div>
+              </label>
+
+              <label class="flex items-center gap-3 cursor-pointer">
+                <input id="gpu-acc" type="checkbox" class="rounded border-slate-300 text-blue-600 focus:ring-blue-500 w-4 h-4" />
+                <div>
+                  <p class="text-xs font-bold text-slate-900">GPU Acceleration</p>
+                  <p class="text-[10px] text-slate-400 font-medium">Enables CUDA OCR preprocessing if a compatible hardware exists.</p>
+                </div>
+              </label>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4 border-t border-slate-100 pt-4">
+              <div>
+                <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Max Worker Threads</label>
+                <input id="max-threads" type="number" value="4" class="w-20 px-3 py-2 bg-slate-50 border border-slate-200 rounded text-sm text-center font-bold" />
+              </div>
+              <label class="flex items-center gap-3 cursor-pointer mt-5">
+                <input id="cache-ocr" type="checkbox" class="rounded border-slate-300 text-blue-600 focus:ring-blue-500 w-4 h-4" />
+                <div>
+                  <p class="text-xs font-bold text-slate-900">Cache OCR Output</p>
+                  <p class="text-[10px] text-slate-400 font-medium">Saves OCR results locally to avoid redundant heavy compute.</p>
+                </div>
+              </label>
+              <label class="flex items-center gap-3 cursor-pointer mt-5">
+                <input id="debug-logging" type="checkbox" class="rounded border-slate-300 text-blue-600 focus:ring-blue-500 w-4 h-4" />
+                <div>
+                  <p class="text-xs font-bold text-slate-900">Verbose Debug Logging</p>
+                  <p class="text-[10px] text-slate-400 font-medium">Writes detailed step-by-step diagnostic information to backend log files.</p>
+                </div>
+              </label>
+            </div>
+          </div>
+        </div>
+
+        <!-- 5. Database & Lifecycle -->
+        <div id="database" class="investigation-card scroll-mt-6">
+          <div class="px-6 py-4 border-b border-slate-200/60 flex items-center gap-2 bg-slate-50/40">
+            <Database class="w-5 h-5 text-slate-700" />
+            <h2 class="font-bold text-slate-900 text-sm tracking-tight">Database & Retention Lifecycle</h2>
+          </div>
+          <div class="p-6 space-y-4">
+            <label class="flex items-center gap-3 cursor-pointer">
+              <input id="auto-backup" type="checkbox" class="rounded border-slate-300 text-blue-600 focus:ring-blue-500 w-4 h-4" />
+              <div>
+                <p class="text-sm font-semibold text-slate-900">Automatic Database Backups</p>
+                <p class="text-xs text-slate-400 font-medium">Creates daily snapshots of investigation metadata in the backend uploads folder.</p>
+              </div>
+            </label>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 border-t border-slate-100 pt-4">
+              <div>
+                <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Investigation Retention Period</label>
+                <select id="db-retention" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded text-sm focus:bg-white focus:border-slate-300 outline-none focus-visible:ring-1 focus-visible:ring-bank-blue transition-all font-semibold cursor-pointer">
+                  <option value="30">30 Days</option>
+                  <option value="90">90 Days</option>
+                  <option value="180">180 Days</option>
+                  <option value="365">1 Year</option>
+                  <option value="0">Indefinite (No Auto-Deletion)</option>
+                </select>
+              </div>
+            </div>
+
+            <!-- Reference Library Management -->
+            <div class="border-t border-slate-100 pt-4 space-y-3">
+              <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Reference Dataset Management</label>
+              <div class="flex flex-wrap items-center gap-3">
+                <button type="button" id="reindex-library-btn" class="btn-secondary btn-sm flex items-center gap-2">
+                  <RefreshCcw class="w-3.5 h-3.5" />
+                  Re-index Reference Library
+                </button>
+                <button type="button" id="flush-cache-btn" class="btn-secondary btn-sm flex items-center gap-2">
+                  <Database class="w-3.5 h-3.5" />
+                  Flush Document OCR Cache
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 6. Export & Report Format -->
+        <div id="export" class="investigation-card scroll-mt-6">
+          <div class="px-6 py-4 border-b border-slate-200/60 flex items-center gap-2 bg-slate-50/40">
+            <Download class="w-5 h-5 text-slate-700" />
+            <h2 class="font-bold text-slate-900 text-sm tracking-tight">Export & Watermarking options</h2>
+          </div>
+          <div class="p-6 space-y-4">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Default Report Format</label>
+                <select id="report-format" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded text-sm focus:bg-white focus:border-slate-300 outline-none focus-visible:ring-1 focus-visible:ring-bank-blue transition-all font-semibold cursor-pointer">
+                  <option value="pdf">PDF Forensic Audit Report</option>
+                  <option value="json">Structured JSON Export</option>
+                  <option value="both">Both PDF and JSON</option>
+                </select>
+              </div>
+              <div>
+                <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Digital Report Watermark</label>
+                <input id="watermark-text" type="text" value="ANOBIS VERIFIED" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded text-sm focus:bg-white focus:border-slate-300 outline-none focus-visible:ring-1 focus-visible:ring-bank-blue transition-all font-semibold" />
+              </div>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4 border-t border-slate-100 pt-4">
+              <label class="flex items-center gap-2.5 cursor-pointer">
+                <input id="inc-reasoning" type="checkbox" class="rounded border-slate-300 text-blue-600 focus:ring-blue-500 w-4 h-4" />
+                <span class="text-xs font-bold text-slate-700">Include AI Reasoning</span>
+              </label>
+              
+              <label class="flex items-center gap-2.5 cursor-pointer">
+                <input id="inc-logs" type="checkbox" class="rounded border-slate-300 text-blue-600 focus:ring-blue-500 w-4 h-4" />
+                <span class="text-xs font-bold text-slate-700">Include Audit Logs</span>
+              </label>
+
+              <label class="flex items-center gap-2.5 cursor-pointer">
+                <input id="enable-bilingual" type="checkbox" class="rounded border-slate-300 text-blue-600 focus:ring-blue-500 w-4 h-4" />
+                <span class="text-xs font-bold text-slate-700">Bilingual Reports (EN/HI)</span>
+              </label>
+            </div>
+
+            <div class="border-t border-slate-100 pt-4">
+              <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Preferred Report Language</label>
+              <select id="report-lang" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded text-sm focus:bg-white focus:border-slate-300 outline-none focus-visible:ring-1 focus-visible:ring-bank-blue transition-all font-semibold cursor-pointer">
+                <option value="en">English Only</option>
+                <option value="hi">Hindi Only (हिन्दी अनुवाद)</option>
+                <option value="bilingual">Bilingual (English with Hindi Executive Summary)</option>
+              </select>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 border-t border-slate-100 pt-4">
+              <div>
+                <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">English TTS Voice Selection</label>
+                <select id="english-tts" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded text-sm focus:bg-white focus:border-slate-300 outline-none focus-visible:ring-1 focus-visible:ring-bank-blue transition-all font-semibold cursor-pointer">
+                  <option value="">Default System English Voice</option>
+                  <option value="Google US English">Google US English</option>
+                  <option value="Microsoft David">Microsoft David</option>
+                  <option value="Microsoft Zira">Microsoft Zira</option>
+                </select>
+              </div>
+              <div>
+                <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Hindi TTS Voice Selection</label>
+                <select id="hindi-tts" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded text-sm focus:bg-white focus:border-slate-300 outline-none focus-visible:ring-1 focus-visible:ring-bank-blue transition-all font-semibold cursor-pointer">
+                  <option value="">Default System Hindi Voice</option>
+                  <option value="Google हिन्दी">Google हिन्दी</option>
+                  <option value="Microsoft Hemant">Microsoft Hemant</option>
+                  <option value="Microsoft Kalpana">Microsoft Kalpana</option>
+                </select>
+              </div>
+            </div>
+          </div>
+        </div>
+
+
+
+        <!-- Save Button -->
+        <div class="flex items-center justify-end">
+          <button id="save-settings-btn" class="btn-primary">
+            <Save class="w-4 h-4" />
+            Save Configurations
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+</Layout>
+
+<script>
+  import { api } from '../services/api';
+
+  const saveBtn = document.getElementById('save-settings-btn');
+  const aiModeSelect = document.getElementById('ai-mode') as HTMLSelectElement;
+
+  // Load existing settings on mount
+  async function loadSettings() {
+    try {
+      const data = await api.getSettings();
+      if (!data) return;
+
+      if (aiModeSelect) aiModeSelect.value = data.ai_mode || 'offline';
+      
+      const geminiKeyInput = document.getElementById('gemini-key') as HTMLInputElement;
+      if (geminiKeyInput) geminiKeyInput.value = data.gemini_api_key || '';
+
+      const ollamaUrlInput = document.getElementById('ollama-url') as HTMLInputElement;
+      if (ollamaUrlInput) ollamaUrlInput.value = data.ollama_url || 'http://localhost:11434';
+
+      const ollamaModelInput = document.getElementById('ollama-model') as HTMLInputElement;
+      if (ollamaModelInput) ollamaModelInput.value = data.ollama_model || 'gemma4:e4b';
+
+      const autoApproveInput = document.getElementById('auto-approve') as HTMLInputElement;
+      if (autoApproveInput) autoApproveInput.checked = data.auto_approve_cases !== false;
+
+      const minTrustInput = document.getElementById('min-trust') as HTMLInputElement;
+      if (minTrustInput) minTrustInput.value = String(data.min_trust_threshold || '85');
+
+      const baselineSimInput = document.getElementById('baseline-sim') as HTMLInputElement;
+      if (baselineSimInput) baselineSimInput.value = String(data.baseline_similarity_threshold || '60');
+
+      const ocrRetriesInput = document.getElementById('ocr-retries') as HTMLInputElement;
+      if (ocrRetriesInput) ocrRetriesInput.value = String(data.max_ocr_retries || '3');
+
+      const entityStrictnessInput = document.getElementById('entity-strictness') as HTMLSelectElement;
+      if (entityStrictnessInput) entityStrictnessInput.value = data.entity_matching_strictness || 'medium';
+
+      const ocrLangInput = document.getElementById('ocr-lang') as HTMLSelectElement;
+      if (ocrLangInput) ocrLangInput.value = data.ocr_language || 'en';
+
+      const aiTempInput = document.getElementById('ai-temp') as HTMLInputElement;
+      if (aiTempInput) aiTempInput.value = String(data.ai_temperature || '0.1');
+
+      const reasoningDepthInput = document.getElementById('reasoning-depth') as HTMLSelectElement;
+      if (reasoningDepthInput) reasoningDepthInput.value = data.ai_reasoning_depth || 'standard';
+
+      const summaryVerbosityInput = document.getElementById('summary-verbosity') as HTMLSelectElement;
+      if (summaryVerbosityInput) summaryVerbosityInput.value = data.ai_verbosity || 'standard';
+
+      const reportLangInput = document.getElementById('report-lang') as HTMLSelectElement;
+      if (reportLangInput) reportLangInput.value = data.report_language || 'en';
+
+      const enableBilingualInput = document.getElementById('enable-bilingual') as HTMLInputElement;
+      if (enableBilingualInput) enableBilingualInput.checked = data.enable_bilingual_reports !== false;
+
+      const parallelProcInput = document.getElementById('parallel-proc') as HTMLInputElement;
+      if (parallelProcInput) parallelProcInput.checked = data.parallel_processing !== false;
+
+      const gpuAccInput = document.getElementById('gpu-acc') as HTMLInputElement;
+      if (gpuAccInput) gpuAccInput.checked = data.gpu_acceleration !== false;
+
+      const maxThreadsInput = document.getElementById('max-threads') as HTMLInputElement;
+      if (maxThreadsInput) maxThreadsInput.value = String(data.max_worker_threads || '4');
+
+      const cacheOcrInput = document.getElementById('cache-ocr') as HTMLInputElement;
+      if (cacheOcrInput) cacheOcrInput.checked = data.cache_ocr !== false;
+
+      const autoBackupInput = document.getElementById('auto-backup') as HTMLInputElement;
+      if (autoBackupInput) autoBackupInput.checked = data.auto_backup !== false;
+
+      const dbRetentionInput = document.getElementById('db-retention') as HTMLSelectElement;
+      if (dbRetentionInput) dbRetentionInput.value = String(data.db_retention_period_days || '90');
+
+      const reportFormatInput = document.getElementById('report-format') as HTMLSelectElement;
+      if (reportFormatInput) reportFormatInput.value = data.default_report_format || 'pdf';
+
+      const watermarkTextInput = document.getElementById('watermark-text') as HTMLInputElement;
+      if (watermarkTextInput) watermarkTextInput.value = data.digital_watermark || 'ANOBIS VERIFIED';
+
+      const incReasoningInput = document.getElementById('inc-reasoning') as HTMLInputElement;
+      if (incReasoningInput) incReasoningInput.checked = data.include_ai_reasoning !== false;
+
+      const incLogsInput = document.getElementById('inc-logs') as HTMLInputElement;
+      if (incLogsInput) incLogsInput.checked = data.include_audit_logs !== false;
+
+      const autoBaselineInput = document.getElementById('auto-baseline-learning') as HTMLInputElement;
+      if (autoBaselineInput) autoBaselineInput.checked = data.auto_baseline_learning !== false;
+
+      const crossDocInput = document.getElementById('cross-doc-matching') as HTMLInputElement;
+      if (crossDocInput) crossDocInput.checked = data.enable_cross_doc_matching !== false;
+
+      const metadataAnalysisInput = document.getElementById('metadata-analysis') as HTMLInputElement;
+      if (metadataAnalysisInput) metadataAnalysisInput.checked = data.enable_metadata_analysis !== false;
+
+      const englishTtsInput = document.getElementById('english-tts') as HTMLSelectElement;
+      if (englishTtsInput) englishTtsInput.value = data.english_tts_voice || '';
+
+      const hindiTtsInput = document.getElementById('hindi-tts') as HTMLSelectElement;
+      if (hindiTtsInput) hindiTtsInput.value = data.hindi_tts_voice || '';
+
+      const debugLoggingInput = document.getElementById('debug-logging') as HTMLInputElement;
+      if (debugLoggingInput) debugLoggingInput.checked = !!data.debug_logging;
+
+      toggleGeminiKeyVisibility(data.ai_mode || 'offline');
+    } catch (e) {
+      console.error('Failed to load settings:', e);
+    }
+  }
+
+  function toggleGeminiKeyVisibility(mode: string) {
+    const geminiRow = document.getElementById('gemini-key-container');
+    if (geminiRow) {
+      if (mode === 'enhanced') {
+        geminiRow.classList.remove('hidden');
+      } else {
+        geminiRow.classList.add('hidden');
+      }
+    }
+  }
+
+  if (aiModeSelect) {
+    aiModeSelect.addEventListener('change', (e) => {
+      const target = e.target as HTMLSelectElement;
+      toggleGeminiKeyVisibility(target.value);
+    });
+  }
+
+  saveBtn?.addEventListener('click', async () => {
+    const payload = {
+      ai_mode: aiModeSelect?.value || 'offline',
+      gemini_api_key: (document.getElementById('gemini-key') as HTMLInputElement)?.value || '',
+      ollama_url: (document.getElementById('ollama-url') as HTMLInputElement)?.value || 'http://localhost:11434',
+      ollama_model: (document.getElementById('ollama-model') as HTMLInputElement)?.value || 'gemma4:e4b',
+      auto_approve_cases: (document.getElementById('auto-approve') as HTMLInputElement)?.checked ?? true,
+      min_trust_threshold: parseFloat((document.getElementById('min-trust') as HTMLInputElement)?.value || '85'),
+      baseline_similarity_threshold: parseFloat((document.getElementById('baseline-sim') as HTMLInputElement)?.value || '60'),
+      max_ocr_retries: parseInt((document.getElementById('ocr-retries') as HTMLInputElement)?.value || '3'),
+      entity_matching_strictness: (document.getElementById('entity-strictness') as HTMLSelectElement)?.value || 'medium',
+      ocr_language: (document.getElementById('ocr-lang') as HTMLSelectElement)?.value || 'en',
+      ai_temperature: parseFloat((document.getElementById('ai-temp') as HTMLInputElement)?.value || '0.1'),
+      ai_reasoning_depth: (document.getElementById('reasoning-depth') as HTMLSelectElement)?.value || 'standard',
+      ai_verbosity: (document.getElementById('summary-verbosity') as HTMLSelectElement)?.value || 'standard',
+      report_language: (document.getElementById('report-lang') as HTMLSelectElement)?.value || 'en',
+      enable_bilingual_reports: (document.getElementById('enable-bilingual') as HTMLInputElement)?.checked ?? true,
+      parallel_processing: (document.getElementById('parallel-proc') as HTMLInputElement)?.checked ?? true,
+      gpu_acceleration: (document.getElementById('gpu-acc') as HTMLInputElement)?.checked ?? true,
+      max_worker_threads: parseInt((document.getElementById('max-threads') as HTMLInputElement)?.value || '4'),
+      cache_ocr: (document.getElementById('cache-ocr') as HTMLInputElement)?.checked ?? true,
+      auto_backup: (document.getElementById('auto-backup') as HTMLInputElement)?.checked ?? true,
+      db_retention_period_days: parseInt((document.getElementById('db-retention') as HTMLSelectElement)?.value || '90'),
+      default_report_format: (document.getElementById('report-format') as HTMLSelectElement)?.value || 'pdf',
+      digital_watermark: (document.getElementById('watermark-text') as HTMLInputElement)?.value || 'ANOBIS VERIFIED',
+      include_ai_reasoning: (document.getElementById('inc-reasoning') as HTMLInputElement)?.checked ?? true,
+      include_audit_logs: (document.getElementById('inc-logs') as HTMLInputElement)?.checked ?? true,
+      auto_baseline_learning: (document.getElementById('auto-baseline-learning') as HTMLInputElement)?.checked ?? true,
+      enable_cross_doc_matching: (document.getElementById('cross-doc-matching') as HTMLInputElement)?.checked ?? true,
+      enable_metadata_analysis: (document.getElementById('metadata-analysis') as HTMLInputElement)?.checked ?? true,
+      english_tts_voice: (document.getElementById('english-tts') as HTMLSelectElement)?.value || '',
+      hindi_tts_voice: (document.getElementById('hindi-tts') as HTMLSelectElement)?.value || '',
+      debug_logging: (document.getElementById('debug-logging') as HTMLInputElement)?.checked ?? false,
+
+    };
+
+    try {
+      await api.saveSettings(payload);
+      alert('Platform configurations saved successfully. Forensic rules synchronized.');
+    } catch (e) {
+      alert('Failed to save configurations: ' + (e instanceof Error ? e.message : 'Unknown error'));
+    }
+  });
+
+  document.getElementById('reindex-library-btn')?.addEventListener('click', async () => {
+    try {
+      const result = await api.reindexReferenceLibrary();
+      alert(result.message || 'Reference library indexed successfully.');
+    } catch (e) {
+      alert('Failed to re-index reference library: ' + (e instanceof Error ? e.message : 'Unknown error'));
+    }
+  });
+  
+  document.getElementById('flush-cache-btn')?.addEventListener('click', async () => {
+    try {
+      const result = await api.flushOcrCache();
+      alert(result.message || 'OCR cache cleared successfully.');
+    } catch (e) {
+      alert('Failed to clear OCR cache: ' + (e instanceof Error ? e.message : 'Unknown error'));
+    }
+  });
+
+  // Execute initial load
+  loadSettings();
+</script>

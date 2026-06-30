@@ -21,19 +21,18 @@ class Settings(BaseSettings):
     USE_LOCAL_LLM: bool = os.getenv("USE_LOCAL_LLM", "True").lower() == "true"
     OLLAMA_BASE_URL: str = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")
     OLLAMA_MODEL: str = os.getenv("OLLAMA_MODEL", "gemma4:e4b")
-    OLLAMA_WARMUP_TIMEOUT_SECONDS: int = int(os.getenv("OLLAMA_WARMUP_TIMEOUT_SECONDS", "120"))
-    OLLAMA_GENERATE_TIMEOUT_SECONDS: int = int(os.getenv("OLLAMA_GENERATE_TIMEOUT_SECONDS", "180"))
-    OLLAMA_REVIEW_TIMEOUT_SECONDS: int = int(os.getenv("OLLAMA_REVIEW_TIMEOUT_SECONDS", "120"))
+    OLLAMA_WARMUP_TIMEOUT_SECONDS: int = int(os.getenv("OLLAMA_WARMUP_TIMEOUT_SECONDS", "300"))
+    OLLAMA_GENERATE_TIMEOUT_SECONDS: int = int(os.getenv("OLLAMA_GENERATE_TIMEOUT_SECONDS", "600"))
+    OLLAMA_REVIEW_TIMEOUT_SECONDS: int = int(os.getenv("OLLAMA_REVIEW_TIMEOUT_SECONDS", "300"))
     ENABLE_AI_SELF_REVIEW: bool = os.getenv("ENABLE_AI_SELF_REVIEW", "False").lower() == "true"
     
     # Trust Score Thresholds
     TRUST_THRESHOLD_AUTO_APPROVE: int = 85
     TRUST_THRESHOLD_HIGH_RISK_REJECT: int = 50
-    CONFIDENCE_THRESHOLD_AUTO_APPROVE: int = 80
 
     # Server
     HOST: str = os.getenv("HOST", "0.0.0.0")
-    PORT: int = int(os.getenv("PORT", "8000"))
+    PORT: int = int(os.getenv("PORT", "8001"))
 
     class Config:
         case_sensitive = True

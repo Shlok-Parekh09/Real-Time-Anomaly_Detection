@@ -19,9 +19,9 @@ import {
             <ChevronLeft class="w-5 h-5" />
           </a>
           <div class="h-4 w-px bg-slate-200"></div>
-          <p class="text-xs font-bold text-slate-500 uppercase tracking-widest">Case: <span class="text-slate-900" id="display-id">Loading...</span></p>
+          <p class="text-xs font-bold text-slate-500 uppercase tracking-widest">Case: <span class="text-slate-900" id="display-id">Loading…</span></p>
           <div class="h-4 w-px bg-slate-200"></div>
-          <span id="header-status-pill" class="status-pill">Loading...</span>
+          <span id="header-status-pill" class="status-pill">Loading…</span>
         </div>
         
         <div class="flex items-center gap-2">
@@ -49,267 +49,301 @@ import {
            
            <div class="space-y-2">
              <h2 class="text-xl font-bold text-slate-900">Forensic Analysis in Progress</h2>
-             <p class="text-slate-500 text-sm font-medium" id="current-stage-msg">Initializing extraction engine...</p>
+             <p class="text-slate-500 text-sm font-medium" id="current-stage-msg">Initializing extraction engine…</p>
            </div>
 
            <div class="w-full h-2 bg-slate-100 rounded-full overflow-hidden">
              <div id="progress-bar-fill" class="h-full bg-bank-blue transition-all duration-500" style="width: 0%"></div>
            </div>
 
-           <div class="p-4 bg-blue-50 border border-blue-100 rounded-lg">
-             <p class="text-[10px] font-bold text-blue-700 uppercase tracking-widest text-center">AI Agents are scanning metadata, structural integrity, and content consistency across all uploaded documents.</p>
-           </div>
+            <div class="p-4 bg-slate-50 border border-slate-200 rounded-lg text-left">
+              <h4 class="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-2 text-center">Technical Progress Log</h4>
+              <div id="technical-status-log" aria-live="polite" class="space-y-1 text-[11px] text-slate-600 font-medium font-mono">
+                <!-- Dynamically filled during status polling -->
+              </div>
+            </div>
         </div>
       </div>
 
       <!-- Results View (Step 6 Document Workbench Split View) -->
       <div id="results-view" class="hidden flex-1 flex flex-row overflow-hidden h-full">
         
-        <!-- Left Side: Investigation Details & Findings (60% width) -->
-        <div class="w-7/12 h-full overflow-y-auto p-8 border-r border-slate-200 space-y-8 bg-slate-50">
+        <!-- Left Side: Investigation Details & Findings (65% width) -->
+        <div class="w-[65%] h-full overflow-y-auto p-6 space-y-6 bg-slate-50 border-r border-slate-200">
           
-          <!-- Summary Header -->
-          <div class="bg-white p-6 rounded-xl border border-slate-200 shadow-sm space-y-4">
-            <div class="flex items-start justify-between">
-              <div class="flex items-center gap-3">
-                <div id="summary-icon-container" class="p-2 bg-slate-100 text-slate-600 rounded-lg">
-                  <ShieldCheck class="w-6 h-6" />
-                </div>
-                <div>
-                  <h2 class="text-xl font-bold text-slate-900" id="res-title">Forensic Audit & Analysis Report</h2>
-                  <p class="text-slate-500 text-sm font-medium" id="res-context">Loading context...</p>
-                </div>
+          <!-- 1. AI Summary Section -->
+          <div class="bg-white p-6 rounded-lg border border-slate-200 shadow-sm space-y-4">
+            <div class="flex items-center gap-3">
+              <div id="summary-icon-container" class="p-2.5 bg-slate-100 text-slate-800 rounded-md">
+                <ShieldCheck class="w-6 h-6" />
+              </div>
+              <div>
+                <h2 class="text-xl font-bold text-slate-900 leading-tight" id="res-title">Forensic Audit & Analysis Report</h2>
+                <p class="text-slate-500 text-sm font-medium" id="res-context">Loading context…</p>
               </div>
             </div>
             
-            <div class="bg-slate-50 p-4 rounded-lg border border-slate-100 relative group">
-              <div id="summary-content" class="text-xs text-slate-700 leading-relaxed font-medium pr-10">
+            <div class="bg-slate-50/50 p-5 rounded-lg border border-slate-200/60 relative group">
+              <div id="summary-content" class="text-sm text-slate-700 leading-relaxed font-medium pr-10">
                 <!-- English Summary -->
               </div>
-              <div id="hindi-summary-content" class="hidden mt-4 pt-4 border-t border-slate-200 text-xs text-slate-700 leading-relaxed font-medium">
+              
+              <!-- English TTS Controls -->
+              <div class="flex items-center gap-2 mt-3 pt-3 border-t border-slate-200/50">
+                <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wide mr-1 select-none">English Audio:</span>
+                <button id="tts-en-play" class="px-2.5 py-1 text-[10px] font-bold bg-slate-200 hover:bg-slate-300 text-slate-700 rounded transition-all cursor-pointer select-none font-sans">▶ Play</button>
+                <button id="tts-en-pause" class="px-2.5 py-1 text-[10px] font-bold bg-slate-200 hover:bg-slate-300 text-slate-700 rounded transition-all cursor-pointer select-none font-sans">⏸ Pause</button>
+                <button id="tts-en-stop" class="px-2.5 py-1 text-[10px] font-bold bg-slate-200 hover:bg-slate-300 text-slate-700 rounded transition-all cursor-pointer select-none font-sans">⏹ Stop</button>
+              </div>
+
+              <div id="hindi-summary-content" class="hidden mt-4 pt-4 border-t border-slate-200 text-sm text-slate-700 leading-relaxed font-medium">
                 <!-- Hindi Summary -->
               </div>
-              <button id="toggle-hindi" class="absolute top-3 right-3 p-1.5 text-slate-400 hover:text-bank-blue hover:bg-white rounded transition-all shadow-sm" title="Translate to Hindi">
+
+              <!-- Hindi TTS Controls -->
+              <div id="tts-hi-controls" class="hidden flex items-center gap-2 mt-3 pt-3 border-t border-slate-200/50">
+                <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wide mr-1 select-none">Hindi Audio:</span>
+                <button id="tts-hi-play" class="px-2.5 py-1 text-[10px] font-bold bg-slate-200 hover:bg-slate-300 text-slate-700 rounded transition-all cursor-pointer select-none font-sans">▶ Play</button>
+                <button id="tts-hi-pause" class="px-2.5 py-1 text-[10px] font-bold bg-slate-200 hover:bg-slate-300 text-slate-700 rounded transition-all cursor-pointer select-none font-sans">⏸ Pause</button>
+                <button id="tts-hi-stop" class="px-2.5 py-1 text-[10px] font-bold bg-slate-200 hover:bg-slate-300 text-slate-700 rounded transition-all cursor-pointer select-none font-sans">⏹ Stop</button>
+              </div>
+
+              <button id="toggle-hindi" class="absolute top-4 right-4 p-1.5 text-slate-400 hover:text-slate-600 hover:bg-white rounded transition-all shadow-sm cursor-pointer" title="Translate to Hindi">
                 <Languages class="w-4 h-4" />
               </button>
             </div>
+          </div>
 
-            <!-- 3-Column Forensic Analyst Verification Rows -->
-            <div class="grid grid-cols-1 md:grid-cols-3 gap-4 pt-2">
-              <!-- Identity Verification Card -->
-              <div class="p-4 bg-slate-50 border border-slate-200 rounded-lg flex flex-col justify-between space-y-3">
+          <!-- 2. Risk Overview Section -->
+          <div class="bg-white p-6 rounded-lg border border-slate-200 shadow-sm space-y-6">
+            <h3 class="text-sm font-bold text-slate-900 uppercase tracking-wider border-b border-slate-100 pb-3">Risk & Assessment Overview</h3>
+            
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6 items-center">
+              <!-- Circular Trust Score Gauge -->
+              <div class="flex flex-col items-center justify-center text-center p-4 bg-slate-50/50 rounded-lg border border-slate-100">
+                <span class="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-3">Trust Score</span>
+                <div class="relative w-24 h-24 flex items-center justify-center">
+                  <svg class="w-full h-full transform -rotate-90">
+                    <circle cx="48" cy="48" r="42" stroke="currentColor" stroke-width="6" fill="transparent" class="text-slate-100" />
+                    <circle id="trust-circle" cx="48" cy="48" r="42" stroke="currentColor" stroke-width="6" fill="transparent" stroke-dasharray="263.8" stroke-dashoffset="263.8" class="text-slate-400 transition-all duration-1000" />
+                  </svg>
+                  <span class="absolute text-2xl font-bold text-slate-900 tracking-tighter" id="trust-score-text">--%</span>
+                </div>
+                <div class="mt-3 space-y-0.5">
+                  <p id="res-status-text" class="text-xs font-bold text-slate-500 uppercase tracking-tight">ANALYZING</p>
+                  <p class="text-[10px] text-slate-400 font-bold uppercase tracking-widest" id="res-recommendation">…</p>
+                </div>
+              </div>
+
+              <!-- Recommendation / Decision -->
+              <div class="md:col-span-2 space-y-4">
+                <div class="p-4 bg-slate-900 text-white rounded-lg flex items-center justify-between shadow-sm">
+                  <div>
+                    <span class="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Final Assessment</span>
+                    <p id="final-decision-badge" class="text-sm font-black uppercase tracking-wider text-rose-400">Loading…</p>
+                  </div>
+                  <div class="text-right">
+                    <span class="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Calculated Risk Level</span>
+                    <p id="risk-score-text" class="text-xs font-bold text-slate-200">Checking…</p>
+                  </div>
+                </div>
+
+                <div class="p-4 bg-slate-50/50 rounded-lg border border-slate-100 space-y-1">
+                  <span class="text-[10px] font-bold text-slate-400 uppercase tracking-widest block">AI Risk Narrative</span>
+                  <p id="ai-risk-narrative" class="text-xs text-slate-700 leading-relaxed font-medium">Analyzing risk factors…</p>
+                </div>
+              </div>
+            </div>
+
+            <!-- Verification Checkpoint Cards -->
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4 border-t border-slate-100 pt-6">
+              <!-- Identity Alignment Card -->
+              <div class="p-4 bg-slate-50/50 border border-slate-200/60 rounded-lg flex flex-col justify-between space-y-3">
                 <div class="space-y-2">
                   <div class="flex items-center justify-between">
-                    <span class="text-[9px] font-bold text-slate-400 uppercase tracking-wider">Identity Alignment</span>
-                    <span id="id-status-badge" class="px-2 py-0.5 text-[8px] font-bold rounded uppercase tracking-widest bg-slate-200 text-slate-700">Checking...</span>
+                    <span class="text-xs font-bold text-slate-400 uppercase tracking-wider">Identity Alignment</span>
+                    <span id="id-status-badge" class="px-2 py-0.5 text-[10px] font-bold rounded uppercase tracking-widest bg-slate-200 text-slate-700">Checking…</span>
                   </div>
-                  <p id="id-explanation" class="text-[10px] text-slate-600 font-medium leading-relaxed">Checking document details...</p>
+                  <p id="id-explanation" class="text-xs text-slate-600 font-medium leading-relaxed font-sans">Checking document details…</p>
                 </div>
                 <div class="border-t border-slate-200/60 pt-2 space-y-1">
-                  <span class="text-[8px] font-bold text-slate-400 uppercase tracking-widest block">Actionable Check</span>
-                  <p id="id-recommendation" class="text-[10px] text-slate-800 font-bold leading-tight">Pending check...</p>
+                  <span class="text-[10px] font-bold text-slate-400 uppercase tracking-widest block">Actionable Check</span>
+                  <p id="id-recommendation" class="text-xs text-slate-800 font-bold leading-tight font-sans">Pending check…</p>
                 </div>
               </div>
 
               <!-- Financial Consistency Card -->
-              <div class="p-4 bg-slate-50 border border-slate-200 rounded-lg flex flex-col justify-between space-y-3">
+              <div class="p-4 bg-slate-50/50 border border-slate-200/60 rounded-lg flex flex-col justify-between space-y-3">
                 <div class="space-y-2">
                   <div class="flex items-center justify-between">
-                    <span class="text-[9px] font-bold text-slate-400 uppercase tracking-wider">Financial Math Check</span>
-                    <span id="fin-status-badge" class="px-2 py-0.5 text-[8px] font-bold rounded uppercase tracking-widest bg-slate-200 text-slate-700">Checking...</span>
+                    <span class="text-xs font-bold text-slate-400 uppercase tracking-wider">Financial Math</span>
+                    <span id="fin-status-badge" class="px-2 py-0.5 text-[10px] font-bold rounded uppercase tracking-widest bg-slate-200 text-slate-700">Checking…</span>
                   </div>
-                  <p id="fin-explanation" class="text-[10px] text-slate-600 font-medium leading-relaxed">Verifying income calculations...</p>
+                  <p id="fin-explanation" class="text-xs text-slate-600 font-medium leading-relaxed font-sans">Verifying income calculations…</p>
                 </div>
                 <div class="border-t border-slate-200/60 pt-2 space-y-1">
-                  <span class="text-[8px] font-bold text-slate-400 uppercase tracking-widest block">Actionable Check</span>
-                  <p id="fin-recommendation" class="text-[10px] text-slate-800 font-bold leading-tight">Pending check...</p>
+                  <span class="text-[10px] font-bold text-slate-400 uppercase tracking-widest block">Actionable Check</span>
+                  <p id="fin-recommendation" class="text-xs text-slate-800 font-bold leading-tight font-sans">Pending check…</p>
                 </div>
               </div>
 
               <!-- Metadata Analysis Card -->
-              <div class="p-4 bg-slate-50 border border-slate-200 rounded-lg flex flex-col justify-between space-y-3">
+              <div class="p-4 bg-slate-50/50 border border-slate-200/60 rounded-lg flex flex-col justify-between space-y-3">
                 <div class="space-y-2">
                   <div class="flex items-center justify-between">
-                    <span class="text-[9px] font-bold text-slate-400 uppercase tracking-wider">Metadata Forensics</span>
-                    <span id="meta-status-badge" class="px-2 py-0.5 text-[8px] font-bold rounded uppercase tracking-widest bg-slate-200 text-slate-700">Checking...</span>
+                    <span class="text-xs font-bold text-slate-400 uppercase tracking-wider">Metadata Forensics</span>
+                    <span id="meta-status-badge" class="px-2 py-0.5 text-[10px] font-bold rounded uppercase tracking-widest bg-slate-200 text-slate-700">Checking…</span>
                   </div>
-                  <p id="meta-explanation" class="text-[10px] text-slate-600 font-medium leading-relaxed">Analyzing tool signatures...</p>
+                  <p id="meta-explanation" class="text-xs text-slate-600 font-medium leading-relaxed font-sans">Analyzing tool signatures…</p>
                 </div>
                 <div class="border-t border-slate-200/60 pt-2 space-y-1">
-                  <span class="text-[8px] font-bold text-slate-400 uppercase tracking-widest block">Actionable Check</span>
-                  <p id="meta-recommendation" class="text-[10px] text-slate-800 font-bold leading-tight">Pending check...</p>
+                  <span class="text-[10px] font-bold text-slate-400 uppercase tracking-widest block">Actionable Check</span>
+                  <p id="meta-recommendation" class="text-xs text-slate-800 font-bold leading-tight font-sans">Pending check…</p>
                 </div>
               </div>
             </div>
 
-            <!-- Risk & Action Items Checklist -->
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2 border-t border-slate-100">
-              <div class="space-y-2">
-                <span class="text-[10px] font-bold text-slate-400 uppercase tracking-widest block">Risk & Recommendation</span>
-                <div class="p-3 bg-slate-900 text-white rounded-lg flex items-center justify-between">
-                  <div>
-                    <span class="text-[9px] text-slate-400 font-bold uppercase tracking-wider">Final Assessment</span>
-                    <p id="final-decision-badge" class="text-xs font-black uppercase tracking-wider text-rose-400">Loading...</p>
-                  </div>
-                  <div class="text-right">
-                    <span class="text-[9px] text-slate-400 font-bold uppercase tracking-wider">Risk Level</span>
-                    <p id="risk-score-text" class="text-xs font-bold text-slate-200">Checking...</p>
-                  </div>
-                </div>
+            <!-- Manual Checklist -->
+            <div class="border-t border-slate-100 pt-6 space-y-3">
+              <span class="text-[10px] font-bold text-slate-400 uppercase tracking-widest block">Recommended Manual Verifications</span>
+              <div id="checklist-container" class="grid grid-cols-1 md:grid-cols-2 gap-2 text-xs font-semibold text-slate-600">
+                <!-- Checklist item list -->
               </div>
-              
-              <div class="space-y-2">
-                <span class="text-[10px] font-bold text-slate-400 uppercase tracking-widest block">Recommended Manual Checks</span>
-                <div id="checklist-container" class="space-y-1.5 text-[10px] font-medium text-slate-600">
-                  <!-- Checklist item list -->
+            </div>
+          </div>
+
+          <!-- 3. Findings Section -->
+          <div class="bg-white p-6 rounded-lg border border-slate-200 shadow-sm space-y-4">
+            <h3 class="text-sm font-bold text-slate-900 uppercase tracking-wider border-b border-slate-100 pb-3 flex items-center gap-1.5">
+              <AlertCircle class="w-4 h-4 text-slate-700" />
+              Forensic Findings & Anomalies
+            </h3>
+            <div id="findings-container" class="space-y-4">
+              <!-- Grouped Findings -->
+            </div>
+          </div>
+
+          <!-- 4. Evidence Section -->
+          <div class="bg-white p-6 rounded-lg border border-slate-200 shadow-sm space-y-4">
+            <h3 class="text-sm font-bold text-slate-900 uppercase tracking-wider border-b border-slate-100 pb-3 flex items-center gap-1.5">
+              <FileCheck class="w-4 h-4 text-slate-700" />
+              Supporting Evidence & Technical Matches
+            </h3>
+            <div class="p-5 bg-slate-900 text-white rounded-lg flex flex-col justify-between shadow-sm">
+              <div>
+                <h4 class="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-3">Evidence Quick-List</h4>
+                <div class="space-y-2.5 max-h-[220px] overflow-y-auto" id="evidence-summary-list">
+                  <!-- Evidence Quick List -->
                 </div>
               </div>
             </div>
           </div>
 
-          <!-- Score & Recommendation Row -->
-          <div class="grid grid-cols-2 gap-4">
-            <div class="investigation-card p-6 flex flex-col items-center text-center bg-white border border-slate-200">
-              <p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">Trust Score</p>
-              <div class="relative w-24 h-24 flex items-center justify-center">
-                <svg class="w-full h-full transform -rotate-90">
-                  <circle cx="48" cy="48" r="42" stroke="currentColor" stroke-width="6" fill="transparent" class="text-slate-100" />
-                  <circle id="trust-circle" cx="48" cy="48" r="42" stroke="currentColor" stroke-width="6" fill="transparent" stroke-dasharray="263.8" stroke-dashoffset="263.8" class="text-slate-400 transition-all duration-1000" />
-                </svg>
-                <span class="absolute text-xl font-bold text-slate-900 tracking-tighter" id="trust-score-text">--%</span>
-              </div>
-              <div class="mt-4 space-y-1">
-                <p id="res-status-text" class="text-sm font-bold text-slate-600 uppercase tracking-tight">ANALYZING</p>
-                <p class="text-[10px] text-slate-500 font-bold uppercase tracking-widest" id="res-recommendation">...</p>
-              </div>
-            </div>
-
-            <div class="investigation-card p-6 bg-slate-900 text-white border border-slate-800 flex flex-col">
-              <h3 class="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-3">Evidence Quick-List</h3>
-              <div class="space-y-2 flex-1 overflow-y-auto" id="evidence-summary-list">
-                <!-- Evidence Quick List -->
-              </div>
-            </div>
-          </div>
-
-          <!-- Dataset Intelligence (Case-Based Reasoning Match) -->
-          <div class="investigation-card p-6 bg-white border border-slate-200 shadow-sm space-y-4 rounded-xl">
-            <div class="flex items-center gap-2 border-b border-slate-100 pb-3">
-              <h3 class="font-bold text-slate-900 text-xs uppercase tracking-wider flex items-center gap-1.5">
-                <Cpu class="w-4 h-4 text-bank-blue" />
-                Dataset Intelligence (Forensic Baseline Match)
-              </h3>
-            </div>
-            
+          <!-- 5. Deep Analysis Section -->
+          <div class="bg-white p-6 rounded-lg border border-slate-200 shadow-sm space-y-4">
+            <h3 class="text-sm font-bold text-slate-900 uppercase tracking-wider border-b border-slate-100 pb-3 flex items-center gap-1.5">
+              <Cpu class="w-4 h-4 text-slate-700" />
+              Deep Analysis & AI Reasoning
+            </h3>
             <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
-              <div class="md:col-span-2 space-y-3">
-                <p class="text-[10px] text-slate-400 font-bold uppercase tracking-widest">Similarity Match Score</p>
-                <div class="flex items-center gap-3">
-                  <span id="similarity-percent-text" class="text-3xl font-black text-slate-900">--%</span>
-                  <span id="similarity-badge" class="px-2 py-0.5 text-[9px] font-black rounded uppercase tracking-widest bg-slate-100 text-slate-600">Checking...</span>
-                </div>
-                <p id="similarity-explanation" class="text-xs text-slate-600 font-medium leading-relaxed">Explanation loading...</p>
+              <!-- Cross-document Observations -->
+              <div class="p-4 bg-slate-50 border border-slate-200 rounded-lg space-y-2">
+                <span class="text-[10px] font-bold text-slate-400 uppercase tracking-widest block">Cross-Document Observations</span>
+                <p id="ai-evidence-analysis" class="text-xs text-slate-700 leading-relaxed font-medium">Analyzing cross-document signals...</p>
               </div>
-              
-              <div class="p-4 bg-slate-50 rounded-lg border border-slate-100 space-y-2 flex flex-col justify-between">
-                <div>
-                  <span class="text-[9px] font-bold text-slate-400 uppercase tracking-widest block mb-1">Baseline Promotion</span>
-                  <p class="text-[10px] text-slate-500 font-medium leading-normal">Commit this verified case to the local baseline repository.</p>
-                </div>
-                <button id="approve-reference-btn" class="w-full text-center py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-[10px] font-bold rounded uppercase tracking-widest transition-all cursor-pointer">Approve Baseline</button>
+              <!-- AI Forensic Reasoning -->
+              <div class="p-4 bg-slate-50 border border-slate-200 rounded-lg space-y-2">
+                <span class="text-[10px] font-bold text-slate-400 uppercase tracking-widest block">AI Forensic Reasoning</span>
+                <p id="ai-forensic-reasoning" class="text-xs text-slate-700 leading-relaxed font-medium font-sans">Evaluating reasoning factors...</p>
               </div>
-            </div>
-            
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-6 pt-2 border-t border-slate-100">
-              <div class="space-y-2">
-                <p class="text-[10px] font-bold text-emerald-600 uppercase tracking-widest">Top Genuine Matches</p>
-                <div id="genuine-matches-list" class="space-y-1.5 text-xs text-slate-600">
-                  <!-- Genuine matches -->
-                </div>
-              </div>
-              <div class="space-y-2">
-                <p class="text-[10px] font-bold text-rose-600 uppercase tracking-widest">Top Fraud Matches</p>
-                <div id="fraud-matches-list" class="space-y-1.5 text-xs text-slate-600">
-                  <!-- Fraud matches -->
-                </div>
+              <!-- Case Narrative -->
+              <div class="p-4 bg-slate-50 border border-slate-200 rounded-lg space-y-2">
+                <span class="text-[10px] font-bold text-slate-400 uppercase tracking-widest block">Evidence & Case Narrative</span>
+                <p id="ai-human-explanation" class="text-xs text-slate-700 leading-relaxed font-medium font-sans">Compiling evidence summary...</p>
               </div>
             </div>
           </div>
 
-          <!-- Findings Breakdown -->
-          <div class="space-y-4">
-             <h3 class="text-xs font-bold text-slate-900 uppercase tracking-wider">Analysis Findings</h3>
-             <div id="findings-container" class="space-y-4">
-               <!-- Grouped Findings -->
-             </div>
+          <!-- 6. Knowledge Base Section -->
+          <div class="bg-white border border-slate-200 rounded-lg p-6 space-y-4 shadow-sm">
+            <div class="flex items-center justify-between border-b border-slate-100 pb-3">
+              <h3 class="font-bold text-slate-900 text-sm uppercase tracking-wider flex items-center gap-1.5">
+                <HardDrive class="w-4 h-4 text-slate-700" />
+                Reference Library & Knowledge Base
+              </h3>
+              <!-- Tooltip Explanation -->
+              <div class="relative group cursor-help text-slate-400 hover:text-slate-600">
+                <Info class="w-4 h-4" />
+                <div class="absolute bottom-full right-0 mb-2 w-56 p-3 bg-slate-950 text-white text-[10px] rounded-lg shadow-lg opacity-0 pointer-events-none group-hover:opacity-100 transition-opacity z-50 leading-relaxed font-medium">
+                  Promoting verified cases to the Reference Library allows pattern similarity checks to match new documents against verified templates.
+                </div>
+              </div>
+            </div>
+            
+            <div class="flex items-center justify-between">
+              <div class="flex items-center gap-3">
+                <button role="switch" aria-checked="false" id="approve-reference-btn" class="relative inline-flex h-5 w-9 shrink-0 items-center rounded-full transition-colors duration-200 focus:outline-none focus:ring-1 focus:ring-offset-1 focus:ring-blue-600 bg-slate-200 cursor-pointer">
+                  <span class="pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow-sm ring-0 transition-transform duration-200 translate-x-0.5"></span>
+                </button>
+                <span class="text-sm font-bold text-slate-700 font-sans">Promote to Trusted Reference</span>
+              </div>
+              <span id="reference-status-text" class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Not Promoted to Reference</span>
+            </div>
+          </div>      
+
+          <!-- 7. Document Viewer Section -->
+          <div class="bg-white border border-slate-200 rounded-lg p-6 space-y-4 shadow-sm">
+            <h3 class="text-sm font-bold text-slate-900 uppercase tracking-wider border-b border-slate-100 pb-3 flex items-center gap-1.5">
+              <FileText class="w-4 h-4 text-slate-700" />
+              Forensic Document Viewer
+            </h3>
+            <div class="h-[480px] bg-slate-50 border border-slate-200 rounded-lg flex flex-col overflow-hidden">
+              <!-- Horizontally scrollable document tabs -->
+              <div id="large-doc-selector" class="flex items-center bg-slate-100 border-b border-slate-200 overflow-x-auto scrollbar-none flex-shrink-0">
+                <!-- Tab chips dynamically loaded -->
+              </div>
+              <div id="panel-view" class="flex-1 bg-white overflow-hidden flex flex-col p-2">
+                <iframe id="doc-iframe" class="w-full h-full border border-slate-200 rounded bg-white shadow-inner" src=""></iframe>
+              </div>
+            </div>
           </div>
 
         </div>
 
-        <!-- Right Side: Forensic Document Workbench (40% width) -->
-        <div class="w-5/12 h-full flex flex-col bg-white border-l border-slate-200">
+        <!-- Right Side: Forensic Document Workbench (35% width) -->
+        <div class="w-[35%] h-full flex flex-col bg-white border-l border-slate-200 overflow-hidden">
           
           <!-- Workbench Header -->
-          <div class="p-4 border-b border-slate-200 space-y-3 bg-slate-50 flex-shrink-0">
-            <div class="flex items-center justify-between">
-              <h3 class="text-xs font-bold text-slate-900 uppercase tracking-wider flex items-center gap-1.5">
-                <FileSearch class="w-4 h-4 text-bank-blue" />
-                Forensic Document Workbench
-              </h3>
-              <span id="doc-type-badge" class="px-2 py-0.5 bg-blue-50 text-blue-700 text-[9px] font-bold rounded uppercase tracking-widest border border-blue-100">Select doc</span>
-            </div>
-            
-            <select id="doc-selector" class="w-full bg-white border border-slate-200 rounded-md text-xs font-bold py-2 px-3 text-slate-700 outline-none focus:ring-1 focus:ring-bank-blue cursor-pointer">
-              <!-- Dynamically populated options -->
-            </select>
+          <div class="p-4 border-b border-slate-200 bg-slate-50 flex-shrink-0">
+            <h3 class="text-xs font-bold text-slate-900 uppercase tracking-wider flex items-center gap-1.5">
+              <FileSearch class="w-4 h-4 text-slate-700" />
+              Forensic Document Workbench
+            </h3>
           </div>
 
-          <!-- Tab Bar -->
-          <div class="flex border-b border-slate-200 bg-slate-50 flex-shrink-0 text-xs font-bold text-slate-500 uppercase tracking-widest">
-            <button id="tab-view" class="flex-1 py-3 text-center border-b-2 border-bank-blue text-bank-blue focus:outline-none transition-all">File View</button>
-            <button id="tab-text" class="flex-1 py-3 text-center border-b-2 border-transparent hover:text-slate-800 focus:outline-none transition-all">Text Inspector</button>
-            <button id="tab-meta" class="flex-1 py-3 text-center border-b-2 border-transparent hover:text-slate-800 focus:outline-none transition-all">Properties</button>
-          </div>
-
-          <!-- Tab Contents -->
-          <div class="flex-1 overflow-hidden relative p-4 bg-slate-100">
-            
-            <!-- Tab: Document View (Iframe) -->
-            <div id="panel-view" class="w-full h-full bg-white rounded shadow-sm overflow-hidden flex flex-col">
-              <iframe id="doc-iframe" class="w-full h-full border-0 bg-white" src=""></iframe>
-            </div>
-
-            <!-- Tab: Raw Text Inspector -->
-            <div id="panel-text" class="hidden w-full h-full bg-slate-50 rounded shadow-sm border border-slate-200 p-4 overflow-y-auto font-mono text-[11px] leading-relaxed text-slate-700 whitespace-pre-wrap select-text">
-              <!-- Raw extracted text -->
-            </div>
-
-            <!-- Tab: Properties / Metadata / Entities -->
-            <div id="panel-meta" class="hidden w-full h-full bg-white rounded shadow-sm border border-slate-200 p-4 overflow-y-auto text-xs space-y-4">
-              <div>
-                <h4 class="font-bold text-slate-900 border-b border-slate-100 pb-1.5 mb-2 uppercase tracking-wide">Extracted Entities</h4>
-                <div id="entities-table-body" class="space-y-1.5">
-                  <!-- Entities key-value pairs -->
-                </div>
-              </div>
-              <div>
-                <h4 class="font-bold text-slate-900 border-b border-slate-100 pb-1.5 mb-2 uppercase tracking-wide">OCR & Image Properties</h4>
-                <div id="ocr-table-body" class="space-y-1.5">
-                  <!-- OCR details -->
-                </div>
+          <!-- Properties & Entity Extraction (Middle Scrollable) -->
+          <div class="flex-1 overflow-y-auto p-4 space-y-5 bg-white">
+            <div>
+              <h4 class="font-bold text-slate-900 border-b border-slate-100 pb-1.5 mb-2.5 uppercase tracking-wider text-[10px]">Entity Extraction</h4>
+              <div id="entities-table-body" class="space-y-1.5 text-xs font-medium text-slate-700">
+                <!-- Entities key-value pairs -->
               </div>
             </div>
-
+            <div>
+              <h4 class="font-bold text-slate-900 border-b border-slate-100 pb-1.5 mb-2.5 uppercase tracking-wider text-[10px]">OCR Accuracy & Metadata</h4>
+              <div id="ocr-table-body" class="space-y-1.5 text-xs font-medium text-slate-700">
+                <!-- OCR details -->
+              </div>
+            </div>
           </div>
 
         </div>
 
       </div>
-
       <!-- Loading State -->
       <div id="global-loading" class="flex-1 flex flex-col items-center justify-center bg-white">
-        <Loader2 class="w-8 h-8 text-bank-blue animate-spin mb-4" />
-        <p class="text-slate-500 font-medium">Loading investigation data...</p>
+        <Loader2 class="w-10 h-10 text-slate-700 animate-spin mb-6" />
+        <p id="global-loading-msg" class="text-slate-600 text-sm font-semibold tracking-wide fade-text">Initializing Investigation Context…</p>
       </div>
 
       <!-- Error State -->
@@ -319,7 +353,7 @@ import {
         </div>
         <h3 class="text-lg font-bold text-slate-900">Forensic Link Failed</h3>
         <p id="global-error-msg" class="text-slate-500 mt-1 max-w-xs">We couldn't retrieve the analysis results for this case.</p>
-        <button id="retry-fetch" class="mt-6 btn-secondary">
+        <button id="retry-fetch" class="mt-6 btn-secondary cursor-pointer">
           <RefreshCcw class="w-4 h-4" />
           Retry Connection
         </button>
@@ -362,6 +396,36 @@ import {
 
 <script>
   import { api } from '../../services/api';
+
+  // Helper to format backend enums into human-readable strings
+  function formatEnum(val: string | null | undefined): string {
+    if (!val) return 'N/A';
+    const mapping: Record<string, string> = {
+      'MANUAL_REVIEW': 'Manual Review Required',
+      'AUTO_APPROVE': 'Auto Approved',
+      'AUTO_REJECT': 'Auto Rejected',
+      'CROSS_DOC': 'Cross-Document Inconsistency',
+      'OCR_FAILED': 'OCR Extraction Failed',
+      'LOW_CONFIDENCE': 'Scan Resolution Alert',
+      'METADATA_TAMPERING': 'Potential Metadata Manipulation',
+      'PIXEL_TAMPERING': 'Potential Image Tampering',
+      'FONT_INCONSISTENCY': 'Font Consistency Error',
+      'PENDING': 'Pending',
+      'PROCESSING': 'Analyzing',
+      'IN_PROGRESS': 'In Progress',
+      'COMPLETED': 'Analysis Complete',
+      'FAILED': 'Failed',
+      'PASS': 'Verified',
+      'FAIL': 'Issue Detected',
+      'HIGH': 'High',
+      'MEDIUM': 'Medium',
+      'LOW': 'Low',
+      'CRITICAL': 'Critical',
+    };
+    const mapped = mapping[val.toUpperCase()];
+    if (mapped) return mapped;
+    return val.replace(/_/g, ' ').toLowerCase().replace(/\b\w/g, c => c.toUpperCase());
+  }
   
   // Elements
   const displayId = document.getElementById('display-id');
@@ -450,7 +514,7 @@ import {
 
   async function init() {
     id = getInvestigationId();
-    if (displayId) displayId.textContent = id.substring(0, 8) + '...';
+    if (displayId) displayId.textContent = id.substring(0, 8) + '…';
     showView('loading');
     await fetchAndRender();
   }
@@ -470,7 +534,7 @@ import {
         const results = await api.getInvestigationResults(id);
         caseData = results;
         if (displayId && results.investigation_id) {
-          displayId.textContent = results.investigation_id.substring(0, 8) + '...';
+          displayId.textContent = results.investigation_id.substring(0, 8) + '…';
           id = results.investigation_id; // Sync if defaulted to 'latest'
         }
         renderResults(results);
@@ -485,11 +549,67 @@ import {
     }
   }
 
+  const loadingMessages = [
+    "Initializing Investigation Context…",
+    "Loading Local Knowledge Base…",
+    "Starting OCR Engine…",
+    "Detecting Document Type…",
+    "Extracting Text Layers…",
+    "Running Entity Extraction…",
+    "Performing Cross-document Validation…",
+    "Checking Structural Consistency…",
+    "Analyzing Metadata…",
+    "Running Image Forensics…",
+    "Performing Error Level Analysis…",
+    "Matching Against Trusted Baselines…",
+    "Searching Similar Cases…",
+    "Running KNN Similarity Search…",
+    "Building Entity Graph…",
+    "Correlating Identity Fields…",
+    "Calculating Trust Score…",
+    "Generating AI Investigation Report…",
+    "Generating Hindi Summary…",
+    "Preparing Final Report…",
+    "Finalizing Investigation…"
+  ];
+
+  let rotatorInterval: any = null;
+  function startRotator(element: HTMLElement | null) {
+    if (!element) return;
+    if (rotatorInterval) clearInterval(rotatorInterval);
+    
+    let index = 0;
+    element.textContent = loadingMessages[0];
+    element.classList.remove('fade-out');
+    
+    rotatorInterval = setInterval(() => {
+      element.classList.add('fade-out');
+      setTimeout(() => {
+        index = (index + 1) % loadingMessages.length;
+        element.textContent = loadingMessages[index];
+        element.classList.remove('fade-out');
+      }, 400);
+    }, 1800);
+  }
+
+  function stopRotator() {
+    if (rotatorInterval) {
+      clearInterval(rotatorInterval);
+      rotatorInterval = null;
+    }
+  }
+
   function showView(view: 'loading' | 'progress' | 'results' | 'error') {
     globalLoading?.classList.toggle('hidden', view !== 'loading');
     analysisProgressView?.classList.toggle('hidden', view !== 'progress');
     resultsView?.classList.toggle('hidden', view !== 'results');
     globalError?.classList.toggle('hidden', view !== 'error');
+    
+    stopRotator();
+    if (view === 'loading') {
+      const msgEl = document.getElementById('global-loading-msg');
+      startRotator(msgEl);
+    }
   }
 
   function showError(msg: string) {
@@ -497,20 +617,88 @@ import {
     showView('error');
   }
 
+  function getStageFromProgress(progress: number): string {
+    if (progress <= 10) return "Initializing Investigation";
+    if (progress <= 20) return "Preparing OCR Pipeline";
+    if (progress <= 35) return "Running OCR";
+    if (progress <= 50) return "Extracting Structured Entities";
+    if (progress <= 65) return "Cross-document Matching";
+    if (progress <= 78) return "Reference Comparison";
+    if (progress <= 88) return "AI Investigation";
+    if (progress <= 95) return "Generating Report";
+    return "Finalizing Investigation";
+  }
+
+  function formatPipelineStage(stage: string | null | undefined, progress: number): string {
+    if (!stage) return getStageFromProgress(progress);
+    const stageName = stage.includes(':') ? stage.split(':')[0].trim() : stage.trim();
+    const fileName = stage.includes(':') ? stage.split(':').slice(1).join(':').trim() : '';
+    const mapping: Record<string, string> = {
+      'ANALYSIS_STARTED': 'Initializing Investigation',
+      'CONTEXT_VALIDATION': 'Running Context Validation',
+      'CROSS_DOCUMENT_VALIDATION': 'Cross-document Matching',
+      'CALCULATING_TRUST_SCORE': 'Calculating Trust Score',
+      'GENERATING_AI_SUMMARY': 'AI Investigation',
+      'ANALYSIS_COMPLETED': 'Finalizing Investigation',
+      'ERROR': 'Pipeline Error',
+    };
+    const displayStage = mapping[stageName] || stageName;
+    return fileName ? `${displayStage}: ${fileName}` : displayStage;
+  }
+
   function updateProgressUI(progress: number, stage: string) {
     if (progressPercent) progressPercent.textContent = `${progress}%`;
     if (progressBarFill) progressBarFill.style.width = `${progress}%`;
-    if (currentStageMsg) currentStageMsg.textContent = stage.replace(/_/g, ' ');
+    
+    if (currentStageMsg) {
+      currentStageMsg.textContent = formatPipelineStage(stage, progress);
+    }
+
+    const technicalLog = document.getElementById('technical-status-log');
+    if (technicalLog) {
+      const logs = [];
+      if (progress >= 10) logs.push('✔ Initializing Investigation complete');
+      if (progress >= 20) logs.push('✔ Preparing OCR Pipeline complete');
+      if (progress >= 35) logs.push('✔ OCR extraction complete');
+      if (progress >= 50) logs.push('✔ Structured Entities extracted');
+      if (progress >= 60) logs.push('✔ Metadata Forensics completed');
+      if (progress >= 70) logs.push('✔ Cross-document Matching complete');
+      if (progress >= 80) logs.push('✔ Reference Comparison complete');
+      if (progress >= 88) logs.push('✔ Rule Engine evaluations complete');
+      if (progress >= 95) logs.push('✔ AI Forensic Investigation complete');
+      if (progress >= 100) logs.push('✔ Investigation finalized successfully');
+
+      // Current running stage
+      if (progress < 10) logs.push('⏳ Initializing Investigation…');
+      else if (progress < 20) logs.push('⏳ Preparing OCR Pipeline…');
+      else if (progress < 35) logs.push('⏳ Preprocessing & Running OCR…');
+      else if (progress < 50) logs.push('⏳ Extracting Structured Entities…');
+      else if (progress < 60) logs.push('⏳ Running Metadata Forensics…');
+      else if (progress < 70) logs.push('⏳ Performing Cross-document Matching…');
+      else if (progress < 80) logs.push('⏳ Running Reference Comparison & Similarity Search…');
+      else if (progress < 88) logs.push('⏳ Evaluating Rule Engine logic…');
+      else if (progress < 95) logs.push('⏳ Running AI Forensic Investigation reasoning…');
+      else if (progress < 100) logs.push('⏳ Generating Report & final audits…');
+
+      technicalLog.innerHTML = logs.map(log => `<div class="flex items-center gap-1.5 py-0.5 border-b border-slate-100/50 last:border-0">${log}</div>`).join('');
+    }
   }
 
   // Update status pill styling
   function updateHeaderStatus(status: string) {
     if (!headerStatusPill) return;
-    headerStatusPill.textContent = status;
-    headerStatusPill.className = 'status-pill';
-    if (status === 'COMPLETED') headerStatusPill.classList.add('status-pill-green');
-    else if (status === 'FAILED') headerStatusPill.classList.add('status-pill-red');
-    else if (status === 'PROCESSING' || status === 'PENDING') headerStatusPill.classList.add('status-pill-yellow');
+    const mapping: Record<string, string> = {
+      'PENDING': 'Analyzing',
+      'PROCESSING': 'Analyzing',
+      'IN_PROGRESS': 'Analyzing',
+      'COMPLETED': 'Analysis Complete',
+      'FAILED': 'Failed',
+    };
+    headerStatusPill.textContent = mapping[status.toUpperCase()] || status;
+    headerStatusPill.className = 'status-pill font-sans font-bold';
+    if (status === 'COMPLETED') headerStatusPill.className = 'status-pill status-pill-green';
+    else if (status === 'FAILED') headerStatusPill.className = 'status-pill status-pill-red';
+    else if (status === 'PROCESSING' || status === 'PENDING' || status === 'IN_PROGRESS') headerStatusPill.className = 'status-pill status-pill-yellow';
     else headerStatusPill.classList.add('bg-slate-100', 'text-slate-500');
   }
 
@@ -539,13 +727,24 @@ import {
       toggleHindi?.classList.toggle('hidden', !hindiText);
     }
 
+    // AI Analyst Deep-Dive Fields
+    const riskNarrative = document.getElementById('ai-risk-narrative');
+    const evidenceAnalysis = document.getElementById('ai-evidence-analysis');
+    const forensicReasoning = document.getElementById('ai-forensic-reasoning');
+    const humanExplanation = document.getElementById('ai-human-explanation');
+
+    if (riskNarrative) riskNarrative.textContent = summary.risk_narrative || 'No risk narrative generated.';
+    if (evidenceAnalysis) evidenceAnalysis.textContent = summary.evidence_analysis || 'No cross-document observations compiled.';
+    if (forensicReasoning) forensicReasoning.textContent = summary.forensic_reasoning || 'No forensic reasoning compiled.';
+    if (humanExplanation) humanExplanation.textContent = summary.human_explanation || summary.forensic_story || 'No supporting evidence listed.';
+
     // Update Identity verification card
     const idVerify = summary.identity_verification || {};
     if (idExplanation) idExplanation.textContent = idVerify.explanation || 'No identity checks reported.';
     if (idRecommendation) idRecommendation.textContent = idVerify.recommendation || 'Verify ID documents.';
     if (idStatusBadge) {
-      idStatusBadge.textContent = idVerify.status || 'PASS';
-      idStatusBadge.className = `px-2 py-0.5 text-[8px] font-bold rounded uppercase tracking-widest ${
+      idStatusBadge.textContent = idVerify.status === 'FAIL' ? 'Issue Detected' : (idVerify.status === 'PASS' || !idVerify.status) ? 'Verified' : idVerify.status;
+      idStatusBadge.className = `px-2 py-0.5 text-[10px] font-bold rounded uppercase tracking-widest ${
         idVerify.status === 'FAIL' ? 'bg-rose-100 text-rose-700' :
         idVerify.status === 'WARNING' ? 'bg-amber-100 text-amber-700' : 'bg-emerald-100 text-emerald-700'
       }`;
@@ -556,8 +755,8 @@ import {
     if (finExplanation) finExplanation.textContent = finVerify.explanation || 'No transaction discrepancies detected.';
     if (finRecommendation) finRecommendation.textContent = finVerify.recommendation || 'No manual action needed.';
     if (finStatusBadge) {
-      finStatusBadge.textContent = finVerify.status || 'PASS';
-      finStatusBadge.className = `px-2 py-0.5 text-[8px] font-bold rounded uppercase tracking-widest ${
+      finStatusBadge.textContent = finVerify.status === 'FAIL' ? 'Issue Detected' : (finVerify.status === 'PASS' || !finVerify.status) ? 'Verified' : finVerify.status;
+      finStatusBadge.className = `px-2 py-0.5 text-[10px] font-bold rounded uppercase tracking-widest ${
         finVerify.status === 'FAIL' ? 'bg-rose-100 text-rose-700' :
         finVerify.status === 'WARNING' ? 'bg-amber-100 text-amber-700' : 'bg-emerald-100 text-emerald-700'
       }`;
@@ -568,17 +767,19 @@ import {
     if (metaExplanation) metaExplanation.textContent = metaVerify.explanation || 'No metadata alteration flags raised.';
     if (metaRecommendation) metaRecommendation.textContent = metaVerify.recommendation || 'No manual action needed.';
     if (metaStatusBadge) {
-      metaStatusBadge.textContent = metaVerify.status || 'PASS';
-      metaStatusBadge.className = `px-2 py-0.5 text-[8px] font-bold rounded uppercase tracking-widest ${
+      metaStatusBadge.textContent = metaVerify.status === 'FAIL' ? 'Issue Detected' : (metaVerify.status === 'PASS' || !metaVerify.status) ? 'Verified' : metaVerify.status;
+      metaStatusBadge.className = `px-2 py-0.5 text-[10px] font-bold rounded uppercase tracking-widest ${
         metaVerify.status === 'FAIL' ? 'bg-rose-100 text-rose-700' :
         metaVerify.status === 'WARNING' ? 'bg-amber-100 text-amber-700' : 'bg-emerald-100 text-emerald-700'
       }`;
     }
 
+
+
     // Update Risk checklist & decisions
     if (finalDecisionBadge) {
       const recText = summary.final_recommendation || data.scores?.recommendation || 'MANUAL_REVIEW';
-      finalDecisionBadge.textContent = recText.replace(/_/g, ' ');
+      finalDecisionBadge.textContent = formatEnum(recText);
       finalDecisionBadge.className = `text-xs font-black uppercase tracking-wider ${
         recText.toLowerCase().includes('reject') ? 'text-rose-400' :
         recText.toLowerCase().includes('approve') ? 'text-emerald-400' : 'text-amber-400'
@@ -593,7 +794,7 @@ import {
       else if (trust < 50) riskScoreText.textContent = `${100 - trust}% (High Risk)`;
       else riskScoreText.textContent = `${100 - trust}% (Medium Risk)`;
     }
-
+ 
     if (checklistContainer) {
       const checks = summary.recommended_next_steps || summary.recommended_manual_checks || ["Perform standard verification checklist."];
       checklistContainer.innerHTML = checks.map((c: string) => `
@@ -603,7 +804,7 @@ import {
         </label>
       `).join('');
     }
-
+ 
     // Update circular progress and trust text
     if (trustScoreText) trustScoreText.textContent = `${trust}%`;
     if (trustCircle) {
@@ -616,141 +817,138 @@ import {
       else if (trust > 50) trustCircle.classList.add('text-amber-500');
       else trustCircle.classList.add('text-rose-500');
     }
-
+ 
     if (resStatusText) {
-       resStatusText.textContent = trust > 80 ? 'VERIFIED' : trust > 50 ? 'SUSPICIOUS' : 'FRAUDULENT';
+       const statusStr = trust > 80 ? 'VERIFIED' : trust > 50 ? 'SUSPICIOUS' : 'FRAUDULENT';
+       resStatusText.textContent = formatEnum(statusStr);
        resStatusText.className = `text-sm font-bold uppercase tracking-tight ${trust > 80 ? 'text-emerald-600' : trust > 50 ? 'text-amber-600' : 'text-rose-600'}`;
     }
-    if (resRecommendation) resRecommendation.textContent = scores.recommendation || 'No recommendation provided.';
-
-    // Similarity Match
-    renderSimilarity(data.dataset_similarity || {});
-
+    if (resRecommendation) resRecommendation.textContent = formatEnum(scores.recommendation || 'No recommendation provided.');
+ 
+    // Set Reference Switch state
+    const referenceStatusText = document.getElementById('reference-status-text');
+    if (approveReferenceBtn) {
+      const isBaseline = !!data.is_baseline;
+      approveReferenceBtn.setAttribute('aria-checked', String(isBaseline));
+      const indicator = approveReferenceBtn.querySelector('span');
+      if (isBaseline) {
+        approveReferenceBtn.classList.remove('bg-slate-200');
+        approveReferenceBtn.classList.add('bg-blue-600');
+        indicator?.classList.remove('translate-x-0.5');
+        indicator?.classList.add('translate-x-4');
+        if (referenceStatusText) {
+          referenceStatusText.textContent = 'Registered Reference';
+          referenceStatusText.className = 'text-[10px] font-bold text-blue-600 uppercase tracking-wider';
+        }
+      } else {
+        approveReferenceBtn.classList.remove('bg-blue-600');
+        approveReferenceBtn.classList.add('bg-slate-200');
+        indicator?.classList.remove('translate-x-4');
+        indicator?.classList.add('translate-x-0.5');
+        if (referenceStatusText) {
+          referenceStatusText.textContent = 'Not registered as reference';
+          referenceStatusText.className = 'text-[10px] font-bold text-slate-400 uppercase tracking-wider';
+        }
+      }
+    }
+ 
     // Findings
     renderFindings(data.findings || []);
     renderEvidenceSummary(data.findings || []);
-
+ 
     // Populate Workbench Document Selector
-    populateDocSelector(data.documents || []);
+    populateDocSelector(data.documents || [], data.findings || []);
   }
-
-  function renderSimilarity(sim: any) {
-    const score = sim.similarity_score !== undefined ? Math.round(sim.similarity_score) : 0;
-    if (similarityPercentText) similarityPercentText.textContent = `${score}%`;
-    
-    if (similarityBadge) {
-      similarityBadge.textContent = sim.is_closest_fraud ? 'CORRELATED FRAUD' : 'CORRELATED GENUINE';
-      similarityBadge.className = `px-2 py-0.5 text-[9px] font-black rounded uppercase tracking-widest ${
-        sim.is_closest_fraud ? 'bg-rose-100 text-rose-700' : 'bg-emerald-100 text-emerald-700'
-      }`;
-    }
-    
-    if (similarityExplanation) {
-      similarityExplanation.textContent = sim.explanation || 'No explanation available.';
-    }
-    
-    if (genuineMatchesList) {
-      const genuine = sim.top_similar_genuine || [];
-      if (genuine.length === 0) {
-        genuineMatchesList.innerHTML = `<p class="text-slate-400 italic text-[10px]">No matches found.</p>`;
-      } else {
-        genuineMatchesList.innerHTML = genuine.map((g: any) => `
-          <div class="p-2 bg-slate-50 border border-slate-100 rounded flex flex-col gap-0.5">
-            <div class="flex items-center justify-between font-bold">
-              <span class="text-slate-700 truncate w-32">${g.filename}</span>
-              <span class="text-emerald-600">${Math.round(g.similarity_score)}% Match</span>
-            </div>
-            <p class="text-[9px] text-slate-400 font-medium">${g.label}</p>
-          </div>
-        `).join('');
-      }
-    }
-    
-    if (fraudMatchesList) {
-      const fraud = sim.top_similar_fraud || [];
-      if (fraud.length === 0) {
-        fraudMatchesList.innerHTML = `<p class="text-slate-400 italic text-[10px]">No matches found.</p>`;
-      } else {
-        fraudMatchesList.innerHTML = fraud.map((f: any) => `
-          <div class="p-2 bg-slate-50 border border-slate-100 rounded flex flex-col gap-0.5">
-            <div class="flex items-center justify-between font-bold">
-              <span class="text-slate-700 truncate w-32">${f.filename}</span>
-              <span class="text-rose-600">${Math.round(f.similarity_score)}% Match</span>
-            </div>
-            <p class="text-[9px] text-slate-400 font-medium">${f.label}</p>
-          </div>
-        `).join('');
-      }
-    }
-  }
-
+ 
   function renderFindings(findings: any[]) {
     if (!findingsContainer) return;
     
     if (findings.length === 0) {
       findingsContainer.innerHTML = `
-        <div class="p-8 bg-white border border-slate-200 rounded-xl text-center">
+        <div class="p-8 bg-white border border-slate-200 rounded text-center">
           <p class="text-slate-500 font-medium">No findings detected during analysis.</p>
         </div>
       `;
       return;
     }
-
+ 
     // Group by severity
     const order = { 'CRITICAL': 0, 'HIGH': 1, 'MEDIUM': 2, 'LOW': 3 } as Record<string, number>;
     const sorted = [...findings].sort((a, b) => (order[a.severity] || 99) - (order[b.severity] || 99));
-
+ 
     findingsContainer.innerHTML = sorted.map(f => {
       const severityClass = f.severity === 'CRITICAL' || f.severity === 'HIGH' ? 'border-l-rose-500' : f.severity === 'MEDIUM' ? 'border-l-amber-500' : 'border-l-blue-500';
-      const iconClass = f.severity === 'CRITICAL' || f.severity === 'HIGH' ? 'bg-rose-50 text-rose-600' : f.severity === 'MEDIUM' ? 'bg-amber-50 text-amber-600' : 'bg-blue-50 text-blue-600';
-      
+      const severityBadgeClass = f.severity === 'CRITICAL' || f.severity === 'HIGH' ? 'bg-rose-50 text-rose-700 border border-rose-100' : f.severity === 'MEDIUM' ? 'bg-amber-50 text-amber-700 border border-amber-100' : 'bg-blue-50 text-blue-700 border border-blue-100';
+
       return `
-        <div class="investigation-card border-l-4 ${severityClass} bg-white shadow-sm rounded-lg border border-slate-200">
-          <div class="p-6">
-            <div class="flex items-start justify-between">
-              <div class="flex items-center gap-3">
-                <div class="p-2 ${iconClass} rounded">
-                  <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-alert-circle"><circle cx="12" cy="12" r="10"/><line x1="12" x2="12" y1="8" y2="12"/><line x1="12" x2="12.01" y1="16" y2="16"/></svg>
+        <div class="border-l-4 ${severityClass} bg-white shadow-sm rounded border border-slate-200 overflow-hidden transition-all duration-300">
+          <div class="p-5 space-y-4">
+            <!-- Header -->
+            <div class="flex items-start justify-between gap-4">
+              <div>
+                <div class="flex items-center gap-2">
+                  <span class="px-2 py-0.5 text-[9px] font-bold rounded uppercase tracking-wider ${severityBadgeClass}">
+                    ${formatEnum(f.severity)}
+                  </span>
+                  <span class="text-xs font-bold text-slate-400 uppercase tracking-widest">
+                    ${formatEnum(f.layer_source)}
+                  </span>
                 </div>
-                <div>
-                  <h4 class="text-sm font-bold text-slate-900">${f.name}</h4>
-                  <p class="text-[10px] text-slate-400 font-bold uppercase tracking-widest">${f.layer_source}</p>
-                </div>
-              </div>
-              <div class="text-right">
-                <p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Severity</p>
-                <p class="text-xs font-bold ${f.severity === 'CRITICAL' || f.severity === 'HIGH' ? 'text-rose-600' : f.severity === 'MEDIUM' ? 'text-amber-600' : 'text-blue-600'}">${f.severity}</p>
+                <h4 class="text-sm font-bold text-slate-900 mt-1">${formatEnum(f.name)}</h4>
               </div>
             </div>
-            <p class="mt-4 text-sm text-slate-600 font-medium leading-relaxed">${f.description}</p>
-            
-            ${f.evidence && f.evidence.length > 0 ? `
-              <div class="mt-6 space-y-3">
-                <p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest border-b border-slate-100 pb-2">Technical Evidence</p>
-                ${f.evidence.map((ev: any) => `
-                  <div id="ev-card-${ev.document_id}-${ev.page || 1}" class="technical-evidence-card bg-slate-50 rounded-lg p-3 border border-slate-100 flex flex-col justify-between gap-2 transition-all duration-300">
-                    <div>
-                      <div class="flex items-center justify-between mb-2">
-                         <span class="text-[10px] font-bold text-slate-500 uppercase tracking-tighter">${ev.document} ${ev.page ? `• Page ${ev.page}` : ''}</span>
-                         ${ev.document_id ? `
-                           <button onclick="window.viewEvidence('${ev.document_id}', ${ev.page || 1})" class="text-[9px] font-bold text-bank-blue hover:underline uppercase flex items-center gap-0.5 cursor-pointer border-0 bg-transparent">
-                             View Document &rarr;
-                           </button>
-                         ` : ''}
-                      </div>
-                      <p class="text-xs text-slate-700 leading-relaxed"><span class="font-bold text-slate-900">Observation:</span> ${ev.description || 'No description provided.'}</p>
-                    </div>
-                    ${ev.text ? `<p class="text-[11px] font-mono text-slate-500 bg-white p-2 rounded border border-slate-200">"${ev.text}"</p>` : ''}
-                  </div>
-                `).join('')}
+
+            <!-- Description -->
+            <p class="text-xs text-slate-600 font-medium leading-relaxed">${f.description}</p>
+
+            <!-- Collapsible detailed section -->
+            <div class="space-y-4 pt-4 border-t border-slate-100 text-xs">
+              <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <span class="text-[9px] font-bold text-slate-400 uppercase tracking-wider block mb-1">Why It Matters</span>
+                  <p class="text-slate-700 leading-relaxed font-semibold">${f.why_it_matters || 'Tampered records indicate a breach of regulatory guidelines.'}</p>
+                </div>
+                <div>
+                  <span class="text-[9px] font-bold text-slate-400 uppercase tracking-wider block mb-1">Recommended Action</span>
+                  <p class="text-slate-700 leading-relaxed font-semibold">${f.recommended_action || 'Manually cross-verify details with external baseline registry.'}</p>
+                </div>
               </div>
-            ` : ''}
+
+              ${f.ai_explanation ? `
+                <div class="bg-blue-50/40 border border-blue-100 rounded p-3">
+                  <span class="text-[9px] font-bold text-blue-500 uppercase tracking-wider block mb-1">AI Analyst Explanation</span>
+                  <p class="text-[11px] text-blue-900 leading-relaxed font-medium">${f.ai_explanation}</p>
+                </div>
+              ` : ''}
+
+              ${f.evidence && f.evidence.length > 0 ? `
+                <div class="space-y-2">
+                  <span class="text-[9px] font-bold text-slate-400 uppercase tracking-wider block mb-1">Technical Evidence & Affected Documents</span>
+                  <div class="grid grid-cols-1 gap-2">
+                    ${f.evidence.map((ev: any) => `
+                      <div id="ev-card-${ev.document_id}-${ev.page || 1}" class="technical-evidence-card bg-slate-50 rounded p-2.5 border border-slate-100 flex items-start justify-between gap-3 transition-all duration-300">
+                        <div class="min-w-0">
+                          <span class="inline-block text-[9px] font-bold text-slate-500 bg-slate-200/60 px-1.5 py-0.5 rounded mb-1 uppercase tracking-tighter shrink-0">${ev.document} ${ev.page ? `• Page ${ev.page}` : ''}</span>
+                          <p class="text-[11px] text-slate-600 font-medium"><span class="font-bold text-slate-800">Observation:</span> ${ev.description}</p>
+                          ${ev.text ? `<p class="text-[10px] font-mono text-slate-500 bg-white p-1.5 rounded border border-slate-200 mt-1.5 font-semibold">"${ev.text}"</p>` : ''}
+                        </div>
+                        ${ev.document_id ? `
+                          <button onclick="window.viewEvidence('${ev.document_id}', ${ev.page || 1})" class="text-[9px] font-bold text-blue-600 hover:text-blue-800 uppercase flex items-center gap-0.5 shrink-0 border-0 bg-transparent cursor-pointer">
+                            View &rarr;
+                          </button>
+                        ` : ''}
+                      </div>
+                    `).join('')}
+                  </div>
+                </div>
+              ` : ''}
+            </div>
           </div>
         </div>
       `;
     }).join('');
   }
-
+ 
   function renderEvidenceSummary(findings: any[]) {
     if (!evidenceSummaryList) return;
     
@@ -759,7 +957,7 @@ import {
       evidenceSummaryList.innerHTML = `<p class="text-xs text-slate-500 italic">No specific evidence points found.</p>`;
       return;
     }
-
+ 
     evidenceSummaryList.innerHTML = allEvidence.slice(0, 5).map(ev => `
       <div class="flex items-start gap-2.5 p-2 bg-slate-800/50 rounded border border-slate-700/50">
         <div class="mt-0.5 flex-shrink-0">
@@ -769,51 +967,62 @@ import {
       </div>
     `).join('') + (allEvidence.length > 5 ? `<p class="text-[10px] font-bold text-slate-500 text-center uppercase tracking-widest">+ ${allEvidence.length - 5} more evidence points</p>` : '');
   }
-
+ 
   // Document Workbench Controls
-  function switchTab(activeTab: 'view' | 'text' | 'meta') {
-    tabView?.classList.toggle('border-bank-blue', activeTab === 'view');
-    tabView?.classList.toggle('text-bank-blue', activeTab === 'view');
-    tabView?.classList.toggle('border-transparent', activeTab !== 'view');
-    
-    tabText?.classList.toggle('border-bank-blue', activeTab === 'text');
-    tabText?.classList.toggle('text-bank-blue', activeTab === 'text');
-    tabText?.classList.toggle('border-transparent', activeTab !== 'text');
-    
-    tabMeta?.classList.toggle('border-bank-blue', activeTab === 'meta');
-    tabMeta?.classList.toggle('text-bank-blue', activeTab === 'meta');
-    tabMeta?.classList.toggle('border-transparent', activeTab !== 'meta');
-    
-    panelView?.classList.toggle('hidden', activeTab !== 'view');
-    panelText?.classList.toggle('hidden', activeTab !== 'text');
-    panelMeta?.classList.toggle('hidden', activeTab !== 'meta');
+  function getDocumentStatus(docId: string, findings: any[]) {
+    const docEvidence = findings.filter(f => f.evidence && f.evidence.some((e: any) => e.document_id === docId));
+    if (docEvidence.length === 0) return 'GENUINE';
+    const hasHighCritical = docEvidence.some(f => f.severity === 'CRITICAL' || f.severity === 'HIGH');
+    if (hasHighCritical) return 'FRAUD';
+    return 'SUSPICIOUS';
   }
 
-  tabView?.addEventListener('click', () => switchTab('view'));
-  tabText?.addEventListener('click', () => switchTab('text'));
-  tabMeta?.addEventListener('click', () => switchTab('meta'));
+  function populateDocSelector(docs: any[], findings: any[]) {
+    const largeDocSelector = document.getElementById('large-doc-selector');
+    if (!largeDocSelector || docs.length === 0) return;
+    
+    largeDocSelector.innerHTML = docs.map((d, index) => {
+      const status = getDocumentStatus(d.id, findings);
+      let indicator = '🟢';
+      if (status === 'FRAUD') indicator = '🔴';
+      else if (status === 'SUSPICIOUS') indicator = '🟡';
+      
+      return `
+        <button data-id="${d.id}" class="doc-select-btn flex items-center gap-1.5 px-3.5 py-2 border-r border-slate-200 transition-all text-xs font-semibold cursor-pointer shrink-0 ${index === 0 ? 'bg-white border-t-2 border-t-blue-600 text-slate-900 font-bold' : 'bg-slate-100/70 text-slate-500 hover:bg-slate-50 hover:text-slate-800'}">
+          <span class="text-[9px] shrink-0">${indicator}</span>
+          <span class="truncate max-w-[140px]">${d.filename}</span>
+          <span class="text-[8px] font-bold text-slate-400 uppercase tracking-tighter bg-slate-200/50 px-1 py-0.5 rounded ml-1 shrink-0">${d.classification || 'Doc'}</span>
+        </button>
+      `;
+    }).join('');
+    
+    // Attach click listeners
+    const buttons = largeDocSelector.querySelectorAll('.doc-select-btn');
+    buttons.forEach(btn => {
+      btn.addEventListener('click', () => {
+        const docId = btn.getAttribute('data-id');
+        if (!docId) return;
+        
+        buttons.forEach(b => {
+          b.className = 'doc-select-btn flex items-center gap-1.5 px-3.5 py-2 border-r border-slate-200 transition-all text-xs font-semibold cursor-pointer shrink-0 bg-slate-100/70 text-slate-500 hover:bg-slate-50 hover:text-slate-800';
+        });
+        btn.className = 'doc-select-btn flex items-center gap-1.5 px-3.5 py-2 border-r border-slate-200 transition-all text-xs font-semibold cursor-pointer shrink-0 bg-white border-t-2 border-t-blue-600 text-slate-900 font-bold';
+        
+        selectDocument(docId);
+      });
+    });
 
-  function populateDocSelector(docs: any[]) {
-    if (!docSelector || docs.length === 0) return;
-    docSelector.innerHTML = docs.map(d => `<option value="${d.id}">${d.filename}</option>`).join('');
     selectDocument(docs[0].id);
   }
-
-  docSelector?.addEventListener('change', () => {
-    selectDocument(docSelector.value);
-  });
-
+ 
   function selectDocument(docId: string, pageNum?: number) {
     if (!caseData || !caseData.documents) return;
     
     const doc = caseData.documents.find((d: any) => d.id === docId);
     if (!doc) return;
-
-    if (docSelector) docSelector.value = docId;
-    if (docTypeBadge) docTypeBadge.textContent = doc.classification || 'Unknown';
-
+ 
     // 1. Update File View (Iframe src)
-    const baseUrl = import.meta.env.PUBLIC_API_URL || 'http://localhost:8000';
+    const baseUrl = import.meta.env.PUBLIC_API_URL || 'http://localhost:8001';
     const iframe = document.getElementById('doc-iframe') as HTMLIFrameElement;
     if (iframe) {
       let fileUrl = `${baseUrl}/api/v1/investigations/${id}/documents/${docId}/file`;
@@ -822,16 +1031,11 @@ import {
       }
       iframe.src = fileUrl;
     }
-
-    // 2. Update Raw Text inspector
-    if (panelText) {
-      panelText.textContent = doc.extracted_text || "No text extracted from this document.";
-    }
-
-    // 3. Update Properties and Entities
+ 
+    // 2. Update Properties and Entities
     const entitiesBody = document.getElementById('entities-table-body');
     const ocrBody = document.getElementById('ocr-table-body');
-
+ 
     if (entitiesBody) {
       const ent = doc.entities_json || {};
       const keys = Object.keys(ent);
@@ -840,43 +1044,42 @@ import {
       } else {
         entitiesBody.innerHTML = keys.map(k => {
           let val = ent[k];
-          if (val === null || val === undefined) val = "-";
-          if (typeof val === 'number' && k === 'salary') val = "Rs. " + val.toLocaleString();
+          let displayVal = val;
+          if (val === null || val === undefined || val === "-" || val === "[UNABLE_TO_EXTRACT]") {
+            displayVal = `<span class="text-slate-400 font-medium italic">[Unable to extract]</span>`;
+          } else if (typeof val === 'number' && k === 'salary') {
+            displayVal = "Rs. " + val.toLocaleString();
+          }
           return `
-            <div class="flex items-center justify-between py-2 border-b border-slate-100">
-              <span class="text-slate-500 font-medium capitalize text-[11px]">${k.replace(/_/g, ' ')}:</span>
-              <span class="text-slate-900 font-semibold text-[11px] select-all">${val}</span>
+            <div class="flex items-center justify-between py-2 border-b border-slate-100 font-medium">
+              <span class="text-slate-500 capitalize text-[11px]">${k.replace(/_/g, ' ')}:</span>
+              <span class="text-slate-900 font-semibold text-[11px] select-all">${displayVal}</span>
             </div>
           `;
         }).join('');
       }
     }
-
+ 
     if (ocrBody) {
       const meta = doc.metadata_json || {};
       const isScanned = meta.is_scanned || false;
       const conf = meta.ocr_confidence !== undefined ? Math.round(meta.ocr_confidence) : 100;
       
       ocrBody.innerHTML = `
-        <div class="flex items-center justify-between py-2 border-b border-slate-100">
-          <span class="text-slate-500 font-medium text-[11px]">Extraction Mode:</span>
+        <div class="flex items-center justify-between py-2 border-b border-slate-100 font-medium">
+          <span class="text-slate-500 text-[11px]">Extraction Mode:</span>
           <span class="text-slate-900 font-semibold text-[11px]">${isScanned ? "Tesseract OCR Scan" : "Native Vector Text"}</span>
         </div>
-        <div class="flex items-center justify-between py-2 border-b border-slate-100">
-          <span class="text-slate-500 font-medium text-[11px]">Confidence Score:</span>
-          <span class="text-[11px] font-semibold ${conf < 60 ? 'text-rose-600' : 'text-slate-900'}">${conf}%</span>
-        </div>
-        <div class="flex items-center justify-between py-2 border-b border-slate-100">
-          <span class="text-slate-500 font-medium text-[11px]">File Format:</span>
+        <div class="flex items-center justify-between py-2 border-b border-slate-100 font-medium">
+          <span class="text-slate-500 text-[11px]">File Format:</span>
           <span class="text-slate-900 font-semibold text-[11px] uppercase">${doc.file_type || 'unknown'}</span>
         </div>
       `;
     }
   }
-
+ 
   // Expose viewEvidence globally for findings item clicks
   (window as any).viewEvidence = (docId: string, pageNum: number) => {
-    switchTab('view');
     selectDocument(docId, pageNum);
     
     // Remove previous visual rings from all technical evidence cards
@@ -889,39 +1092,153 @@ import {
     if (targetCard) {
       targetCard.classList.add('ring-2', 'ring-bank-blue', 'border-bank-blue', 'bg-blue-50/30');
       targetCard.scrollIntoView({ behavior: 'smooth', block: 'center' });
-    } else {
-      const docSelectorEl = document.getElementById('doc-selector');
-      docSelectorEl?.scrollIntoView({ behavior: 'smooth' });
     }
   };
+ 
+  // Text-To-Speech (TTS) Implementation
+  let currentUtterance: SpeechSynthesisUtterance | null = null;
+  
+  function speakText(text: string, lang: string) {
+    window.speechSynthesis.cancel(); // Stop any ongoing speech
+    
+    currentUtterance = new SpeechSynthesisUtterance(text);
+    currentUtterance.lang = lang;
+    
+    // Attempt to select a high quality offline voice matching the language
+    const voices = window.speechSynthesis.getVoices();
+    const voice = voices.find(v => v.lang.startsWith(lang));
+    if (voice) {
+      currentUtterance.voice = voice;
+    }
+    
+    window.speechSynthesis.speak(currentUtterance);
+  }
+
+  document.getElementById('tts-en-play')?.addEventListener('click', () => {
+    const text = document.getElementById('summary-content')?.textContent || '';
+    if (window.speechSynthesis.paused && currentUtterance) {
+      window.speechSynthesis.resume();
+    } else {
+      speakText(text, 'en');
+    }
+  });
+
+  document.getElementById('tts-en-pause')?.addEventListener('click', () => {
+    window.speechSynthesis.pause();
+  });
+
+  document.getElementById('tts-en-stop')?.addEventListener('click', () => {
+    window.speechSynthesis.cancel();
+  });
+
+  document.getElementById('tts-hi-play')?.addEventListener('click', () => {
+    const text = document.getElementById('hindi-summary-content')?.textContent || '';
+    if (window.speechSynthesis.paused && currentUtterance) {
+      window.speechSynthesis.resume();
+    } else {
+      speakText(text, 'hi');
+    }
+  });
+
+  document.getElementById('tts-hi-pause')?.addEventListener('click', () => {
+    window.speechSynthesis.pause();
+  });
+
+  document.getElementById('tts-hi-stop')?.addEventListener('click', () => {
+    window.speechSynthesis.cancel();
+  });
 
   // Click listeners
   toggleHindi?.addEventListener('click', () => {
-    hindiSummaryContent?.classList.toggle('hidden');
+    const isHidden = hindiSummaryContent?.classList.toggle('hidden');
+    document.getElementById('tts-hi-controls')?.classList.toggle('hidden', isHidden);
     toggleHindi.classList.toggle('text-bank-blue');
     toggleHindi.classList.toggle('bg-white');
   });
-
+ 
   refreshBtn?.addEventListener('click', fetchAndRender);
   retryFetch?.addEventListener('click', fetchAndRender);
-
+ 
   exportReportBtn?.addEventListener('click', () => {
-    const baseUrl = import.meta.env.PUBLIC_API_URL || 'http://localhost:8000';
+    const baseUrl = import.meta.env.PUBLIC_API_URL || 'http://localhost:8001';
     window.location.href = `${baseUrl}/api/v1/investigations/${id}/report`;
   });
-
+ 
   approveReferenceBtn?.addEventListener('click', async () => {
     if (!id || id === 'latest') return;
-    approveReferenceBtn.classList.add('opacity-50', 'pointer-events-none');
+    const isChecked = approveReferenceBtn.getAttribute('aria-checked') === 'true';
+    const newChecked = !isChecked;
+    const indicator = approveReferenceBtn.querySelector('span');
+    const referenceStatusText = document.getElementById('reference-status-text');
+    
+    // Optimistic UI update
+    approveReferenceBtn.setAttribute('aria-checked', String(newChecked));
+    if (newChecked) {
+      approveReferenceBtn.classList.remove('bg-slate-200');
+      approveReferenceBtn.classList.add('bg-blue-600');
+      indicator?.classList.remove('translate-x-0.5');
+      indicator?.classList.add('translate-x-4');
+      if (referenceStatusText) {
+        referenceStatusText.textContent = 'Registered Reference';
+        referenceStatusText.className = 'text-[10px] font-bold text-blue-600 uppercase tracking-wider';
+      }
+    } else {
+      approveReferenceBtn.classList.remove('bg-blue-600');
+      approveReferenceBtn.classList.add('bg-slate-200');
+      indicator?.classList.remove('translate-x-4');
+      indicator?.classList.add('translate-x-0.5');
+      if (referenceStatusText) {
+        referenceStatusText.textContent = 'Not registered as reference';
+        referenceStatusText.className = 'text-[10px] font-bold text-slate-400 uppercase tracking-wider';
+      }
+    }
+    
     try {
-      const res = await api.approveReference(id);
-      approveReferenceBtn.textContent = 'Baseline Approved ✓';
-      approveReferenceBtn.className = 'w-full text-center py-1.5 bg-slate-400 text-white text-[10px] font-bold rounded uppercase tracking-widest pointer-events-none';
-      alert(res.message || 'Forensic pattern committed to local reference repository!');
+      const res = await api.toggleBaseline(id);
+      approveReferenceBtn.setAttribute('aria-checked', String(res.is_baseline));
+      if (res.is_baseline) {
+        approveReferenceBtn.classList.remove('bg-slate-200');
+        approveReferenceBtn.classList.add('bg-blue-600');
+        indicator?.classList.remove('translate-x-0.5');
+        indicator?.classList.add('translate-x-4');
+        if (referenceStatusText) {
+          referenceStatusText.textContent = 'Registered Reference';
+          referenceStatusText.className = 'text-[10px] font-bold text-blue-600 uppercase tracking-wider';
+        }
+      } else {
+        approveReferenceBtn.classList.remove('bg-blue-600');
+        approveReferenceBtn.classList.add('bg-slate-200');
+        indicator?.classList.remove('translate-x-4');
+        indicator?.classList.add('translate-x-0.5');
+        if (referenceStatusText) {
+          referenceStatusText.textContent = 'Not registered as reference';
+          referenceStatusText.className = 'text-[10px] font-bold text-slate-400 uppercase tracking-wider';
+        }
+      }
     } catch (e) {
       console.error(e);
-      alert('Failed to promote to reference: ' + (e instanceof Error ? e.message : 'Unknown error'));
-      approveReferenceBtn.classList.remove('opacity-50', 'pointer-events-none');
+      alert('Failed to update reference status: ' + (e instanceof Error ? e.message : 'Unknown error'));
+      // Revert state
+      approveReferenceBtn.setAttribute('aria-checked', String(isChecked));
+      if (isChecked) {
+        approveReferenceBtn.classList.remove('bg-slate-200');
+        approveReferenceBtn.classList.add('bg-blue-600');
+        indicator?.classList.remove('translate-x-0.5');
+        indicator?.classList.add('translate-x-4');
+        if (referenceStatusText) {
+          referenceStatusText.textContent = 'Registered Reference';
+          referenceStatusText.className = 'text-[10px] font-bold text-blue-600 uppercase tracking-wider';
+        }
+      } else {
+        approveReferenceBtn.classList.remove('bg-blue-600');
+        approveReferenceBtn.classList.add('bg-slate-200');
+        indicator?.classList.remove('translate-x-4');
+        indicator?.classList.add('translate-x-0.5');
+        if (referenceStatusText) {
+          referenceStatusText.textContent = 'Not registered as reference';
+          referenceStatusText.className = 'text-[10px] font-bold text-slate-400 uppercase tracking-wider';
+        }
+      }
     }
   });
 

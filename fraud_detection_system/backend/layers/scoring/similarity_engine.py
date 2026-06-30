@@ -9,8 +9,7 @@ logger = logging.getLogger(__name__)
 
 # Weight Configuration for Forensic Feature Similarity
 FEATURE_WEIGHTS = {
-    "trust_score": 0.25,
-    "confidence_score": 0.15,
+    "trust_score": 0.40,
     "ocr_confidence": 0.10,
     "metadata_score": 0.15,
     "revision_count": 0.05,
@@ -158,7 +157,6 @@ class SimilarityEngine:
         """
         # Default scores
         trust = investigation.trust_score if investigation.trust_score is not None else 100.0
-        confidence = investigation.confidence_score if investigation.confidence_score is not None else 100.0
         doc_count = len(investigation.documents)
         
         # 1. OCR Confidence
@@ -237,7 +235,6 @@ class SimilarityEngine:
                         
         return {
             "trust_score": trust,
-            "confidence_score": confidence,
             "ocr_confidence": avg_ocr,
             "metadata_score": metadata_score,
             "pdf_producer": producer,
@@ -310,7 +307,10 @@ class SimilarityEngine:
         """
         Executes comparison of current investigation against all references and db history.
         """
+        from core.settings_store import settings_store
+
         target_vec = self.generate_feature_vector(db, investigation)
+        baseline_threshold = float(settings_store.get("baseline_similarity_threshold", 60.0))
         
         genuine_matches = []
         fraud_matches = []
@@ -384,8 +384,8 @@ class SimilarityEngine:
         genuine_matches.sort(key=lambda x: x["similarity_score"], reverse=True)
         fraud_matches.sort(key=lambda x: x["similarity_score"], reverse=True)
 
-        top_genuine = genuine_matches[:2]
-        top_fraud = fraud_matches[:2]
+        top_genuine = [m for m in genuine_matches if m["similarity_score"] >= baseline_threshold][:2]
+        top_fraud = [m for m in fraud_matches if m["similarity_score"] >= baseline_threshold][:2]
         
         # Best overall match selection
         best_match = None
@@ -406,11 +406,12 @@ class SimilarityEngine:
         if is_closest_fraud:
             explanation = f"High correlation detected with historical tampered templates (Match: {best_match['filename']}). Review editing indicators."
         elif not best_match:
-            explanation = "Insufficient reference case comparisons compiled."
+            explanation = f"No reference case met the configured {baseline_threshold}% baseline similarity threshold."
 
         return {
             "feature_vector": target_vec,
             "similarity_score": similarity_score,
+            "similarity_threshold": baseline_threshold,
             "is_closest_fraud": is_closest_fraud,
             "explanation": explanation,
             "top_similar_genuine": top_genuine,

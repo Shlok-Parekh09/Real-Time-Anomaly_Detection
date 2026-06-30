@@ -1,10 +1,10 @@
 ---
 import "../styles/global.css";
-import { Search, Bell, User, LayoutDashboard, FileSearch } from "lucide-astro";
+import { User, LayoutDashboard, FileSearch, Settings, Plus } from "lucide-astro";
 
 interface Props {
 	title?: string;
-  activeTab?: 'dashboard' | 'investigations';
+  activeTab?: 'dashboard' | 'investigations' | 'settings';
 }
 
 const { title = "Anobis | Investigation Platform", activeTab = 'dashboard' } = Astro.props;
@@ -26,39 +26,41 @@ const { title = "Anobis | Investigation Platform", activeTab = 'dashboard' } = A
 	</head>
 	<body class="bg-slate-50 text-slate-900 flex h-screen overflow-hidden">
 		<!-- Main Sidebar -->
-		<aside class="w-64 bg-slate-900 text-slate-300 flex flex-col flex-shrink-0">
-			<div class="p-6 flex items-center gap-3">
-				<div class="w-8 h-8 rounded flex items-center justify-center overflow-hidden">
+		<aside class="w-56 bg-slate-900 text-slate-300 flex flex-col flex-shrink-0 border-r border-slate-800">
+			<a href="/" class="h-14 px-5 flex items-center gap-2.5 border-b border-slate-800 hover:bg-slate-800/40 transition-colors select-none">
+				<div class="w-7 h-7 rounded flex items-center justify-center overflow-hidden shrink-0">
 					<img src="/favicon-96x96.png" alt="Anobis Logo" class="w-full h-full object-cover" />
 				</div>
-				<span class="font-bold text-white text-lg tracking-tight">Anobis</span>
-			</div>
+				<span class="font-extrabold text-white text-base tracking-wider uppercase">Anobis</span>
+			</a>
 			
-			<nav class="flex-1 px-4 space-y-1">
-				<a href="/dashboard" class={`flex items-center gap-3 px-3 py-2 rounded-md transition-colors ${activeTab === 'dashboard' ? 'bg-slate-800 text-white' : 'hover:bg-slate-800 hover:text-white'}`}>
-					<LayoutDashboard class="w-4 h-4" />
-					<span class="text-sm font-medium">Dashboard</span>
+			<nav class="flex-1 p-3 space-y-1">
+				<a href="/dashboard" class={`flex items-center gap-3 px-3 py-2 rounded-md transition-all ${activeTab === 'dashboard' ? 'bg-slate-800 text-white font-semibold' : 'hover:bg-slate-800/60 hover:text-white text-slate-400'}`}>
+					<LayoutDashboard class="w-4 h-4 shrink-0" />
+					<span class="text-sm">Dashboard</span>
 				</a>
-				<a href="/investigations" class={`flex items-center gap-3 px-3 py-2 rounded-md transition-colors ${activeTab === 'investigations' ? 'bg-slate-800 text-white' : 'hover:bg-slate-800 hover:text-white'}`}>
-					<FileSearch class="w-4 h-4" />
-					<span class="text-sm font-medium">Investigations</span>
+				<a href="/investigations" class={`flex items-center gap-3 px-3 py-2 rounded-md transition-all ${activeTab === 'investigations' ? 'bg-slate-800 text-white font-semibold' : 'hover:bg-slate-800/60 hover:text-white text-slate-400'}`}>
+					<FileSearch class="w-4 h-4 shrink-0" />
+					<span class="text-sm">Investigations</span>
+				</a>
+				<a href="/settings" class={`flex items-center gap-3 px-3 py-2 rounded-md transition-all ${activeTab === 'settings' ? 'bg-slate-800 text-white font-semibold' : 'hover:bg-slate-800/60 hover:text-white text-slate-400'}`}>
+					<Settings class="w-4 h-4 shrink-0" />
+					<span class="text-sm">Settings</span>
 				</a>
 			</nav>
 		</aside>
 
 		<!-- Main Content -->
-		<div class="flex-1 flex flex-col min-w-0 overflow-hidden">
-			<!-- Header -->
-			<header class="h-16 bg-white border-b border-slate-200 flex items-center justify-between px-8 flex-shrink-0">
+		<div class="flex-1 flex flex-col min-w-0 overflow-hidden relative bg-slate-50/70">
+			<!-- Animated Cloudy Gradient Background -->
+			<div class="absolute inset-0 z-0 pointer-events-none overflow-hidden opacity-[0.14] mix-blend-multiply">
+				<div class="absolute -top-[20%] -left-[10%] w-[65%] h-[65%] rounded-full bg-gradient-to-br from-blue-700 via-blue-600 to-indigo-800 filter blur-[130px] animate-[pulse_12s_infinite_ease-in-out]"></div>
+				<div class="absolute -bottom-[20%] -right-[10%] w-[65%] h-[65%] rounded-full bg-gradient-to-tl from-amber-600 via-orange-500 to-amber-700 filter blur-[130px] animate-[pulse_16s_infinite_ease-in-out]"></div>
+			</div>
+
+			<header class="h-14 bg-white/80 backdrop-blur-md border-b border-slate-200 flex items-center justify-between px-6 flex-shrink-0 z-30">
 				<div class="flex items-center gap-4 flex-1">
-					<div class="relative w-96">
-						<Search class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-						<input 
-							type="text" 
-							placeholder="Search investigations, files, or audit logs..." 
-							class="w-full pl-10 pr-4 py-2 bg-slate-100 border-transparent rounded-md text-sm focus:bg-white focus:border-slate-300 focus:ring-0 transition-all"
-						/>
-					</div>
+					<!-- Left spacing -->
 				</div>
 				
 				<div class="flex items-center gap-4">
@@ -80,8 +82,20 @@ const { title = "Anobis | Investigation Platform", activeTab = 'dashboard' } = A
 									<span id="health-detail-ai" class="font-bold text-slate-700">Checking...</span>
 								</div>
 								<div class="flex items-center justify-between text-[11px]">
+									<span class="text-slate-500 font-medium">Active Provider:</span>
+									<span id="health-detail-provider" class="font-bold text-slate-700">--</span>
+								</div>
+								<div class="flex items-center justify-between text-[11px]">
 									<span class="text-slate-500 font-medium">Model:</span>
 									<span id="health-detail-model" class="font-semibold text-slate-800">gemma4:e4b</span>
+								</div>
+								<div class="flex items-center justify-between text-[11px]">
+									<span class="text-slate-500 font-medium">Endpoint/API:</span>
+									<span id="health-detail-endpoint" class="font-mono text-slate-600 text-[10px] truncate max-w-[130px]" title="Endpoint">--</span>
+								</div>
+								<div class="flex items-center justify-between text-[11px]">
+									<span class="text-slate-500 font-medium">Execution Mode:</span>
+									<span id="health-detail-mode" class="font-semibold text-slate-700">--</span>
 								</div>
 								<div class="flex items-center justify-between text-[11px]">
 									<span class="text-slate-500 font-medium">Inference Latency:</span>
@@ -103,18 +117,20 @@ const { title = "Anobis | Investigation Platform", activeTab = 'dashboard' } = A
 						</div>
 					</div>
 
-					<button class="p-2 text-slate-500 hover:bg-slate-100 rounded-full relative">
-						<Bell class="w-5 h-5" />
-						<span class="absolute top-2 right-2 w-2 h-2 bg-rose-500 rounded-full border-2 border-white"></span>
-					</button>
-					<div class="h-8 w-px bg-slate-200"></div>
-					<div class="flex items-center gap-3 pl-2">
+					<!-- New Investigation Button -->
+					<a href="/new-investigation" class="px-3 py-1.5 bg-slate-900 hover:bg-slate-800 text-white rounded font-medium text-xs transition-all flex items-center gap-1.5 shadow-sm">
+						<Plus class="w-3.5 h-3.5" />
+						New Investigation
+					</a>
+ 
+					<div class="h-6 w-px bg-slate-200"></div>
+					<div class="flex items-center gap-2.5 pl-1">
 						<div class="text-right">
-							<p class="text-sm font-semibold text-slate-900">Admin</p>
-							<p class="text-xs text-slate-500">Lead Auditor</p>
+							<p class="text-xs font-semibold text-slate-900 leading-none">Admin</p>
+							<p class="text-[9px] text-slate-400 font-bold uppercase tracking-wider mt-1">Lead Auditor</p>
 						</div>
-						<div class="w-10 h-10 bg-slate-200 rounded-full flex items-center justify-center overflow-hidden border border-slate-300">
-							<User class="w-6 h-6 text-slate-400" />
+						<div class="w-8 h-8 bg-slate-200 rounded-full flex items-center justify-center overflow-hidden border border-slate-300">
+							<User class="w-5 h-5 text-slate-400" />
 						</div>
 					</div>
 				</div>
@@ -131,7 +147,10 @@ const { title = "Anobis | Investigation Platform", activeTab = 'dashboard' } = A
 				const pillEl = document.getElementById('ai-health-pill');
 				
 				const dAi = document.getElementById('health-detail-ai');
+				const dProvider = document.getElementById('health-detail-provider');
 				const dModel = document.getElementById('health-detail-model');
+				const dEndpoint = document.getElementById('health-detail-endpoint');
+				const dMode = document.getElementById('health-detail-mode');
 				const dInference = document.getElementById('health-detail-inference');
 				const dDataset = document.getElementById('health-detail-dataset');
 				const dKnn = document.getElementById('health-detail-knn');
@@ -141,14 +160,17 @@ const { title = "Anobis | Investigation Platform", activeTab = 'dashboard' } = A
 				if (!statusEl || !pillEl) return;
 				
 				try {
-					const res = await fetch((import.meta.env.PUBLIC_API_URL || 'http://localhost:8000') + '/api/v1/system/health')
+					const res = await fetch((import.meta.env.PUBLIC_API_URL || 'http://localhost:8001') + '/api/v1/system/health')
 						.then(r => r.json());
 						
 					const datasetLoaded = res.dataset === 'loaded';
 					const aiReady = res.ai === 'ready';
 					
 					// Update Hover Card details
+					if (dProvider) dProvider.textContent = res.provider || 'Local Ollama';
 					if (dModel) dModel.textContent = res.model || 'gemma4:e4b';
+					if (dEndpoint) dEndpoint.textContent = res.endpoint || 'http://localhost:11434';
+					if (dMode) dMode.textContent = res.execution_mode || 'Offline';
 					if (dInference) dInference.textContent = aiReady ? `${res.startup_latency_ms} ms` : 'N/A';
 					if (dDataset) {
 						dDataset.textContent = datasetLoaded ? 'Loaded' : 'Empty';

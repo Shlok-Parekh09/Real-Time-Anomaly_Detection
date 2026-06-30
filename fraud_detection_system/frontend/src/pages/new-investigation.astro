@@ -13,7 +13,7 @@ const contexts = [
 ---
 
 <Layout title="New Investigation | Anobis" activeTab="investigations">
-  <div class="max-w-4xl mx-auto p-8 space-y-8">
+  <div class="max-w-4xl mx-auto p-8 space-y-8 z-10 relative">
     <!-- Breadcrumbs -->
     <nav class="flex items-center gap-2 text-xs font-semibold text-slate-500 uppercase tracking-widest">
       <a href="/" class="hover:text-bank-blue transition-colors">Dashboard</a>
@@ -31,13 +31,15 @@ const contexts = [
       <section class="space-y-4">
         <div class="flex items-center justify-between">
           <h2 class="text-sm font-bold text-slate-900 uppercase tracking-wider">1. Investigation Context</h2>
-          <div class="flex items-center gap-2 px-3 py-1 bg-violet-50 text-violet-700 rounded-full border border-violet-100 cursor-pointer hover:bg-violet-100 transition-colors">
-            <Sparkles class="w-3 h-3" />
-            <span class="text-[10px] font-bold uppercase tracking-widest">Automatic Detection</span>
+          <div class="flex items-center gap-2">
+            <button role="switch" aria-checked="false" id="auto-detect-toggle" class="relative inline-flex h-5 w-9 shrink-0 items-center rounded-full transition-colors duration-200 focus:outline-none focus:ring-1 focus:ring-offset-1 focus:ring-bank-blue bg-slate-200 cursor-pointer">
+              <span class="pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow-sm ring-0 transition-transform duration-200 translate-x-0.5 animate-all"></span>
+            </button>
+            <span class="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Automatic Detection</span>
           </div>
         </div>
         
-        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div id="context-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {contexts.map((ctx) => (
             <label class="group relative flex items-start gap-4 p-4 bg-white border border-slate-200 rounded-lg cursor-pointer hover:border-bank-blue hover:shadow-sm transition-all has-[:checked]:border-bank-blue has-[:checked]:bg-blue-50/30 has-[:checked]:ring-1 has-[:checked]:ring-bank-blue">
               <input type="radio" name="context" value={ctx.id} class="sr-only" />
@@ -72,7 +74,7 @@ const contexts = [
        <section class="space-y-4">
         <div class="flex items-center justify-between">
           <h2 class="text-sm font-bold text-slate-900 uppercase tracking-wider">3. Upload Documents</h2>
-          <span id="inv-id-badge" class="px-3 py-1 bg-slate-100 text-slate-600 rounded-full border border-slate-200 text-[10px] font-bold uppercase tracking-widest">ID: ...</span>
+          <span id="inv-id-badge" class="px-3 py-1 bg-slate-100 text-slate-600 rounded-full border border-slate-200 text-[10px] font-bold uppercase tracking-widest">ID: …</span>
         </div>
         
         <div id="drop-zone" class="bg-white border-2 border-dashed border-slate-200 rounded-xl p-12 flex flex-col items-center justify-center gap-4 hover:border-bank-blue hover:bg-slate-50/50 transition-all cursor-pointer group relative">
@@ -103,13 +105,13 @@ const contexts = [
     </div>
 
     <!-- Error Toast -->
-    <div id="error-toast" class="fixed bottom-8 right-8 bg-rose-50 border border-rose-200 p-4 rounded-lg shadow-lg flex items-start gap-3 max-w-md transform translate-y-24 transition-transform duration-300 z-50">
+    <div id="error-toast" aria-live="assertive" class="fixed bottom-8 right-8 bg-white/90 backdrop-blur-md border border-slate-200 p-4 rounded-lg shadow-xl flex items-start gap-3 max-w-md transform translate-y-24 transition-transform duration-300 z-50">
        <AlertCircle class="w-5 h-5 text-rose-500 flex-shrink-0" />
        <div>
-         <p class="text-sm font-bold text-rose-900">Action Failed</p>
-         <p id="error-toast-msg" class="text-xs text-rose-700 mt-1">An unexpected error occurred.</p>
+         <p class="text-sm font-bold text-slate-900">Action Failed</p>
+         <p id="error-toast-msg" class="text-xs text-slate-500 mt-1">An unexpected error occurred.</p>
        </div>
-       <button id="close-error" class="text-rose-400 hover:text-rose-600 ml-auto">
+       <button id="close-error" class="text-slate-400 hover:text-slate-600 ml-auto cursor-pointer" aria-label="Close error toast">
          <X class="w-4 h-4" />
        </button>
     </div>
@@ -150,12 +152,57 @@ const contexts = [
     errorToast?.classList.add('translate-y-24');
   });
 
+  // Automatic Detection Toggle Logic
+  const autoDetectToggle = document.getElementById('auto-detect-toggle');
+  const contextGrid = document.getElementById('context-grid');
+  const contextRadios = document.querySelectorAll('input[name="context"]');
+
+  autoDetectToggle?.addEventListener('click', () => {
+    const isChecked = autoDetectToggle.getAttribute('aria-checked') === 'true';
+    const newChecked = !isChecked;
+    const indicator = autoDetectToggle.querySelector('span');
+    
+    autoDetectToggle.setAttribute('aria-checked', String(newChecked));
+    if (newChecked) {
+      autoDetectToggle.classList.remove('bg-slate-200');
+      autoDetectToggle.classList.add('bg-blue-600');
+      indicator?.classList.remove('translate-x-0.5');
+      indicator?.classList.add('translate-x-4');
+      
+      // Disable manual selection
+      contextRadios.forEach(radio => {
+        (radio as HTMLInputElement).disabled = true;
+        (radio as HTMLInputElement).checked = false;
+      });
+      contextGrid?.classList.add('opacity-50', 'pointer-events-none');
+    } else {
+      autoDetectToggle.classList.remove('bg-blue-600');
+      autoDetectToggle.classList.add('bg-slate-200');
+      indicator?.classList.remove('translate-x-4');
+      indicator?.classList.add('translate-x-0.5');
+      
+      // Enable manual selection
+      contextRadios.forEach(radio => {
+        (radio as HTMLInputElement).disabled = false;
+      });
+      contextGrid?.classList.remove('opacity-50', 'pointer-events-none');
+    }
+  });
+
   // Step 1 -> Step 2
   createInvBtn?.addEventListener('click', async () => {
-    const contextInput = document.querySelector('input[name="context"]:checked') as HTMLInputElement;
-    if (!contextInput) {
-      showError('Please select an investigation context.');
-      return;
+    const isAutoDetect = autoDetectToggle?.getAttribute('aria-checked') === 'true';
+    let contextValue = '';
+
+    if (isAutoDetect) {
+      contextValue = 'Automatic Detection';
+    } else {
+      const contextInput = document.querySelector('input[name="context"]:checked') as HTMLInputElement;
+      if (!contextInput) {
+        showError('Please select an investigation context or enable Automatic Detection.');
+        return;
+      }
+      contextValue = contextInput.value;
     }
 
     createInvBtn.classList.add('opacity-70', 'pointer-events-none');
@@ -163,12 +210,12 @@ const contexts = [
 
     try {
       const inv = await api.createInvestigation({
-        context: contextInput.value,
+        context: contextValue,
         title: titleInput.value || undefined
       });
 
       currentInvestigationId = inv.id;
-      if (invIdBadge) invIdBadge.textContent = `ID: ${inv.id.substring(0, 8)}...`;
+      if (invIdBadge) invIdBadge.textContent = `ID: ${inv.id.substring(0, 8)}…`;
       
       step1?.classList.add('hidden');
       step2?.classList.remove('hidden');

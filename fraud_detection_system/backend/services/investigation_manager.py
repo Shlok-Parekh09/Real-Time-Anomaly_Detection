@@ -28,6 +28,8 @@ class InvestigationManager:
         """
         import os
         from layers.forensics.digital_forensics import digital_forensics
+        from layers.extraction.extraction_service import extraction_service
+        from layers.context.financial_validator import validate_bank_statement_math, validate_payslip_math
         
         with open(file_path, "rb") as f:
             file_bytes = f.read()
@@ -35,22 +37,68 @@ class InvestigationManager:
         ext = os.path.splitext(filename)[1].lower()
         content_type = "application/pdf" if ext == ".pdf" else "image/jpeg"
         
+        # Extract metadata
+        metadata = {}
+        if ext == ".pdf":
+            try:
+                import fitz
+                doc = fitz.open(stream=file_bytes, filetype="pdf")
+                metadata = doc.metadata or {}
+                doc.close()
+            except Exception as e_meta:
+                logger.error(f"Failed to extract metadata for legacy process_document: {e_meta}")
+
         # Run digital forensics
-        forensic_results = digital_forensics.analyze(file_bytes, filename, content_type, {})
+        forensic_results = digital_forensics.analyze(file_bytes, filename, content_type, metadata)
         
+        # Classify and extract text to check context math rules
+        anomalies = []
+        for fr in forensic_results:
+            anomalies.append({
+                "type": fr["name"],
+                "severity": fr["severity"],
+                "description": fr["description"]
+            })
+            
+        try:
+            extraction_results = extraction_service.process_document(file_bytes, filename, ext.replace(".", ""))
+            extracted_text = extraction_results.get("extracted_text", "")
+            classification = extraction_results.get("classification", "")
+            
+            if classification == "Bank Statement" and extracted_text:
+                math_res = validate_bank_statement_math(extracted_text)
+                if math_res.get("validation_results"):
+                    for vr in math_res["validation_results"]:
+                        anomalies.append({
+                            "type": vr["type"].replace("_", " ").title(),
+                            "severity": vr["severity"].upper(),
+                            "description": vr["description"]
+                        })
+            elif classification == "Payslip" and extracted_text:
+                math_res = validate_payslip_math(extracted_text)
+                if math_res.get("validation_results"):
+                    for vr in math_res["validation_results"]:
+                        anomalies.append({
+                            "type": vr["type"].replace("_", " ").title(),
+                            "severity": vr["severity"].upper(),
+                            "description": vr["description"]
+                        })
+        except Exception as e_ext:
+            logger.error(f"Legacy process_document text/math analysis failed: {e_ext}")
+            
         # Calculate a simple score
         score = 100.0
-        if forensic_results:
-            score = max(0.0, 100.0 - (len(forensic_results) * 15))
+        if anomalies:
+            score = max(0.0, 100.0 - (len(anomalies) * 15))
             
         class DirectAnalysisResult:
-            def __init__(self, score, status, anomalies):
+            def __init__(self, score, status, anomalies_list):
                 self.fraud_probability_score = round(100.0 - score, 2)
-                self.status = status
-                self.anomalies = anomalies
-                self.ai_summary = f"Direct analysis of document complete. Identified {len(anomalies)} potential anomaly/anomalies."
+                self.status = "LOW_RISK" if self.fraud_probability_score <= 40 else ("MEDIUM_RISK" if self.fraud_probability_score < 70 else "HIGH_RISK")
+                self.anomalies = anomalies_list
+                self.ai_summary = f"Direct analysis of document complete. Identified {len(anomalies_list)} potential anomaly/anomalies."
                 
-        return DirectAnalysisResult(score, "COMPLETED", forensic_results)
+        return DirectAnalysisResult(score, "COMPLETED", anomalies)
 
     async def run_analysis(self, investigation_id: str):
         """
@@ -87,25 +135,83 @@ class InvestigationManager:
             if extraction_success_count == 0:
                 raise Exception("Unable to extract text from uploaded documents. All documents failed extraction.")
             
-            # 2. Context Validation
-            await self._update_status(db, investigation, "PROCESSING", 60, "CONTEXT_VALIDATION")
+            # Auto-detect context if set to "Automatic Detection"
+            if investigation.context == "Automatic Detection":
+                classifications = [d.classification for d in docs if d.classification]
+                detected_context = "Loan Approval" # Default fallback
+                
+                if any(c in ["Mortgage Statement", "Property Deed", "Title Deed"] for c in classifications):
+                    detected_context = "Mortgage Underwriting"
+                elif any(c in ["ID Card", "Passport", "Driver's License", "Utility Bill"] for c in classifications):
+                    detected_context = "KYC / Onboarding"
+                elif any("insurance" in str(c).lower() for c in classifications):
+                    detected_context = "Insurance Claims"
+                elif any(c in ["Rental Agreement", "Lease", "Tenancy Agreement"] for c in classifications):
+                    detected_context = "Tenant Screening"
+                elif any(c in ["Audit Report", "Financial Statement", "Balance Sheet"] for c in classifications):
+                    detected_context = "Internal Audit"
+                elif any(c in ["Bank Statement", "Payslip"] for c in classifications):
+                    detected_context = "Loan Approval"
+                    
+                investigation.context = detected_context
+                if investigation.title == "Investigation: Automatic Detection":
+                    investigation.title = f"Investigation: {detected_context}"
+                
+                db.commit()
+                log_event(db, investigation_id, "CONTEXT_AUTO_DETECTED", f"Automatically detected case context: {detected_context}")
+            
+            # 2. Reconcile entities cross-document & context validation
+            await self._update_status(db, investigation, "PROCESSING", 60, "Context Validation")
+            self._reconcile_cross_document_entities(db, investigation)
             self._run_context_validation(db, investigation)
             
             # 3. Cross-Document Validation
-            await self._update_status(db, investigation, "PROCESSING", 70, "CROSS_DOCUMENT_VALIDATION")
-            cross_document_validator.validate_investigation(db, investigation_id)
+            from core.settings_store import settings_store
+            if settings_store.get("enable_cross_doc_matching", True):
+                await self._update_status(db, investigation, "PROCESSING", 70, "Cross-document Matching")
+                cross_document_validator.validate_investigation(db, investigation_id)
+            else:
+                logger.info("Cross-document matching is disabled by configuration.")
             
             # 4. Trust Scoring
-            await self._update_status(db, investigation, "PROCESSING", 80, "CALCULATING_TRUST_SCORE")
+            await self._update_status(db, investigation, "PROCESSING", 78, "Reference Comparison")
+            await self._update_status(db, investigation, "PROCESSING", 84, "Rule Engine")
             self._calculate_final_scores(db, investigation)
             
             # 5. AI Summary
-            await self._update_status(db, investigation, "PROCESSING", 90, "GENERATING_AI_SUMMARY")
+            await self._update_status(db, investigation, "PROCESSING", 92, "AI Investigation")
             self._generate_ai_summary(db, investigation)
             
             # 6. Finalize
-            await self._update_status(db, investigation, "COMPLETED", 100, "ANALYSIS_COMPLETED")
+            await self._update_status(db, investigation, "PROCESSING", 98, "Generating Report")
+            await self._update_status(db, investigation, "COMPLETED", 100, "Finalizing Investigation")
             log_event(db, investigation_id, "REPORT_READY", "The final investigation report is ready for review.")
+
+            # Automatic Baseline Learning
+            if settings_store.get("auto_baseline_learning", True):
+                min_trust = float(settings_store.get("min_trust_threshold", 85.0))
+                if investigation.trust_score is not None and investigation.trust_score >= min_trust:
+                    try:
+                        from layers.scoring.similarity_engine import similarity_engine
+                        from trusted_repository.repository_manager import repository_manager
+                        investigation.is_baseline = True
+                        db.commit()
+                        
+                        features = similarity_engine.generate_feature_vector(db, investigation)
+                        repository_manager.add_entry(
+                            features=features,
+                            metadata={
+                                "investigation_id": investigation.id,
+                                "title": investigation.title or f"Investigation: {investigation.context}",
+                                "context": investigation.context,
+                                "approved_at": investigation.updated_at.isoformat() if investigation.updated_at else None,
+                                "document_count": len(investigation.documents),
+                            }
+                        )
+                        log_event(db, investigation_id, "AUTO_BASELINE_PROMOTED", "Case automatically registered to the Reference Database based on high trust score.")
+                        logger.info(f"Investigation {investigation_id} automatically promoted to baseline reference library.")
+                    except Exception as ex_baseline:
+                        logger.error(f"Failed to auto-promote investigation {investigation_id} to baseline: {ex_baseline}")
 
         except Exception as e:
             logger.exception(f"Pipeline failed for investigation {investigation_id}: {e}")
@@ -126,8 +232,14 @@ class InvestigationManager:
         base_progress = 10
         doc_progress_share = 50 / total # Scale document processing to 50% of total bar
         
-        current_progress = int(base_progress + (index * doc_progress_share))
-        await self._update_status(db, investigation, "PROCESSING", current_progress, f"PROCESSING_DOCUMENT: {doc.filename}")
+        def status_callback(stage_name: str, sub_percent: float):
+            progress_val = int(base_progress + (index * doc_progress_share) + (sub_percent * doc_progress_share))
+            investigation.status = "PROCESSING"
+            investigation.progress = min(99, max(0, progress_val))
+            investigation.current_stage = f"{stage_name}: {doc.filename}"
+            db.commit()
+
+        status_callback("Preparing OCR Pipeline", 0.0)
         
         try:
             # Read file bytes
@@ -135,7 +247,7 @@ class InvestigationManager:
                 file_bytes = f.read()
                 
             # A. Extraction Layer
-            results = extraction_service.process_document(file_bytes, doc.filename, doc.file_type)
+            results = extraction_service.process_document(file_bytes, doc.filename, doc.file_type, status_callback=status_callback)
             
             doc.extracted_text = results.get("extracted_text")
             doc.classification = results.get("classification")
@@ -162,26 +274,30 @@ class InvestigationManager:
                 return False
 
             # B. Forensics Layer (Single Doc)
-            forensics_metadata = results.get("metadata", {})
-            if isinstance(forensics_metadata, dict):
-                forensics_metadata = forensics_metadata.copy()
-                forensics_metadata["extracted_text"] = results.get("extracted_text", "")
-            else:
-                forensics_metadata = {"extracted_text": results.get("extracted_text", "")}
+            from core.settings_store import settings_store
+            if settings_store.get("enable_metadata_analysis", True):
+                forensics_metadata = results.get("metadata", {})
+                if isinstance(forensics_metadata, dict):
+                    forensics_metadata = forensics_metadata.copy()
+                    forensics_metadata["extracted_text"] = results.get("extracted_text", "")
+                else:
+                    forensics_metadata = {"extracted_text": results.get("extracted_text", "")}
+                    
+                forensic_findings = digital_forensics.analyze(file_bytes, doc.filename, doc.file_type, forensics_metadata)
                 
-            forensic_findings = digital_forensics.analyze(file_bytes, doc.filename, doc.file_type, forensics_metadata)
-            
-            for ff in forensic_findings:
-                finding = Finding(
-                    investigation_id=investigation.id,
-                    layer_source="FORENSIC",
-                    name=ff["name"],
-                    severity=ff["severity"],
-                    description=ff["description"],
-                    metadata_json=ff.get("evidence", [])
-                )
-                db.add(finding)
-                log_event(db, investigation.id, "FINDING_DETECTED", f"Forensic flag: {ff['name']} on {doc.filename}")
+                for ff in forensic_findings:
+                    finding = Finding(
+                        investigation_id=investigation.id,
+                        layer_source="FORENSIC",
+                        name=ff["name"],
+                        severity=ff["severity"],
+                        description=ff["description"],
+                        metadata_json=ff.get("evidence", [])
+                    )
+                    db.add(finding)
+                    log_event(db, investigation.id, "FINDING_DETECTED", f"Forensic flag: {ff['name']} on {doc.filename}")
+            else:
+                logger.info("Metadata analysis is disabled by configuration.")
             
             db.commit()
             return True
@@ -338,7 +454,7 @@ class InvestigationManager:
         t, c, r = trust_engine.calculate_scores(findings, metrics, expected, total_docs)
         
         investigation.trust_score = t
-        investigation.confidence_score = c
+        investigation.confidence_score = None
         investigation.recommendation = r
         db.commit()
 
@@ -474,7 +590,6 @@ class InvestigationManager:
         data = {
             "context": investigation.context,
             "trust_score": investigation.trust_score,
-            "confidence_score": investigation.confidence_score,
             "recommendation": investigation.recommendation,
             "findings": [
                 {
@@ -531,5 +646,44 @@ class InvestigationManager:
         # For now we keep them but add a 'RESTARTED' event.
         log_event(db, investigation.id, "ANALYSIS_RESTARTED", "Investigation analysis has been restarted.")
         db.commit()
+
+    def _reconcile_cross_document_entities(self, db: Session, investigation: Investigation):
+        """
+        Reconciles names and identity fields across all documents in the investigation.
+        If Doc A has a clean fully-qualified name (e.g. 'SHLOK PAREKH') and Doc B has a slightly
+        noisy/partial name (e.g. 'SHLOK PARE') that is highly similar (similarity > 85%), 
+        we reconcile Doc B's name to the more complete Doc A name to fix partial extractions.
+        """
+        from layers.cross_document.normalizer import normalizer
+        docs = investigation.documents
+        if len(docs) < 2:
+            return
+            
+        # Find the best validated name across all documents
+        best_name = None
+        for doc in docs:
+            name = doc.entities_json.get("name") if doc.entities_json else None
+            if name and name != "-":
+                if not best_name or len(name) > len(best_name):
+                    best_name = name
+                    
+        if best_name:
+            # Check other documents and reconcile if they have a highly similar but shorter/noisy name
+            for doc in docs:
+                name = doc.entities_json.get("name") if doc.entities_json else None
+                if name and name != "-" and name != best_name:
+                    norm1 = normalizer.normalize_name(name)
+                    norm2 = normalizer.normalize_name(best_name)
+                    sim = normalizer.calculate_similarity(norm1, norm2)
+                    if sim < 0.92:
+                        sim = max(sim, normalizer.handle_abbreviation(name, best_name), normalizer.handle_abbreviation(best_name, name))
+                        
+                    # If they are very similar (e.g. 85%), reconcile to the best name!
+                    if sim >= 0.85:
+                        entities = doc.entities_json.copy()
+                        entities["name"] = best_name
+                        doc.entities_json = entities
+                        
+            db.commit()
 
 investigation_manager = InvestigationManager()

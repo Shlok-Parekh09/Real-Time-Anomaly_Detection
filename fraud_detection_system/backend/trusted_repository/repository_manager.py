@@ -30,6 +30,17 @@ class TrustedRepository:
         })
         self.repo_path.write_text(json.dumps(data))
 
+    def remove_entry(self, investigation_id: str):
+        """
+        Removes a trusted entry from the repository by investigation ID.
+        """
+        data = json.loads(self.repo_path.read_text())
+        data = [
+            entry for entry in data
+            if entry.get("metadata", {}).get("investigation_id") != investigation_id
+        ]
+        self.repo_path.write_text(json.dumps(data))
+
     def get_all_features(self) -> List[Dict[str, Any]]:
         """
         Returns all feature vectors in the repository.

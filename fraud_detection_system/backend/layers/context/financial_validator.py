@@ -5,7 +5,7 @@ from models.domain import AnomalyFeature
 
 def extract_monetary_values(text: str) -> list[float]:
     """Extracts formatted amounts (e.g., 1,234.50 or 500.00) from text."""
-    pattern = r'\b\d{1,3}(?:,\d{3})*\.\d{2}\b'
+    pattern = r'\b\d{1,3}(?:,\d{3})*\.\d{2}\b|\b\d+\.\d{2}\b'
     matches = re.findall(pattern, text)
     return [float(m.replace(',', '')) for m in matches]
 
@@ -115,8 +115,8 @@ def validate_bank_statement_math(text: str) -> dict:
             
             # If none of the basic arithmetic relationships hold
             min_diff = min(diff_add, diff_sub, diff_sub2)
-            if min_diff > 0.01 and min_diff < a * 0.001:
-                # Very close but not exact — suspicious rounding/tampering
+            if min_diff > 0.01:
+                # Discrepancy detected — suspicious math/tampering
                 mismatches += 1
     
     has_mismatch = mismatches > 0 and checks > 0 and (mismatches / checks) > 0.3

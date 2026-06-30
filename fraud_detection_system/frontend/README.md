@@ -45,7 +45,7 @@ src/
 
 ## 🔗 Backend Integration
 
-The frontend expects a FastAPI backend running at `http://localhost:8000`. You can configure the API endpoint in your `.env` file (see `.env.example`).
+The frontend expects a FastAPI backend running at `http://localhost:8001` when launched with `make start`. You can configure the API endpoint in your `.env` file (see `.env.example`).
 
 ---
 

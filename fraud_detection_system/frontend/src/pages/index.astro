@@ -1,5 +1,5 @@
 ---
-import { Search, User, Menu, X, Play, ChevronLeft, ChevronRight, Star, Clock, Calendar } from "lucide-astro";
+import { Menu, X, Play } from "lucide-astro";
 import "../styles/global.css";
 ---
 
@@ -69,7 +69,7 @@ import "../styles/global.css";
         opacity: 0;
         animation: blurFadeUp 1s ease-out forwards;
       }
-
+      
       /* Mobile dropdown link transition properties */
       .mobile-link {
         transform: translateX(-16px);
@@ -91,19 +91,29 @@ import "../styles/global.css";
         flex-direction: column;
         justify-content: space-between;
       }
+
+      @keyframes cloudDrift {
+        0%, 100% { transform: translate3d(0, 0, 0) scale(1); }
+        50% { transform: translate3d(4vw, -3vh, 0) scale(1.08); }
+      }
+
+      .offline-cloud {
+        position: fixed;
+        border-radius: 9999px;
+        filter: blur(100px);
+        opacity: 0.72;
+        pointer-events: none;
+        animation: cloudDrift 16s ease-in-out infinite;
+      }
     </style>
   </head>
   <body class="bg-black select-none">
     
-    <!-- Background Cinematic Loop Video -->
-    <video 
-      src="https://d8j0ntlcm91z4.cloudfront.net/user_38xzZboKViGWJOttwIXH07lWA1P/hf_20260406_094145_4a271a6c-3869-4f1c-8aa7-aeb0cb227994.mp4" 
-      autoplay 
-      loop 
-      muted 
-      playsinline 
-      class="fixed inset-0 w-full h-full object-cover z-0 pointer-events-none"
-    ></video>
+    <!-- Offline cloudy blue/orange background -->
+    <div class="fixed inset-0 z-0 bg-[radial-gradient(circle_at_20%_20%,#1d4ed8_0%,transparent_34%),radial-gradient(circle_at_82%_75%,#f97316_0%,transparent_32%),linear-gradient(135deg,#020617_0%,#0f172a_55%,#111827_100%)]"></div>
+    <div class="offline-cloud z-[1] -left-[10vw] top-[12vh] w-[55vw] h-[55vh] bg-blue-700/70"></div>
+    <div class="offline-cloud z-[1] right-[-12vw] bottom-[4vh] w-[50vw] h-[45vh] bg-orange-500/55" style="animation-delay: -6s;"></div>
+    <div class="offline-cloud z-[1] left-[36vw] bottom-[20vh] w-[35vw] h-[35vh] bg-cyan-500/25" style="animation-delay: -10s;"></div>
     
     <!-- Blue Tint Overlay (tints the warm orange background video to Banking Blue) -->
     <div 
@@ -119,7 +129,7 @@ import "../styles/global.css";
       "
     ></div>
 
-    <!-- Cinematic Hero Section Grid Layout -->
+    <!-- Cinematic Hero Grid Layout -->
     <div class="full-viewport-hero z-20 relative">
       
       <!-- NAVBAR -->
@@ -131,127 +141,79 @@ import "../styles/global.css";
           <span class="px-2 py-0.5 rounded bg-blue-600 text-white text-[9px] font-black uppercase tracking-widest">Forensics</span>
         </a>
 
-        <!-- Center: Nav links (Hidden below lg breakpoint) -->
-        <div class="hidden lg:flex items-center gap-8">
-          <a href="/dashboard" class="text-sm font-semibold text-white/80 hover:text-blue-400 transition-colors animate-blur-fade-up" style="animation-delay: 100ms;">Workspace Overview</a>
-          <a href="/investigations" class="text-sm font-semibold text-white/80 hover:text-blue-400 transition-colors animate-blur-fade-up" style="animation-delay: 150ms;">Forensics Lab</a>
-          <a href="/investigations" class="text-sm font-semibold text-white/80 hover:text-blue-400 transition-colors animate-blur-fade-up" style="animation-delay: 200ms;">Cross-Doc Engine</a>
-          <a href="/dashboard" class="text-sm font-semibold text-white/80 hover:text-blue-400 transition-colors animate-blur-fade-up" style="animation-delay: 250ms;">Scoring Engine</a>
-          <a href="/investigations" class="text-sm font-semibold text-white/80 hover:text-blue-400 transition-colors animate-blur-fade-up" style="animation-delay: 300ms;">Timeline Log</a>
-        </div>
-
-        <!-- Right Buttons (Search, Profile, Burger) -->
+        <!-- Right: Investigate Cases pill (subtle, outlined) -->
         <div class="flex items-center gap-4">
-          <!-- Search Pill -->
-          <a href="/investigations" class="hidden sm:flex items-center gap-2 rounded-full px-4 md:px-6 py-2 liquid-glass text-sm font-medium hover:bg-blue-950/20 hover:text-blue-300 transition-all animate-blur-fade-up cursor-pointer" style="animation-delay: 350ms;">
-            <Search class="w-[18px] h-[18px] text-white" />
-            Search
+          <a href="/dashboard" class="hidden lg:inline-flex items-center justify-center px-4 py-2 border border-white/20 bg-white/10 hover:bg-white text-white hover:text-black text-xs font-semibold rounded-full transition-all duration-300 hover:shadow-[0_0_15px_rgba(59,130,246,0.3)] animate-blur-fade-up cursor-pointer" style="animation-delay: 200ms;">
+            Launch Console
           </a>
-
-          <!-- Profile Circle -->
-          <a href="/dashboard" class="hidden sm:flex items-center justify-center w-10 h-10 rounded-full liquid-glass hover:bg-blue-950/20 hover:text-blue-300 transition-all animate-blur-fade-up cursor-pointer" style="animation-delay: 400ms;">
-            <User class="w-[18px] h-[18px] text-white" />
-          </a>
-
+          
           <!-- Hamburger Button (Mobile Only) -->
           <button id="hamburger-btn" class="flex lg:hidden items-center justify-center w-10 h-10 rounded-full liquid-glass hover:bg-blue-950/20 hover:text-blue-300 transition-all animate-blur-fade-up focus:outline-none cursor-pointer" style="animation-delay: 350ms;">
             <div class="relative w-6 h-6 flex items-center justify-center">
-              <!-- Menu Icon -->
               <Menu id="menu-icon" class="w-5 h-5 text-white transition-all duration-500 ease-out" />
-              <!-- Close X Icon -->
               <X id="close-icon" class="absolute w-5 h-5 text-white transition-all duration-500 ease-out scale-50 opacity-0 rotate-180" />
             </div>
           </button>
         </div>
       </nav>
 
-      <!-- MOBILE MENU DROPDOWN (below lg breakpoint) -->
+      <!-- MOBILE MENU DROPDOWN -->
       <div id="mobile-menu" class="absolute top-[72px] left-0 right-0 z-40 flex flex-col p-4 bg-gray-900/95 backdrop-blur-lg border-t border-b border-gray-800 shadow-2xl transition-all duration-500 ease-out -translate-y-4 opacity-0 pointer-events-none">
         <div class="flex flex-col gap-2">
-          <a href="/dashboard" class="mobile-link py-3 px-3 rounded-lg hover:bg-gray-800/50 text-sm font-semibold transition-all text-white/95" style="transition-delay: 50ms;">Workspace Overview</a>
-          <a href="/investigations" class="mobile-link py-3 px-3 rounded-lg hover:bg-gray-800/50 text-sm font-semibold transition-all text-white/95" style="transition-delay: 100ms;">Forensics Lab</a>
-          <a href="/investigations" class="mobile-link py-3 px-3 rounded-lg hover:bg-gray-800/50 text-sm font-semibold transition-all text-white/95" style="transition-delay: 150ms;">Cross-Doc Engine</a>
-          <a href="/dashboard" class="mobile-link py-3 px-3 rounded-lg hover:bg-gray-800/50 text-sm font-semibold transition-all text-white/95" style="transition-delay: 200ms;">Scoring Engine</a>
-          <a href="/investigations" class="mobile-link py-3 px-3 rounded-lg hover:bg-gray-800/50 text-sm font-semibold transition-all text-white/95" style="transition-delay: 250ms;">Timeline Log</a>
-        </div>
-        <div class="flex sm:hidden items-center justify-between border-t border-gray-800 mt-4 pt-4 px-2">
-          <a href="/investigations" class="flex items-center gap-2 rounded-full px-5 py-2 liquid-glass text-xs font-semibold hover:bg-blue-950/20 hover:text-blue-300 transition-all text-white">
-            <Search class="w-[14px] h-[14px] text-white" />
-            Search
-          </a>
-          <a href="/dashboard" class="flex items-center justify-center w-9 h-9 rounded-full liquid-glass hover:bg-blue-950/20 hover:text-blue-300 transition-all text-white">
-            <User class="w-4 h-4 text-white" />
-          </a>
+          <a href="/dashboard" class="mobile-link py-3 px-3 rounded-lg hover:bg-gray-800/50 text-sm font-semibold transition-all text-white/95" style="transition-delay: 50ms;">Launch Console</a>
         </div>
       </div>
 
-      <!-- HERO CONTENT (Bottom viewport layout) -->
+      <!-- HERO CONTENT -->
       <div class="relative z-30 flex-1 flex flex-col justify-end px-4 sm:px-6 md:px-12 pb-8 md:pb-16 bg-transparent">
         <div class="flex flex-col md:flex-row items-end justify-between gap-8">
           
           <!-- Left side Content Block -->
           <div class="flex-1 max-w-3xl space-y-4">
             
-            <!-- Metadata Row -->
-            <div class="flex flex-wrap items-center gap-3 sm:gap-6 mb-6 md:mb-8 text-xs sm:text-sm font-medium text-white/90 animate-blur-fade-up" style="animation-delay: 300ms;">
-              <!-- Accuracy Metric -->
+            <!-- Metadata Badges -->
+            <div class="flex flex-wrap items-center gap-3 sm:gap-6 mb-6 md:mb-8 text-xs sm:text-sm font-semibold text-white/95 animate-blur-fade-up" style="animation-delay: 300ms;">
               <div class="flex items-center gap-1.5">
-                <Star class="w-4 h-4 sm:w-5 sm:h-5 fill-blue-400 text-blue-400" />
-                <span>9.8/10 Trust Rating</span>
+                <span class="w-2 h-2 bg-emerald-500 rounded-full animate-pulse"></span>
+                <span>Local AI Engine</span>
               </div>
-              <span class="w-1 h-1 bg-white/40 rounded-full"></span>
-              <!-- Pipeline Duration -->
+              <span class="w-1.5 h-1.5 bg-white/30 rounded-full"></span>
               <div class="flex items-center gap-1.5">
-                <Clock class="w-4 h-4 text-blue-400" />
-                <span>Real-Time Pipeline</span>
-              </div>
-              <span class="w-1 h-1 bg-white/40 rounded-full"></span>
-              <!-- Calendar/Local Status -->
-              <div class="flex items-center gap-1.5">
-                <Calendar class="w-4 h-4 text-blue-400" />
-                <span>Local First Engine</span>
+                <span class="w-2 h-2 bg-emerald-500 rounded-full"></span>
+                <span>Offline Processing</span>
               </div>
             </div>
 
             <!-- Title Header -->
             <h1 class="text-3xl sm:text-5xl md:text-6xl lg:text-7xl font-normal tracking-tight text-white mb-4 md:mb-6 leading-none animate-blur-fade-up" style="letter-spacing: -0.04em; animation-delay: 400ms;">
-              Step Through.<br class="hidden sm:inline"/> Work Smarter.
+              AI Forensic Investigation<br class="hidden sm:inline"/> & Document Fraud Orchestrator
             </h1>
 
             <!-- Description -->
             <p class="text-base sm:text-lg md:text-xl text-gray-400 mb-6 md:mb-12 max-w-2xl leading-relaxed animate-blur-fade-up" style="animation-delay: 500ms;">
-              An enterprise-grade document fraud and forensic platform. Correlate identity, transaction math, and pixel compression signatures locally with zero cloud dependencies.
+              An offline-first AI investigation orchestrator for forensic document analysis, cross-document verification, and fraud detection.
             </p>
 
             <!-- CTA Actions Buttons Row -->
             <div class="flex flex-wrap items-center gap-3 sm:gap-4 pt-4">
-              <!-- Play / Investigate CTA -->
               <a href="/dashboard" class="flex items-center gap-2 rounded-full px-6 sm:px-8 py-2.5 sm:py-3 bg-white text-black text-sm font-semibold shadow-lg hover:bg-blue-50 hover:text-blue-900 hover:shadow-[0_0_20px_rgba(59,130,246,0.4)] transition-all cursor-pointer animate-blur-fade-up" style="animation-delay: 600ms;">
                 <Play class="w-[18px] h-[18px] fill-black text-black" />
-                Investigate
-              </a>
-              <!-- Learn More -->
-              <a href="/investigations" class="rounded-full px-6 sm:px-8 py-2.5 sm:py-3 liquid-glass text-white text-sm font-semibold hover:bg-blue-950/20 hover:text-blue-300 transition-all cursor-pointer animate-blur-fade-up" style="animation-delay: 700ms;">
-                Learn More
+                Investigate Cases
               </a>
             </div>
 
           </div>
 
-          <!-- Right side: Quick Case Nav arrows -->
-          <div class="flex items-center gap-3 self-start md:self-auto">
-            <!-- Previous case arrow -->
-            <a href="/investigations" class="flex items-center justify-center rounded-full px-4 sm:px-6 py-2.5 sm:py-3 liquid-glass hover:bg-blue-950/20 hover:text-blue-300 transition-all cursor-pointer animate-blur-fade-up" style="animation-delay: 800ms;" title="Investigations Archive">
-              <ChevronLeft class="w-[18px] h-[18px] text-white" />
-            </a>
-            <!-- Next case arrow -->
-            <a href="/new-investigation" class="flex items-center justify-center rounded-full px-4 sm:px-6 py-2.5 sm:py-3 liquid-glass hover:bg-blue-950/20 hover:text-blue-300 transition-all cursor-pointer animate-blur-fade-up" style="animation-delay: 900ms;" title="New Investigation">
-              <ChevronRight class="w-[18px] h-[18px] text-white" />
-            </a>
-          </div>
+          <!-- Empty Right side to keep left content formatted -->
+          <div class="flex items-center gap-3 self-start md:self-auto"></div>
 
         </div>
       </div>
+
+      <!-- MINIMAL FOOTER -->
+      <footer class="relative z-30 py-6 border-t border-white/5 text-center text-[10px] font-bold text-white/40 uppercase tracking-widest bg-transparent flex-shrink-0">
+        &copy; 2026 Anobis Forensic Lab. All rights reserved. Offline Sandbox.
+      </footer>
 
     </div>
 
@@ -280,7 +242,7 @@ import "../styles/global.css";
           closeIcon?.classList.remove('scale-50', 'opacity-0', 'rotate-180');
         }
       });
-      // Early warmup for local LLM (Qwen2.5)
+      // Early warmup for local Gemma reasoning
       import { api } from '../services/api';
       api.warmupLlm().catch(err => console.warn('LLM Warmup skipped/failed:', err));
     </script>

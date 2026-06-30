@@ -16,7 +16,7 @@ When a user clicks "Start Analysis", the following asynchronous pipeline execute
 4.  **Forensics Layer:** Runs deterministic tampering checks (Metadata editing traces, PDF revision history).
 5.  **Context Validation Layer:** Applies business-rule validation based on the investigation context (e.g., Bank Statement math).
 6.  **Cross-Document Validation Layer:** Compares entities across all documents to identify inconsistencies.
-7.  **Trust Engine:** Aggregates all findings into a final 0-100 Trust Score and Confidence Score.
+7.  **Trust Engine:** Aggregates all findings into a final public 0-100 Trust Score plus internal extraction-quality gates.
 8.  **AI Summary Layer:** Translates technical forensic findings into plain English and Hindi summaries.
 9.  **Reporting Layer:** Synthesizes all data into a unified JSON/PDF audit report.
 
@@ -57,14 +57,14 @@ Anobis uses a relational SQLite schema (via SQLAlchemy):
 *   **Caps:** Max LOW deduction is 25; Max MEDIUM is 50. HIGH is uncapped.
 *   **Bonuses:** +5 for complete document sets; +5 for strong cross-doc consistency.
 
-### Confidence Score (Quality)
-*   **Formula:** `(OCR_Quality * 0.4) + (Entity_Success * 0.4) + (Evidence_Clarity * 0.2)`
-*   **Penalty:** -20 for missing required documents.
+### Internal Quality Gates
+*   **Inputs:** OCR quality, entity extraction coverage, document completeness, and evidence clarity.
+*   **Use:** Quality gates influence manual-review routing but are not exposed as a separate UI/report score.
 
 ### Recommendation Matrix
-*   **AUTO_APPROVE:** Trust > 85 AND Confidence > 80.
+*   **AUTO_APPROVE:** Trust > 85 with complete required documents and acceptable extraction quality.
 *   **HIGH_RISK_MANUAL_REVIEW:** Trust < 50.
-*   **MANUAL_REVIEW:** All other cases or if Confidence < 60.
+*   **MANUAL_REVIEW:** All other cases or cases with insufficient extraction quality.
 
 ---
 
@@ -87,7 +87,7 @@ The frontend interacts with the system via a **Polling Pattern**:
 | **Hindi Support** | IMPLEMENTED |
 | **Image ELA** | PLANNED |
 | **KNN Anomalies** | PLANNED |
-| **PDF Export** | PLANNED |
+| **PDF Export** | IMPLEMENTED |
 
 ---
 

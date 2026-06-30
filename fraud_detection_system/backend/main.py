@@ -29,6 +29,19 @@ logger = logging.getLogger(__name__)
 # Create all database tables on startup
 Base.metadata.create_all(bind=engine)
 
+# Migration: ensure investigations table has is_baseline column if it already exists
+try:
+    from sqlalchemy import inspect, text
+    inspector = inspect(engine)
+    columns = [col["name"] for col in inspector.get_columns("investigations")]
+    if "is_baseline" not in columns:
+        logger.info("Migrating database: adding 'is_baseline' column to 'investigations' table...")
+        with engine.begin() as conn:
+            conn.execute(text("ALTER TABLE investigations ADD COLUMN is_baseline BOOLEAN DEFAULT 0"))
+        logger.info("Database migration complete.")
+except Exception as e:
+    logger.error(f"Failed to run is_baseline database migration: {e}")
+
 app = FastAPI(
     title="Anobis — Document Fraud & Anomaly Detection API",
     description=(
