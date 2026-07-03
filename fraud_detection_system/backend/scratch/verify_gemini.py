@@ -55,7 +55,7 @@ async def verify_pipeline():
     active_key = env_key or config_key
     if active_key:
         print("\n3. Testing Gemini API connectivity...")
-        url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key={active_key}"
+        url = f"https://generativelanguage.googleapis.com/v1beta/models/gemma-4-31b-it:generateContent?key={active_key}"
         headers = {"Content-Type": "application/json"}
         payload = {
             "contents": [{"parts": [{"text": "Reply with only the word: CONNECTED"}]}]

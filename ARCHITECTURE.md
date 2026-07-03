@@ -136,7 +136,7 @@ Matches completed investigations against baseline case patterns using Case-Based
 The **AI Summary Layer** (`layers/ai/summary_generator.py`) generates bilingual summaries (English and Hindi) based on deterministic metrics:
 
 - **Routing Logic:** Resolved dynamically by the `AIProviderManager`:
-  - **Enhanced Mode (Gemini API):** Calls `gemini-2.5-flash` at `https://generativelanguage.googleapis.com` if `ai_mode` is set to "enhanced" and a Gemini key is configured.
+  - **Enhanced Mode (Gemini API):** Calls `gemma-4-31b-it` at `https://generativelanguage.googleapis.com` if `ai_mode` is set to "enhanced" and a Gemini key is configured.
   - **Offline Mode (Local Ollama):** Calls local Ollama (defaults to `gemma4:e4b`) at `http://localhost:11434`.
   - **Provider Fallback:** If a Gemini API call fails (network issue, rate limit), the manager automatically falls back to local Ollama.
   - **Deterministic Fallback:** If Ollama is offline or the model is missing, the pipeline falls back to a deterministic, template-based JSON summary in English and Hindi to guarantee zero-crash execution.

@@ -48,7 +48,7 @@ We designed and implemented a modular backend architecture alongside a high-dens
 - **Multi-Pass OCR & Retry:** Integrates Tesseract OCR (with English and Hindi language support). If a critical identity document fails extraction, the system automatically triggers a second pass rendering at 3.0x scale with Adaptive Gaussian Thresholding.
 - **Deterministic Forensics:** Evaluates PDF revision markers (`%%EOF`), modification histories, mixed consumer fonts, out-of-order date formats, Benford's Law distribution anomalies, and perfect round-number transaction ratios.
 - **Cross-Doc Intelligence:** Leverages Jaro-Winkler, Levenshtein, and token-set-ratio matching to compare normalized entities, handle name abbreviations (e.g., "R. Sharma" vs. "Rahul Sharma"), and automatically reconcile partial name values.
-- **AI Routing & Self-Review:** Dispatches JSON summary requests to local Ollama (`gemma4:e4b`) or Gemini API (`gemini-2.5-flash`), with automatic provider switching on failure. It features a secondary peer-review prompt to check for hallucinations and correct them.
+- **AI Routing & Self-Review:** Dispatches JSON summary requests to local Ollama (`gemma4:e4b`) or Gemini API (`gemma-4-31b-it`), with automatic provider switching on failure. It features a secondary peer-review prompt to check for hallucinations and correct them.
 - **Browser-Native TTS:** Utilizes the Web Speech API on the client side to read summaries aloud in English and Hindi.
 - **PDF Report Generation:** Uses ReportLab to generate downloadable forensic audit reports complete with watermarks, OCR tables, and findings lists.
 

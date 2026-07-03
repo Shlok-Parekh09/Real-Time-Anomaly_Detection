@@ -26,7 +26,7 @@ class AIProviderManager:
         ollama_model = settings_store.get("ollama_model") or settings.OLLAMA_MODEL
 
         if ai_mode == "enhanced" and gemini_key:
-            return "Enhanced", "Gemini API", "gemini-2.5-flash", "https://generativelanguage.googleapis.com"
+            return "Enhanced", "Gemini API", "gemma-4-31b-it", "https://generativelanguage.googleapis.com"
         else:
             return "Offline", "Local Ollama", ollama_model, ollama_url
 
@@ -74,7 +74,7 @@ class AIProviderManager:
                 result = self._call_gemini(system_prompt, user_prompt, gemini_key, temperature, timeout)
                 self.last_latency_ms = int((time.time() - start_time) * 1000)
                 self.last_provider = "Gemini API"
-                self.last_model = "gemini-2.5-flash"
+                self.last_model = "gemma-4-31b-it"
                 return result
             except Exception as e:
                 logger.warning(f"[FALLBACK] Gemini API call failed: {e}. Automatically falling back to local Ollama.")
@@ -95,7 +95,7 @@ class AIProviderManager:
             raise ollama_err
 
     def _call_gemini(self, system_prompt: str, user_prompt: str, gemini_key: str, temperature: float, timeout: float) -> Dict[str, Any]:
-        url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key={gemini_key}"
+        url = f"https://generativelanguage.googleapis.com/v1beta/models/gemma-4-31b-it:generateContent?key={gemini_key}"
         headers = {"Content-Type": "application/json"}
         payload = {
             "contents": [
