@@ -87,7 +87,7 @@ const { title = "Anobis | Investigation Platform", activeTab = 'dashboard' } = A
 								</div>
 								<div class="flex items-center justify-between text-[11px]">
 									<span class="text-slate-500 font-medium">Model:</span>
-									<span id="health-detail-model" class="font-semibold text-slate-800">gemma4:e4b</span>
+									<span id="health-detail-model" class="font-semibold text-slate-800">gemma-4-31b-it</span>
 								</div>
 								<div class="flex items-center justify-between text-[11px]">
 									<span class="text-slate-500 font-medium">Endpoint/API:</span>
@@ -168,7 +168,7 @@ const { title = "Anobis | Investigation Platform", activeTab = 'dashboard' } = A
 					
 					// Update Hover Card details
 					if (dProvider) dProvider.textContent = res.provider || 'Local Ollama';
-					if (dModel) dModel.textContent = res.model || 'gemma4:e4b';
+					if (dModel) dModel.textContent = res.model || 'gemma-4-31b-it';
 					if (dEndpoint) dEndpoint.textContent = res.endpoint || 'http://localhost:11434';
 					if (dMode) dMode.textContent = res.execution_mode || 'Offline';
 					if (dInference) dInference.textContent = aiReady ? `${res.startup_latency_ms} ms` : 'N/A';
@@ -191,7 +191,7 @@ const { title = "Anobis | Investigation Platform", activeTab = 'dashboard' } = A
 						if (dAi) dAi.innerHTML = '<span class="text-emerald-600 font-bold">🟢 Ready</span>';
 						if (dReasonRow) dReasonRow.classList.add('hidden');
 					} else {
-						const failReason = res.reason || 'gemma4:e4b not installed';
+						const failReason = res.reason || 'gemma-4-31b-it not installed';
 						statusEl.innerHTML = `
 							<span class="w-1.5 h-1.5 rounded-full bg-rose-500 inline-block"></span>
 							<span class="text-rose-700">Offline</span>

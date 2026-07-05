@@ -48,7 +48,7 @@ We designed and implemented a modular backend architecture alongside a high-dens
 - **Multi-Pass OCR & Retry:** Integrates Tesseract OCR (with English and Hindi language support). If a critical identity document fails extraction, the system automatically triggers a second pass rendering at 3.0x scale with Adaptive Gaussian Thresholding.
 - **Deterministic Forensics:** Evaluates PDF revision markers (`%%EOF`), modification histories, mixed consumer fonts, out-of-order date formats, Benford's Law distribution anomalies, and perfect round-number transaction ratios.
 - **Cross-Doc Intelligence:** Leverages Jaro-Winkler, Levenshtein, and token-set-ratio matching to compare normalized entities, handle name abbreviations (e.g., "R. Sharma" vs. "Rahul Sharma"), and automatically reconcile partial name values.
-- **AI Routing & Self-Review:** Dispatches JSON summary requests to local Ollama (`gemma4:e4b`) or Gemini API (`gemma-4-31b-it`), with automatic provider switching on failure. It features a secondary peer-review prompt to check for hallucinations and correct them.
+- **AI Routing & Self-Review:** Dispatches JSON summary requests to local Ollama (`gemma-4-31b-it`) or Gemini API (`gemma-4-31b-it`), with automatic provider switching on failure. It features a secondary peer-review prompt to check for hallucinations and correct them.
 - **Browser-Native TTS:** Utilizes the Web Speech API on the client side to read summaries aloud in English and Hindi.
 - **PDF Report Generation:** Uses ReportLab to generate downloadable forensic audit reports complete with watermarks, OCR tables, and findings lists.
 
@@ -276,7 +276,7 @@ Anobis stores configuration parameters in `uploads/settings.json`, editable via 
 | :--- | :--- | :--- |
 | `ai_mode` | `"offline"` | AI provider strategy (`offline` for local Ollama, `enhanced` for Gemini API). |
 | `ollama_url` | `"http://localhost:11434"` | Port URL for local Ollama container. |
-| `ollama_model` | `"gemma4:e4b"` | Model used for local audit summary generation. |
+| `ollama_model` | `"gemma-4-31b-it"` | Model used for local audit summary generation. |
 | `gemini_api_key` | `""` | Key string for Gemini API cloud-hosted enhanced processing. |
 | `min_trust_threshold` | `85.0` | Cutoff trust score below which manual review is triggered. |
 | `baseline_similarity_threshold` | `60.0` | KNN similarity percentage to return matches. |
@@ -448,7 +448,7 @@ Anobis is designed with a **privacy-first approach** for banking environments:
 ---
 
 ## 🎯 Challenges Faced
-- **CPU LLM Latency:** Running local LLMs like `gemma4:e4b` on CPU-only machines can result in initial response times of 40–90 seconds. We implemented a startup warmup routine (`/system/warmup`) that pre-loads models to mitigate this latency.
+- **CPU LLM Latency:** Running local LLMs like `gemma-4-31b-it` on CPU-only machines can result in initial response times of 40–90 seconds. We implemented a startup warmup routine (`/system/warmup`) that pre-loads models to mitigate this latency.
 - **Noisy Document Scans:** Poor-quality document scans often result in distorted characters, causing regex failures. We addressed this by building a multi-pass adaptive OCR retry mechanism that applies bilateral denoising, adaptive thresholding, and upscaling to refine text extraction.
 
 ---

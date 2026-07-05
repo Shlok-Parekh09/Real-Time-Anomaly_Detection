@@ -10,10 +10,13 @@ class DocumentClassifier:
         "Bank Statement": [
             r"(?i)bank\s+statement",
             r"(?i)account\s+summary",
+            r"(?i)account\s+statement",
             r"(?i)transaction\s+history",
             r"(?i)balance\s+as\s+of",
             r"(?i)deposits\s+and\s+credits",
-            r"(?i)withdrawals\s+and\s+debits"
+            r"(?i)withdrawals\s+and\s+debits",
+            r"(?i)opening\s+balance",
+            r"(?i)closing\s+balance"
         ],
         "Payslip": [
             r"(?i)payslip",

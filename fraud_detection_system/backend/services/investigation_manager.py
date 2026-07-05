@@ -66,14 +66,14 @@ class InvestigationManager:
             classification = extraction_results.get("classification", "")
             
             if classification == "Bank Statement" and extracted_text:
-                math_res = validate_bank_statement_math(extracted_text)
-                if math_res.get("validation_results"):
-                    for vr in math_res["validation_results"]:
-                        anomalies.append({
-                            "type": vr["type"].replace("_", " ").title(),
-                            "severity": vr["severity"].upper(),
-                            "description": vr["description"]
-                        })
+                from layers.context.balance_validator import validate_running_balances
+                math_anomalies = validate_running_balances(file_path)
+                for anomaly in math_anomalies:
+                    anomalies.append({
+                        "type": anomaly.type,
+                        "severity": anomaly.risk_level.upper(),
+                        "description": anomaly.description
+                    })
             elif classification == "Payslip" and extracted_text:
                 math_res = validate_payslip_math(extracted_text)
                 if math_res.get("validation_results"):
@@ -319,17 +319,17 @@ class InvestigationManager:
 
             # Bank Statement Validation
             if doc.classification == "Bank Statement":
-                results = validate_bank_statement_math(doc.extracted_text)
-                if results.get("validation_results"):
-                    for vr in results["validation_results"]:
-                        finding = Finding(
-                            investigation_id=investigation.id,
-                            layer_source="CONTEXT",
-                            name=vr["type"].replace("_", " ").title(),
-                            severity=vr["severity"].upper(),
-                            description=vr["description"]
-                        )
-                        db.add(finding)
+                from layers.context.balance_validator import validate_running_balances
+                anomalies = validate_running_balances(doc.storage_path)
+                for anomaly in anomalies:
+                    finding = Finding(
+                        investigation_id=investigation.id,
+                        layer_source="CONTEXT",
+                        name=anomaly.type,
+                        severity=anomaly.risk_level.upper(),
+                        description=anomaly.description
+                    )
+                    db.add(finding)
             
             # Payslip Validation
             if doc.classification == "Payslip":

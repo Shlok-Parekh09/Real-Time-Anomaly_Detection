@@ -149,8 +149,8 @@ from core.system_state import startup_time_log
 @app.on_event("startup")
 def startup_event():
     """
-    Check Ollama connectivity, verify gemma4:e4b model exists,
-    and warm up local LLM. Refuses to enter AI mode if gemma4:e4b is missing.
+    Check Ollama connectivity, verify gemma-4-31b-it model exists,
+    and warm up local LLM. Refuses to enter AI mode if gemma-4-31b-it is missing.
     """
     global startup_time_log
     start_t = time.time()
@@ -173,7 +173,7 @@ def startup_event():
                 models = [m.get("name") for m in res_data.get("models", [])]
                 logger.info(f"[STARTUP] Connected to Ollama. Installed models: {models}")
                 
-                # Verify gemma4:e4b exists
+                # Verify gemma-4-31b-it exists
                 model_ok = False
                 for m in models:
                     if gemma_model in m or m.startswith(gemma_model):

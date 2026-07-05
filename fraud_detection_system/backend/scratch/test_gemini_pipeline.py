@@ -22,7 +22,7 @@ def run_gemini_validation():
         "ai_mode": "enhanced",
         "gemini_api_key": gemini_key,
         "ollama_url": "http://localhost:11434",
-        "ollama_model": "gemma4:e4b"
+        "ollama_model": "gemma-4-31b-it"
     })
     print(f"Settings successfully updated. Mode: {settings_store.get('ai_mode')}")
 

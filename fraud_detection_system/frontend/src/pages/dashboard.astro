@@ -245,7 +245,7 @@ import { FileText, CheckCircle, AlertTriangle, ShieldAlert, Plus, ArrowRight, Ex
       const pLabel = document.getElementById('dashboard-provider-label');
       const mLabel = document.getElementById('dashboard-model-label');
       if (pLabel) pLabel.textContent = `Provider: ${res.provider || 'Local Ollama'}`;
-      if (mLabel) mLabel.textContent = `Model: ${res.model || 'gemma4:e4b'}`;
+      if (mLabel) mLabel.textContent = `Model: ${res.model || 'gemma-4-31b-it'}`;
 
       setStatus('system-status-gemma', res.ai === 'ready', res.ai === 'ready' ? 'Ready' : 'Offline');
       setStatus('system-status-ollama', res.ai === 'ready', res.execution_mode || 'Offline');

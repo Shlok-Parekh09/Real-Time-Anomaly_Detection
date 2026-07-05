@@ -137,7 +137,7 @@ The **AI Summary Layer** (`layers/ai/summary_generator.py`) generates bilingual 
 
 - **Routing Logic:** Resolved dynamically by the `AIProviderManager`:
   - **Enhanced Mode (Gemini API):** Calls `gemma-4-31b-it` at `https://generativelanguage.googleapis.com` if `ai_mode` is set to "enhanced" and a Gemini key is configured.
-  - **Offline Mode (Local Ollama):** Calls local Ollama (defaults to `gemma4:e4b`) at `http://localhost:11434`.
+  - **Offline Mode (Local Ollama):** Calls local Ollama (defaults to `gemma-4-31b-it`) at `http://localhost:11434`.
   - **Provider Fallback:** If a Gemini API call fails (network issue, rate limit), the manager automatically falls back to local Ollama.
   - **Deterministic Fallback:** If Ollama is offline or the model is missing, the pipeline falls back to a deterministic, template-based JSON summary in English and Hindi to guarantee zero-crash execution.
 - **AI Peer Self-Review:** When enabled, the manager runs a secondary peer review request through the model to identify hallucinations or unsupported claims in the initial draft, appending corrections to the final summary.

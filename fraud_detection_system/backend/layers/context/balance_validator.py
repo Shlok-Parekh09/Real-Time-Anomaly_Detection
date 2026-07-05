@@ -75,20 +75,30 @@ def _extract_transaction_rows(file_path: str) -> List[Dict[str, Any]]:
                     if not table or len(table) < 2:
                         continue
                     
-                    # Try to identify column indices
-                    header = table[0] if table[0] else []
-                    header_lower = [str(h).lower().strip() if h else "" for h in header]
+                    # Try to find header row dynamically
+                    header_row_idx = -1
+                    balance_col = None
+                    debit_col = None
+                    credit_col = None
+                    amount_col = None
                     
-                    # Find relevant columns by header name
-                    balance_col = _find_column(header_lower, ["balance", "running balance", "closing", "bal"])
-                    debit_col = _find_column(header_lower, ["debit", "withdrawal", "dr", "withdrawals"])
-                    credit_col = _find_column(header_lower, ["credit", "deposit", "cr", "deposits"])
-                    amount_col = _find_column(header_lower, ["amount", "value", "transaction"])
+                    for idx, row in enumerate(table):
+                        if not row: continue
+                        row_lower = [str(c).lower().strip() if c else "" for c in row]
+                        
+                        b_col = _find_column(row_lower, ["balance", "running balance", "closing", "bal"])
+                        if b_col is not None:
+                            header_row_idx = idx
+                            balance_col = b_col
+                            debit_col = _find_column(row_lower, ["debit", "withdrawal", "dr", "withdrawals"])
+                            credit_col = _find_column(row_lower, ["credit", "deposit", "cr", "deposits"])
+                            amount_col = _find_column(row_lower, ["amount", "value", "transaction"])
+                            break
                     
-                    if balance_col is None:
+                    if balance_col is None or header_row_idx == -1:
                         continue  # Can't verify without a balance column
                     
-                    for row_idx, row in enumerate(table[1:], start=1):
+                    for row_idx, row in enumerate(table[header_row_idx + 1:], start=header_row_idx + 1):
                         if not row or len(row) <= balance_col:
                             continue
                         
@@ -100,6 +110,10 @@ def _extract_transaction_rows(file_path: str) -> List[Dict[str, Any]]:
                         credit = _parse_amount(row[credit_col]) if credit_col is not None and credit_col < len(row) else None
                         amount = _parse_amount(row[amount_col]) if amount_col is not None and amount_col < len(row) else None
                         
+                        # Only add if we have at least one transaction amount
+                        if debit is None and credit is None and amount is None:
+                            continue
+                            
                         rows.append({
                             "page": page_num + 1,
                             "row": row_idx,

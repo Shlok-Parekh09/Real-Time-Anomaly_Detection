@@ -77,9 +77,8 @@ class AIProviderManager:
                 self.last_model = "gemma-4-31b-it"
                 return result
             except Exception as e:
-                logger.warning(f"[FALLBACK] Gemini API call failed: {e}. Automatically falling back to local Ollama.")
-                # Fall through to local Ollama on failure
-                start_time = time.time()
+                logger.error(f"Gemini API call failed: {e}. Raising exception to avoid slow Ollama fallback.")
+                raise e
 
         # Local Ollama path (either direct config, or fallback)
         try:
@@ -101,15 +100,11 @@ class AIProviderManager:
             "contents": [
                 {
                     "role": "user",
-                    "parts": [{"text": user_prompt}]
+                    "parts": [{"text": f"SYSTEM INSTRUCTIONS:\n{system_prompt}\n\nUSER PROMPT:\n{user_prompt}\n\nCRITICAL MANDATE: Output ONLY raw valid JSON. Do not include markdown formatting, backticks, or conversational text. Begin exactly with {{ and end with }}."}]
                 }
             ],
-            "systemInstruction": {
-                "parts": [{"text": system_prompt}]
-            },
             "generationConfig": {
-                "temperature": temperature,
-                "responseMimeType": "application/json"
+                "temperature": temperature
             }
         }
         
@@ -171,6 +166,10 @@ class AIProviderManager:
         json_match = re.search(r"\{.*\}", text, re.DOTALL)
         if json_match:
             text = json_match.group(0)
-        return json.loads(text, strict=False)
+        try:
+            return json.loads(text, strict=False)
+        except json.JSONDecodeError as e:
+            logger.error(f"Failed to parse JSON. Text was: {repr(text)}")
+            raise e
 
 ai_provider_manager = AIProviderManager()
