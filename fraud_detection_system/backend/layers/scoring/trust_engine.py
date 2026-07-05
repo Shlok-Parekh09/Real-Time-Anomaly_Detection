@@ -10,6 +10,7 @@ class TrustEngine:
     
     # Deduction Configuration
     SEVERITY_DEDUCTIONS = {
+        "CRITICAL": (40, 60),
         "HIGH": (30, 40),
         "MEDIUM": (15, 20),
         "LOW": (5, 10)
@@ -48,7 +49,7 @@ class TrustEngine:
         score = 100.0
         
         # 1. Group deductions by severity for capping
-        deductions = {"HIGH": 0.0, "MEDIUM": 0.0, "LOW": 0.0}
+        deductions = {"CRITICAL": 0.0, "HIGH": 0.0, "MEDIUM": 0.0, "LOW": 0.0}
         
         for f in findings:
             severity = f.get("severity", "LOW").upper()
@@ -61,7 +62,7 @@ class TrustEngine:
             deductions[severity] += base_deduction * multiplier
 
         # 2. Apply Caps
-        total_deduction = deductions["HIGH"] # Uncapped
+        total_deduction = deductions["CRITICAL"] + deductions["HIGH"] # Uncapped
         total_deduction += min(deductions["MEDIUM"], self.DEDUCTION_CAPS["MEDIUM"])
         total_deduction += min(deductions["LOW"], self.DEDUCTION_CAPS["LOW"])
         
