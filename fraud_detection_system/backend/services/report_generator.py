@@ -104,10 +104,26 @@ class ReportGenerator:
         from reportlab.pdfbase.ttfonts import TTFont
         import io
         import os
+        import urllib.request
+        
+        # Download NotoSansDevanagari if not exists
+        assets_dir = os.path.join(os.path.dirname(__file__), "..", "assets", "fonts")
+        os.makedirs(assets_dir, exist_ok=True)
+        hindi_font_path = os.path.join(assets_dir, "NotoSansDevanagari-Regular.ttf")
+        
+        if not os.path.exists(hindi_font_path):
+            try:
+                urllib.request.urlretrieve(
+                    "https://github.com/googlefonts/noto-fonts/raw/main/hinted/ttf/NotoSansDevanagari/NotoSansDevanagari-Regular.ttf",
+                    hindi_font_path
+                )
+            except Exception as e:
+                print(f"Failed to download Hindi font: {e}")
 
         # Register standard Linux Hindi TrueType font if available
         font_registered = False
         for font_path in [
+            hindi_font_path,
             "/usr/share/fonts/truetype/lohit-devanagari/Lohit-Devanagari.ttf",
             "/usr/share/fonts/truetype/noto/NotoSans-Regular.ttf",
             "/usr/share/fonts/truetype/freefont/FreeSans.ttf",

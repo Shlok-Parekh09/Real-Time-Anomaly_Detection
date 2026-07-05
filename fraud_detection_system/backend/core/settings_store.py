@@ -9,6 +9,7 @@ DEFAULT_SETTINGS = {
   "ollama_model": "gemma4:e4b",
   "ai_mode": "offline", # "offline" (Local Ollama) or "enhanced" (Gemini API)
   "gemini_api_key": os.getenv("GEMINI_API_KEY", ""),
+  "gemini_model": "gemma-4-31b-it",
   "auto_approve_cases": True,
   "min_trust_threshold": 85.0,
   "baseline_similarity_threshold": 60.0,

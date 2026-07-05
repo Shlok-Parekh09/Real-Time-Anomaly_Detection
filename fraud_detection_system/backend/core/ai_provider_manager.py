@@ -26,7 +26,8 @@ class AIProviderManager:
         ollama_model = settings_store.get("ollama_model") or settings.OLLAMA_MODEL
 
         if ai_mode == "enhanced" and gemini_key:
-            return "Enhanced", "Gemini API", "gemma-4-31b-it", "https://generativelanguage.googleapis.com"
+            gemini_model = settings_store.get("gemini_model", "gemini-1.5-pro")
+            return "Enhanced", "Gemini API", gemini_model, "https://generativelanguage.googleapis.com"
         else:
             return "Offline", "Local Ollama", ollama_model, ollama_url
 
@@ -71,10 +72,10 @@ class AIProviderManager:
         if provider == "Gemini API":
             try:
                 gemini_key = settings_store.get("gemini_api_key", "")
-                result = self._call_gemini(system_prompt, user_prompt, gemini_key, temperature, timeout)
+                result = self._call_gemini(system_prompt, user_prompt, gemini_key, model, temperature, timeout)
                 self.last_latency_ms = int((time.time() - start_time) * 1000)
                 self.last_provider = "Gemini API"
-                self.last_model = "gemma-4-31b-it"
+                self.last_model = model
                 return result
             except Exception as e:
                 logger.error(f"Gemini API call failed: {e}. Raising exception to avoid slow Ollama fallback.")
@@ -93,8 +94,8 @@ class AIProviderManager:
             logger.error(f"Local Ollama call failed: {ollama_err}")
             raise ollama_err
 
-    def _call_gemini(self, system_prompt: str, user_prompt: str, gemini_key: str, temperature: float, timeout: float) -> Dict[str, Any]:
-        url = f"https://generativelanguage.googleapis.com/v1beta/models/gemma-4-31b-it:generateContent?key={gemini_key}"
+    def _call_gemini(self, system_prompt: str, user_prompt: str, gemini_key: str, model_name: str, temperature: float, timeout: float) -> Dict[str, Any]:
+        url = f"https://generativelanguage.googleapis.com/v1beta/models/{model_name}:generateContent?key={gemini_key}"
         headers = {"Content-Type": "application/json"}
         payload = {
             "contents": [
