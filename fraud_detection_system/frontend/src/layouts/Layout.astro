@@ -1,7 +1,7 @@
 ---
 import "../styles/global.css";
 import { User, LayoutDashboard, FileSearch, Settings, Plus } from "lucide-astro";
-import { ViewTransitions } from 'astro:transitions';
+import { ClientRouter } from 'astro:transitions';
 
 interface Props {
 	title?: string;
@@ -24,7 +24,7 @@ const { title = "Anobis | Investigation Platform", activeTab = 'dashboard' } = A
 		<link rel="manifest" href="/site.webmanifest" />
 		<meta name="generator" content={Astro.generator} />
 		<title>{title}</title>
-		<ViewTransitions />
+		<ClientRouter />
 	</head>
 	<body class="bg-slate-50 text-slate-900 flex h-screen overflow-hidden">
 		<!-- Main Sidebar -->
