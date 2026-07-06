@@ -1,6 +1,7 @@
 ---
 import "../styles/global.css";
 import { User, LayoutDashboard, FileSearch, Settings, Plus } from "lucide-astro";
+import { ViewTransitions } from 'astro:transitions';
 
 interface Props {
 	title?: string;
@@ -23,6 +24,7 @@ const { title = "Anobis | Investigation Platform", activeTab = 'dashboard' } = A
 		<link rel="manifest" href="/site.webmanifest" />
 		<meta name="generator" content={Astro.generator} />
 		<title>{title}</title>
+		<ViewTransitions />
 	</head>
 	<body class="bg-slate-50 text-slate-900 flex h-screen overflow-hidden">
 		<!-- Main Sidebar -->
@@ -160,7 +162,7 @@ const { title = "Anobis | Investigation Platform", activeTab = 'dashboard' } = A
 				if (!statusEl || !pillEl) return;
 				
 				try {
-					const res = await fetch((import.meta.env.PUBLIC_API_URL || 'http://localhost:8001') + '/api/v1/system/health')
+					const res = await fetch((import.meta.env.PUBLIC_API_URL || 'http://localhost:7860') + '/api/v1/system/health')
 						.then(r => r.json());
 						
 					const datasetLoaded = res.dataset === 'loaded';
