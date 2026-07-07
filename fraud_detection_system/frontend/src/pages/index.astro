@@ -219,6 +219,8 @@ import "../styles/global.css";
 
     <!-- Mobile Drawer Interactivity JavaScript -->
     <script>
+      import { api } from '../services/api';
+      document.addEventListener('astro:page-load', () => {
       const hamburgerBtn = document.getElementById('hamburger-btn');
       const mobileMenu = document.getElementById('mobile-menu');
       const menuIcon = document.getElementById('menu-icon');
@@ -243,9 +245,9 @@ import "../styles/global.css";
         }
       });
       // Early warmup for local Gemma reasoning
-      import { api } from '../services/api';
       api.warmupLlm().catch(err => console.warn('LLM Warmup skipped/failed:', err));
-    </script>
+      });
+</script>
 
   </body>
 </html>

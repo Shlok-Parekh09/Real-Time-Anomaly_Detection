@@ -117,6 +117,9 @@ import { Search, Filter, Plus, ChevronRight, ExternalLink, FileText, Download, M
 <script>
   import { api } from '../services/api';
   import type { Investigation } from '../types/api';
+  document.addEventListener('astro:page-load', () => {
+
+
 
   const investigationsBody = document.getElementById('investigations-body');
   const emptyState = document.getElementById('empty-state');
@@ -388,4 +391,5 @@ import { Search, Filter, Plus, ChevronRight, ExternalLink, FileText, Download, M
 
   // Initial load
   loadInvestigations();
+  });
 </script>

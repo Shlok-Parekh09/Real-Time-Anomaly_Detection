@@ -120,6 +120,8 @@ const contexts = [
 
 <script>
   import { api } from '../services/api';
+  document.addEventListener('astro:page-load', () => {
+
   
   // State
   let currentInvestigationId: string | null = null;
@@ -336,5 +338,6 @@ const contexts = [
 
   document.getElementById('cancel-btn')?.addEventListener('click', () => {
     window.location.href = '/investigations';
+  });
   });
 </script>

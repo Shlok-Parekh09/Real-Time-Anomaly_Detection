@@ -396,6 +396,8 @@ import {
 
 <script>
   import { api } from '../../services/api';
+  document.addEventListener('astro:page-load', () => {
+
 
   // Helper to format backend enums into human-readable strings
   function formatEnum(val: string | null | undefined): string {
@@ -1022,7 +1024,7 @@ import {
     if (!doc) return;
  
     // 1. Update File View (Iframe src)
-    const baseUrl = import.meta.env.PUBLIC_API_URL || 'http://localhost:8001';
+    const baseUrl = import.meta.env.PUBLIC_API_URL || 'http://localhost:7860';
     const iframe = document.getElementById('doc-iframe') as HTMLIFrameElement;
     if (iframe) {
       let fileUrl = `${baseUrl}/api/v1/investigations/${id}/documents/${docId}/file`;
@@ -1160,7 +1162,7 @@ import {
   retryFetch?.addEventListener('click', fetchAndRender);
  
   exportReportBtn?.addEventListener('click', () => {
-    const baseUrl = import.meta.env.PUBLIC_API_URL || 'http://localhost:8001';
+    const baseUrl = import.meta.env.PUBLIC_API_URL || 'http://localhost:7860';
     window.location.href = `${baseUrl}/api/v1/investigations/${id}/report`;
   });
  
@@ -1252,4 +1254,5 @@ import {
   });
 
   init();
+  });
 </script>

@@ -1,6 +1,6 @@
 import type { Investigation, InvestigationFull, InvestigationStatusResponse } from '../types/api';
 
-const BASE_URL = import.meta.env.PUBLIC_API_URL || 'http://localhost:8001';
+const BASE_URL = import.meta.env.PUBLIC_API_URL || 'http://localhost:7860';
 
 class ApiService {
   private async request<T>(path: string, options: RequestInit = {}): Promise<T> {

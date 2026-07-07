@@ -1,9 +1,51 @@
 import os
+import json
+import logging
+import urllib.request
 from pathlib import Path
 from pydantic_settings import BaseSettings
 
+logger = logging.getLogger(__name__)
+
 BACKEND_DIR = Path(__file__).resolve().parents[1]
 PROJECT_ROOT = BACKEND_DIR.parents[1]
+
+
+def list_ollama_models(base_url: str = "http://localhost:11434", timeout: float = 1.5):
+    """Return the list of model names installed in the local Ollama service.
+    Returns an empty list if Ollama is unreachable."""
+    try:
+        req = urllib.request.Request(f"{base_url}/api/tags")
+        with urllib.request.urlopen(req, timeout=timeout) as response:
+            if response.status == 200:
+                data = json.loads(response.read().decode("utf-8"))
+                return [m.get("name") for m in data.get("models", []) if m.get("name")]
+    except Exception:
+        pass
+    return []
+
+
+def resolve_ollama_model(preferred: str, base_url: str = "http://localhost:11434") -> str:
+    """Return the preferred model if installed, otherwise fall back to any
+    available installed model. Returns `preferred` unchanged if Ollama is
+    unreachable (so the caller can decide how to handle the mismatch)."""
+    installed = list_ollama_models(base_url)
+    if not installed:
+        return preferred
+    if preferred in installed or any(m.startswith(preferred) for m in installed):
+        # Bind to the exact installed tag
+        for m in installed:
+            if m == preferred or m.startswith(preferred):
+                return m
+        return preferred
+    # Preferred model not installed — fall back to the first available model
+    fallback = installed[0]
+    logger.warning(
+        f"[OLLAMA] Preferred model '{preferred}' not installed. "
+        f"Falling back to '{fallback}'. Installed: {installed}"
+    )
+    return fallback
+
 
 class Settings(BaseSettings):
     PROJECT_NAME: str = "Anobis — Document Fraud & Anomaly Detection API"

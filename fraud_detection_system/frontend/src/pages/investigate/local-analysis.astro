@@ -109,6 +109,7 @@ const { id } = Astro.params;
 </Layout>
 
 <script>
+  document.addEventListener('astro:page-load', () => {
   window.addEventListener('load', () => {
     const rawData = sessionStorage.getItem('last_investigation_result');
     if (!rawData) {
@@ -199,5 +200,6 @@ const { id } = Astro.params;
     // Reveal Content
     loadingState.classList.add('hidden');
     resultsContent.classList.remove('hidden');
+  });
   });
 </script>

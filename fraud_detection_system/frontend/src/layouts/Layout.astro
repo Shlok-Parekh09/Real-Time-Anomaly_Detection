@@ -18,6 +18,9 @@ const { title = "Anobis | Investigation Platform", activeTab = 'dashboard' } = A
 		<meta name="viewport" content="width=device-width" />
 		<link rel="icon" type="image/png" href="/favicon-96x96.png" sizes="96x96" />
 		<link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+		<link rel="preconnect" href="https://fonts.googleapis.com">
+		<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+		<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Devanagari:wght@400;500;600;700&display=swap" rel="stylesheet">
 		<link rel="shortcut icon" href="/favicon.ico" />
 		<link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
 		<meta name="apple-mobile-web-app-title" content="Anobis" />
@@ -160,17 +163,41 @@ const { title = "Anobis | Investigation Platform", activeTab = 'dashboard' } = A
 				const dReason = document.getElementById('health-detail-reason');
 				
 				if (!statusEl || !pillEl) return;
+
+				// Restore from cache first to make it instant on tab switch
+				const cachedHealth = sessionStorage.getItem('aiHealthCache');
+				if (cachedHealth) {
+					try {
+						const res = JSON.parse(cachedHealth);
+						applyHealthUI(res);
+						if (res.ai === 'ready') return; // Do not check again and again
+					} catch(e) {}
+				}
 				
 				try {
 					const res = await fetch((import.meta.env.PUBLIC_API_URL || 'http://localhost:7860') + '/api/v1/system/health')
 						.then(r => r.json());
-						
+					
+					sessionStorage.setItem('aiHealthCache', JSON.stringify(res));
+					applyHealthUI(res);
+				} catch (e) {
+					statusEl.innerHTML = `
+						<span class="w-1.5 h-1.5 rounded-full bg-rose-500 inline-block"></span>
+						<span class="text-rose-700">System Offline</span>
+					`;
+					pillEl.className = "flex items-center gap-1.5 px-3 py-1 bg-rose-50 border border-rose-200 text-[10px] font-bold rounded-full transition-all duration-300";
+					
+					if (dAi) dAi.innerHTML = '<span class="text-rose-600 font-bold">🔴 System Offline</span>';
+					if (dReasonRow) dReasonRow.classList.remove('hidden');
+					if (dReason) dReason.textContent = 'Unable to connect to local backend API';
+				}
+
+				function applyHealthUI(res: any) {
 					const datasetLoaded = res.dataset === 'loaded';
 					const aiReady = res.ai === 'ready';
 					
-					// Update Hover Card details
 					if (dProvider) dProvider.textContent = res.provider || 'Local Ollama';
-					if (dModel) dModel.textContent = res.model || 'gemma-4-31b-it';
+					if (dModel) dModel.textContent = res.model || 'qwen3.5:9b';
 					if (dEndpoint) dEndpoint.textContent = res.endpoint || 'http://localhost:11434';
 					if (dMode) dMode.textContent = res.execution_mode || 'Offline';
 					if (dInference) dInference.textContent = aiReady ? `${res.startup_latency_ms} ms` : 'N/A';
@@ -193,7 +220,7 @@ const { title = "Anobis | Investigation Platform", activeTab = 'dashboard' } = A
 						if (dAi) dAi.innerHTML = '<span class="text-emerald-600 font-bold">🟢 Ready</span>';
 						if (dReasonRow) dReasonRow.classList.add('hidden');
 					} else {
-						const failReason = res.reason || 'gemma-4-31b-it not installed';
+						const failReason = res.reason || 'qwen3.5:9b not installed';
 						statusEl.innerHTML = `
 							<span class="w-1.5 h-1.5 rounded-full bg-rose-500 inline-block"></span>
 							<span class="text-rose-700">Offline</span>
@@ -204,21 +231,22 @@ const { title = "Anobis | Investigation Platform", activeTab = 'dashboard' } = A
 						if (dReasonRow) dReasonRow.classList.remove('hidden');
 						if (dReason) dReason.textContent = failReason;
 					}
-				} catch (e) {
-					statusEl.innerHTML = `
-						<span class="w-1.5 h-1.5 rounded-full bg-rose-500 inline-block"></span>
-						<span class="text-rose-700">System Offline</span>
-					`;
-					pillEl.className = "flex items-center gap-1.5 px-3 py-1 bg-rose-50 border border-rose-200 text-[10px] font-bold rounded-full transition-all duration-300";
-					
-					if (dAi) dAi.innerHTML = '<span class="text-rose-600 font-bold">🔴 System Offline</span>';
-					if (dReasonRow) dReasonRow.classList.remove('hidden');
-					if (dReason) dReason.textContent = 'Unable to connect to local backend API';
 				}
 			}
 			
-			updateAiHealth();
-			setInterval(updateAiHealth, 10000);
+			document.addEventListener('astro:page-load', updateAiHealth);
+			
+			// Optional: only poll if we haven't succeeded yet
+			setInterval(() => {
+				const cache = sessionStorage.getItem('aiHealthCache');
+				if (cache) {
+					try {
+						const res = JSON.parse(cache);
+						if (res.ai === 'ready') return;
+					} catch(e) {}
+				}
+				updateAiHealth();
+			}, 10000);
 		</script>
 	</body>
 </html>

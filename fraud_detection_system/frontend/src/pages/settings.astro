@@ -81,7 +81,12 @@ import { Save, Cpu, Sliders, Shield, Database, HardDrive, Download, Activity, Re
               </div>
               <div>
                 <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Synthesis Model Name</label>
-                <input id="ollama-model" type="text" value="gemma4:e4b" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded text-sm focus:bg-white focus:border-slate-300 outline-none focus-visible:ring-1 focus-visible:ring-bank-blue transition-all font-semibold" />
+                <select id="ollama-model" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded text-sm focus:bg-white focus:border-slate-300 outline-none focus-visible:ring-1 focus-visible:ring-bank-blue transition-all font-semibold cursor-pointer">
+                  <option value="qwen3.5:9b">Qwen 3.5 9B</option>
+                  <option value="qwen3.5:4b">Qwen 3.5 4B</option>
+                  <option value="gemma4:12b">Gemma 4 12B</option>
+                  <option value="gemma4:e4b">Gemma 4 E4B</option>
+                </select>
               </div>
             </div>
 
@@ -385,6 +390,8 @@ import { Save, Cpu, Sliders, Shield, Database, HardDrive, Download, Activity, Re
 
 <script>
   import { api } from '../services/api';
+  document.addEventListener('astro:page-load', () => {
+
 
   const saveBtn = document.getElementById('save-settings-btn');
   const aiModeSelect = document.getElementById('ai-mode') as HTMLSelectElement;
@@ -406,8 +413,8 @@ import { Save, Cpu, Sliders, Shield, Database, HardDrive, Download, Activity, Re
       const ollamaUrlInput = document.getElementById('ollama-url') as HTMLInputElement;
       if (ollamaUrlInput) ollamaUrlInput.value = data.ollama_url || 'http://localhost:11434';
 
-      const ollamaModelInput = document.getElementById('ollama-model') as HTMLInputElement;
-      if (ollamaModelInput) ollamaModelInput.value = data.ollama_model || 'gemma4:e4b';
+      const ollamaModelInput = document.getElementById('ollama-model') as HTMLSelectElement;
+      if (ollamaModelInput) ollamaModelInput.value = data.ollama_model || 'qwen3.5:9b';
 
       const autoApproveInput = document.getElementById('auto-approve') as HTMLInputElement;
       if (autoApproveInput) autoApproveInput.checked = data.auto_approve_cases !== false;
@@ -520,7 +527,7 @@ import { Save, Cpu, Sliders, Shield, Database, HardDrive, Download, Activity, Re
       gemini_api_key: (document.getElementById('gemini-key') as HTMLInputElement)?.value || '',
       gemini_model: (document.getElementById('gemini-model') as HTMLSelectElement)?.value || 'gemma-4-31b-it',
       ollama_url: (document.getElementById('ollama-url') as HTMLInputElement)?.value || 'http://localhost:11434',
-      ollama_model: (document.getElementById('ollama-model') as HTMLInputElement)?.value || 'gemma4:e4b',
+      ollama_model: (document.getElementById('ollama-model') as HTMLSelectElement)?.value || 'qwen3.5:9b',
       auto_approve_cases: (document.getElementById('auto-approve') as HTMLInputElement)?.checked ?? true,
       min_trust_threshold: parseFloat((document.getElementById('min-trust') as HTMLInputElement)?.value || '85'),
       baseline_similarity_threshold: parseFloat((document.getElementById('baseline-sim') as HTMLInputElement)?.value || '60'),
@@ -579,4 +586,5 @@ import { Save, Cpu, Sliders, Shield, Database, HardDrive, Download, Activity, Re
 
   // Execute initial load
   loadSettings();
+  });
 </script>

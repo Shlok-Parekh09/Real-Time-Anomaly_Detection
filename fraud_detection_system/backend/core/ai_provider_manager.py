@@ -4,7 +4,7 @@ import json
 import logging
 import urllib.request
 from typing import Dict, Any, Tuple
-from core.config import settings
+from core.config import settings, resolve_ollama_model
 from core.settings_store import settings_store
 
 logger = logging.getLogger(__name__)
@@ -24,6 +24,8 @@ class AIProviderManager:
         gemini_key = settings_store.get("gemini_api_key", "")
         ollama_url = settings_store.get("ollama_url") or settings.OLLAMA_BASE_URL
         ollama_model = settings_store.get("ollama_model") or settings.OLLAMA_MODEL
+        # Auto-fallback to an installed model if the configured one is missing
+        ollama_model = resolve_ollama_model(ollama_model, ollama_url)
 
         if ai_mode == "enhanced" and gemini_key:
             gemini_model = settings_store.get("gemini_model", "gemini-1.5-pro")
@@ -47,7 +49,7 @@ class AIProviderManager:
             try:
                 url = f"{endpoint}/api/tags"
                 req = urllib.request.Request(url)
-                with urllib.request.urlopen(req, timeout=2.0) as response:
+                with urllib.request.urlopen(req, timeout=0.5) as response:
                     if response.status == 200:
                         res_body = response.read().decode('utf-8')
                         res_data = json.loads(res_body)
@@ -85,6 +87,8 @@ class AIProviderManager:
         try:
             ollama_url = settings_store.get("ollama_url") or settings.OLLAMA_BASE_URL
             ollama_model = settings_store.get("ollama_model") or settings.OLLAMA_MODEL
+            # Auto-fallback to an installed model if the configured one is missing
+            ollama_model = resolve_ollama_model(ollama_model, ollama_url)
             result = self._call_ollama(system_prompt, user_prompt, ollama_url, ollama_model, temperature, max_tokens, timeout)
             self.last_latency_ms = int((time.time() - start_time) * 1000)
             self.last_provider = "Local Ollama"

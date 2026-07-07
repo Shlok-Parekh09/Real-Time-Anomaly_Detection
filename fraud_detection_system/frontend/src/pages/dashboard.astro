@@ -192,6 +192,8 @@ import { FileText, CheckCircle, AlertTriangle, ShieldAlert, Plus, ArrowRight, Ex
 
 <script>
   import { api } from '../services/api';
+  document.addEventListener('astro:page-load', () => {
+
   
   const recentBody = document.getElementById('recent-investigations-body');
   const emptyState = document.getElementById('recent-empty-state');
@@ -548,4 +550,5 @@ import { FileText, CheckCircle, AlertTriangle, ShieldAlert, Plus, ArrowRight, Ex
 
   loadDashboardData();
   loadSystemHealth();
+  });
 </script>
