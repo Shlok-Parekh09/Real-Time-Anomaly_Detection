@@ -411,7 +411,11 @@ def save_settings(settings: dict):
     Updates and saves settings configuration.
     """
     from core.settings_store import settings_store
-    return settings_store.save(settings)
+    from core.ai_provider_manager import ai_provider_manager
+    result = settings_store.save(settings)
+    # Invalidate AI readiness cache so model/provider changes are re-verified
+    ai_provider_manager.invalidate_cache()
+    return result
 
 
 @router.post("/system/reindex-reference")

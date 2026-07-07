@@ -62,7 +62,7 @@ class Settings(BaseSettings):
     GEMINI_API_KEY: str = os.getenv("GEMINI_API_KEY", "")
     USE_LOCAL_LLM: bool = os.getenv("USE_LOCAL_LLM", "True").lower() == "true"
     OLLAMA_BASE_URL: str = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")
-    OLLAMA_MODEL: str = os.getenv("OLLAMA_MODEL", "gemma4:e4b")
+    OLLAMA_MODEL: str = os.getenv("OLLAMA_MODEL", "qwen3.5:9b")
     OLLAMA_WARMUP_TIMEOUT_SECONDS: int = int(os.getenv("OLLAMA_WARMUP_TIMEOUT_SECONDS", "300"))
     OLLAMA_GENERATE_TIMEOUT_SECONDS: int = int(os.getenv("OLLAMA_GENERATE_TIMEOUT_SECONDS", "600"))
     OLLAMA_REVIEW_TIMEOUT_SECONDS: int = int(os.getenv("OLLAMA_REVIEW_TIMEOUT_SECONDS", "300"))

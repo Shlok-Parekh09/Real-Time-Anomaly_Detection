@@ -121,6 +121,26 @@ const { title = "Anobis | Investigation Platform", activeTab = 'dashboard' } = A
 							</div>
 						</div>
 					</div>
+					<!-- Synchronous pre-paint cache restore: eliminates 'Checking...' flicker on tab switch -->
+					<script is:inline>
+					(function() {
+						try {
+							var c = sessionStorage.getItem('aiHealthCache');
+							if (!c) return;
+							var r = JSON.parse(c);
+							var pill = document.getElementById('ai-health-pill');
+							var status = document.getElementById('ai-health-status');
+							if (!pill || !status) return;
+							if (r.ai === 'ready') {
+								status.innerHTML = '<span class="w-1.5 h-1.5 rounded-full bg-emerald-500 inline-block"></span><span class="text-emerald-700">Ready</span>';
+								pill.className = 'flex items-center gap-1.5 px-3 py-1 bg-emerald-50 border border-emerald-200 text-[10px] font-bold rounded-full transition-all duration-300';
+							} else {
+								status.innerHTML = '<span class="w-1.5 h-1.5 rounded-full bg-rose-500 inline-block"></span><span class="text-rose-700">Offline</span>';
+								pill.className = 'flex items-center gap-1.5 px-3 py-1 bg-rose-50 border border-rose-200 text-[10px] font-bold rounded-full transition-all duration-300';
+							}
+						} catch(e) {}
+					})();
+					</script>
 
 					<!-- New Investigation Button -->
 					<a href="/new-investigation" class="px-3 py-1.5 bg-slate-900 hover:bg-slate-800 text-white rounded font-medium text-xs transition-all flex items-center gap-1.5 shadow-sm">
@@ -164,13 +184,13 @@ const { title = "Anobis | Investigation Platform", activeTab = 'dashboard' } = A
 				
 				if (!statusEl || !pillEl) return;
 
-				// Restore from cache first to make it instant on tab switch
+				// If cache says AI is ready, apply instantly and skip the fetch entirely
 				const cachedHealth = sessionStorage.getItem('aiHealthCache');
 				if (cachedHealth) {
 					try {
 						const res = JSON.parse(cachedHealth);
 						applyHealthUI(res);
-						if (res.ai === 'ready') return; // Do not check again and again
+						if (res.ai === 'ready') return; // Model is loaded — do NOT re-check
 					} catch(e) {}
 				}
 				
@@ -180,6 +200,12 @@ const { title = "Anobis | Investigation Platform", activeTab = 'dashboard' } = A
 					
 					sessionStorage.setItem('aiHealthCache', JSON.stringify(res));
 					applyHealthUI(res);
+
+					// If AI just became ready, stop all future polling
+					if (res.ai === 'ready' && window.__aiHealthInterval) {
+						clearInterval(window.__aiHealthInterval);
+						window.__aiHealthInterval = null;
+					}
 				} catch (e) {
 					statusEl.innerHTML = `
 						<span class="w-1.5 h-1.5 rounded-full bg-rose-500 inline-block"></span>
@@ -236,13 +262,17 @@ const { title = "Anobis | Investigation Platform", activeTab = 'dashboard' } = A
 			
 			document.addEventListener('astro:page-load', updateAiHealth);
 			
-			// Optional: only poll if we haven't succeeded yet
-			setInterval(() => {
+			// Poll only if AI is not yet ready; stop once it is
+			(window as any).__aiHealthInterval = setInterval(() => {
 				const cache = sessionStorage.getItem('aiHealthCache');
 				if (cache) {
 					try {
 						const res = JSON.parse(cache);
-						if (res.ai === 'ready') return;
+						if (res.ai === 'ready') {
+							clearInterval((window as any).__aiHealthInterval);
+							(window as any).__aiHealthInterval = null;
+							return;
+						}
 					} catch(e) {}
 				}
 				updateAiHealth();

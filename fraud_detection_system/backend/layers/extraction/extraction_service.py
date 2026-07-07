@@ -140,7 +140,7 @@ class ExtractionService:
                 print(f"[EXTRACTION] PDF text extraction failed: {e}")
 
         # Detect scanned PDFs (if PDF had very little or no native text layer)
-        if not is_image and fitz and len(extracted_text.strip()) < 50:
+        if not is_image and fitz and len(extracted_text.strip()) < 30:
             is_scanned = True
 
         # 3. Tesseract OCR overlay for images and scanned PDFs
@@ -163,8 +163,8 @@ class ExtractionService:
                     tess_lang = "eng+hin"
                 
                 for page in doc:
-                    # Render page as image for OCR extraction
-                    pix = page.get_pixmap(matrix=fitz.Matrix(2.0, 2.0))
+                    # Render page as image for OCR extraction (3.0x for better quality on blurred scans)
+                    pix = page.get_pixmap(matrix=fitz.Matrix(3.0, 3.0))
                     img_data = Image.open(io.BytesIO(pix.tobytes("png")))
                     try:
                         img_data = self._preprocess_image(img_data)
@@ -237,52 +237,68 @@ class ExtractionService:
 
         # Multiple Extraction Passes with Validation
         max_ocr_retries = int(settings_store.get("max_ocr_retries", 3) or 0)
-        if is_scanned and pytesseract and fitz and classification in ["PAN", "Aadhaar"] and max_ocr_retries > 0:
-            has_id = (entities.get("pan") and entities.get("pan") != "-") if classification == "PAN" else (entities.get("aadhaar") and entities.get("aadhaar") != "-")
-            if not has_id:
-                if status_callback:
-                    status_callback("Extracting Structured Entities (Retry Pass)", 0.85)
-                print(f"[OCR Retry] Critical identifier missing/invalid for {classification}. Running second pass with adaptive thresholding and bilingual OCR...")
-                try:
-                    from PIL import Image
-                    # Open original PDF or image bytes
-                    doc_retry = fitz.open(stream=pdf_bytes, filetype="pdf")
-                    retry_text = ""
-                    tess_lang = "eng+hin"  # Force bilingual
+        # Expand retry to ALL doc types when OCR confidence is poor, not just PAN/Aadhaar
+        needs_retry = False
+        if is_scanned and pytesseract and fitz and max_ocr_retries > 0:
+            if classification in ["PAN", "Aadhaar"]:
+                has_id = (entities.get("pan") and entities.get("pan") != "-") if classification == "PAN" else (entities.get("aadhaar") and entities.get("aadhaar") != "-")
+                if not has_id:
+                    needs_retry = True
+            elif ocr_confidence < 60:
+                needs_retry = True
+
+        if needs_retry:
+            if status_callback:
+                status_callback("Extracting Structured Entities (Retry Pass)", 0.85)
+            print(f"[OCR Retry] Low confidence ({ocr_confidence:.1f}%) or missing ID for {classification}. Running enhanced second pass...")
+            try:
+                from PIL import Image
+                # Open original PDF or image bytes
+                doc_retry = fitz.open(stream=pdf_bytes, filetype="pdf")
+                retry_text = ""
+                tess_lang = "eng+hin"  # Force bilingual
+                
+                for page in doc_retry:
+                    # Render at 3.0 resolution for finer details
+                    pix = page.get_pixmap(matrix=fitz.Matrix(3.0, 3.0))
+                    img_data = Image.open(io.BytesIO(pix.tobytes("png")))
                     
-                    for page in doc_retry:
-                        # Render at 3.0 resolution for finer details
-                        pix = page.get_pixmap(matrix=fitz.Matrix(3.0, 3.0))
-                        img_data = Image.open(io.BytesIO(pix.tobytes("png")))
+                    # Apply adaptive thresholding for text sharpness
+                    try:
+                        import cv2
+                        import numpy as np
+                        open_cv_img = np.array(img_data.convert('L'))
+                        blurred = cv2.GaussianBlur(open_cv_img, (5, 5), 0)
+                        thresh = cv2.adaptiveThreshold(
+                            blurred, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, 
+                            cv2.THRESH_BINARY, 11, 2
+                        )
+                        img_data = Image.fromarray(thresh)
+                    except Exception as pe:
+                        print(f"[OCR Retry] Image thresholding failed: {pe}")
                         
-                        # Apply adaptive thresholding for text sharpness
-                        try:
-                            import cv2
-                            import numpy as np
-                            open_cv_img = np.array(img_data.convert('L'))
-                            blurred = cv2.GaussianBlur(open_cv_img, (5, 5), 0)
-                            thresh = cv2.adaptiveThreshold(
-                                blurred, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, 
-                                cv2.THRESH_BINARY, 11, 2
-                            )
-                            img_data = Image.fromarray(thresh)
-                        except Exception as pe:
-                            print(f"[OCR Retry] Image thresholding failed: {pe}")
-                            
-                        # Run OCR string extraction
-                        retry_text += pytesseract.image_to_string(img_data, lang=tess_lang)
-                    
-                    doc_retry.close()
-                    
-                    if len(retry_text.strip()) > 50:
-                        retry_entities = entity_extractor.extract(retry_text, classification)
+                    # Run OCR string extraction
+                    retry_text += pytesseract.image_to_string(img_data, lang=tess_lang)
+                
+                doc_retry.close()
+                
+                if len(retry_text.strip()) > 50:
+                    retry_entities = entity_extractor.extract(retry_text, classification)
+                    # For PAN/Aadhaar, check if ID was recovered
+                    if classification in ["PAN", "Aadhaar"]:
                         retry_has_id = (retry_entities.get("pan") and retry_entities.get("pan") != "-") if classification == "PAN" else (retry_entities.get("aadhaar") and retry_entities.get("aadhaar") != "-")
                         if retry_has_id:
                             print(f"[OCR Retry] Second pass succeeded in extracting {classification} identifier!")
                             extracted_text = retry_text
                             entities = retry_entities
-                except Exception as re:
-                    print(f"[OCR Retry] Second pass failed: {re}")
+                    else:
+                        # For other doc types, use retry if it produced more text
+                        if len(retry_text.strip()) > len(extracted_text.strip()):
+                            print(f"[OCR Retry] Second pass produced better text ({len(retry_text.strip())} vs {len(extracted_text.strip())} chars)")
+                            extracted_text = retry_text
+                            entities = retry_entities
+            except Exception as re:
+                print(f"[OCR Retry] Second pass failed: {re}")
 
         # 6. Coordinates (for forensic fields)
         if status_callback:
@@ -332,7 +348,8 @@ class ExtractionService:
 
     def _preprocess_image(self, pil_img) -> Any:
         """
-        Applies upscaling, contrast enhancement (CLAHE), and bilateral filtering for clean OCR.
+        Applies upscaling, contrast enhancement (CLAHE), bilateral filtering,
+        sharpening, and Otsu's binarization for clean OCR on blurred images.
         """
         try:
             import cv2
@@ -355,7 +372,14 @@ class ExtractionService:
             # 3. Apply bilateral filter for noise reduction while keeping text edges sharp
             denoised = cv2.bilateralFilter(contrast_enhanced, 9, 75, 75)
             
-            return Image.fromarray(denoised)
+            # 4. Unsharp mask sharpening to recover blurred text edges
+            gaussian = cv2.GaussianBlur(denoised, (0, 0), 3.0)
+            sharpened = cv2.addWeighted(denoised, 1.5, gaussian, -0.5, 0)
+            
+            # 5. Otsu's binarization for maximum OCR accuracy on degraded inputs
+            _, binarized = cv2.threshold(sharpened, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
+            
+            return Image.fromarray(binarized)
         except Exception as e:
             print(f"[OCR] Advanced OpenCV preprocessing failed: {e}. Returning original.")
             return pil_img

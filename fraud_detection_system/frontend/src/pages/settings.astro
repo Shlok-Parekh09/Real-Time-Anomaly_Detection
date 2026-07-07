@@ -560,7 +560,9 @@ import { Save, Cpu, Sliders, Shield, Database, HardDrive, Download, Activity, Re
 
     try {
       await api.saveSettings(payload);
+      sessionStorage.removeItem('aiHealthCache');
       alert('Platform configurations saved successfully. Forensic rules synchronized.');
+      window.location.reload();
     } catch (e) {
       alert('Failed to save configurations: ' + (e instanceof Error ? e.message : 'Unknown error'));
     }

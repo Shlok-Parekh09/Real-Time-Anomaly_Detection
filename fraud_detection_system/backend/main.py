@@ -150,12 +150,12 @@ from core.config import resolve_ollama_model
 @app.on_event("startup")
 def startup_event():
     """
-    Check Ollama connectivity, verify gemma-4-31b-it model exists,
-    and warm up local LLM. Refuses to enter AI mode if gemma-4-31b-it is missing.
+    Check Ollama connectivity, verify the configured model exists,
+    and warm up local LLM. Refuses to enter AI mode if the model is missing.
     """
     global startup_time_log
     start_t = time.time()
-    logger.info("[STARTUP] Initializing Gemma 4 E4B Forensic Auditor checks...")
+    logger.info("[STARTUP] Initializing Forensic Auditor checks...")
     
     if not settings.USE_LOCAL_LLM:
         logger.info("[STARTUP] Local LLM is disabled by configuration.")

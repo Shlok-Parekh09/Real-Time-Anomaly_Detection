@@ -14,6 +14,10 @@ class AIProviderManager:
         self.last_latency_ms = 0
         self.last_provider = "Local Ollama"
         self.last_model = settings.OLLAMA_MODEL
+        # Readiness cache: once verified, skip Ollama /api/tags calls
+        self._ai_ready_cache = False
+        self._cached_model = ""
+        self._cached_provider = ""
 
     def get_active_config(self) -> Tuple[str, str, str, str]:
         """
@@ -33,15 +37,30 @@ class AIProviderManager:
         else:
             return "Offline", "Local Ollama", ollama_model, ollama_url
 
+    def invalidate_cache(self):
+        """Call this when settings change (e.g. model switch) to force re-verification."""
+        self._ai_ready_cache = False
+        self._cached_model = ""
+        self._cached_provider = ""
+
     def is_ai_ready(self) -> Tuple[bool, str]:
         """
         Checks if the currently configured provider is reachable and ready.
+        Uses a cache so that once verified, it returns instantly.
         """
         execution_mode, provider, model, endpoint = self.get_active_config()
+
+        # Return cached result if the provider/model haven't changed
+        if self._ai_ready_cache and self._cached_model == model and self._cached_provider == provider:
+            return True, ""
+
         if provider == "Gemini API":
             # For Gemini, configuration of the key is sufficient for ready state
             key = settings_store.get("gemini_api_key", "")
             if key:
+                self._ai_ready_cache = True
+                self._cached_model = model
+                self._cached_provider = provider
                 return True, ""
             return False, "Gemini API key is missing"
         else:
@@ -55,6 +74,9 @@ class AIProviderManager:
                         res_data = json.loads(res_body)
                         models = [m.get("name") for m in res_data.get("models", [])]
                         if model in models or any(model in m for m in models):
+                            self._ai_ready_cache = True
+                            self._cached_model = model
+                            self._cached_provider = provider
                             return True, ""
                         elif models:
                             return True, f"Model {model} not found, but Ollama has: {', '.join(models)}"

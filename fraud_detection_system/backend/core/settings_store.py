@@ -6,7 +6,7 @@ SETTINGS_FILE = "uploads/settings.json"
 
 DEFAULT_SETTINGS = {
   "ollama_url": "http://localhost:11434",
-  "ollama_model": "gemma4:e4b",
+  "ollama_model": "qwen3.5:9b",
   "ai_mode": "offline", # "offline" (Local Ollama) or "enhanced" (Gemini API)
   "gemini_api_key": os.getenv("GEMINI_API_KEY", ""),
   "gemini_model": "gemma-4-31b-it",

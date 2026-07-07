@@ -4,8 +4,9 @@ import numpy as np
 from models.domain import AnomalyFeature
 
 def extract_monetary_values(text: str) -> list[float]:
-    """Extracts formatted amounts (e.g., 1,234.50 or 500.00) from text."""
-    pattern = r'\b\d{1,3}(?:,\d{3})*\.\d{2}\b|\b\d+\.\d{2}\b'
+    """Extracts formatted amounts (e.g., 1,234.50, 500.00, or Indian lakh 1,23,456.78) from text."""
+    # Match Western (1,234.50) and Indian lakh (1,23,456.78) formats
+    pattern = r'\b(?:\d{1,2}(?:,\d{2})*,\d{3}\.\d{2}|\d{1,3}(?:,\d{3})*\.\d{2}|\d+\.\d{2})\b'
     matches = re.findall(pattern, text)
     return [float(m.replace(',', '')) for m in matches]
 
@@ -91,10 +92,13 @@ def validate_bank_statement_math(text: str) -> dict:
     Validates basic math in bank statement text.
     Called by real_estate_signals.py to check for altered numbers.
     Returns dict with 'has_balance_mismatch' flag and details.
+    
+    Note: This uses a sliding-window heuristic on extracted amounts.
+    For structured table validation, balance_validator.py is more accurate.
     """
     amounts = extract_monetary_values(text)
     
-    if len(amounts) < 3:
+    if len(amounts) < 5:
         return {"has_balance_mismatch": False, "reason": "Not enough amounts to verify"}
     
     # Look for running balance patterns:
@@ -115,11 +119,11 @@ def validate_bank_statement_math(text: str) -> dict:
             
             # If none of the basic arithmetic relationships hold
             min_diff = min(diff_add, diff_sub, diff_sub2)
-            if min_diff > 0.01:
-                # Discrepancy detected — suspicious math/tampering
+            if min_diff > 0.50:  # Wider tolerance to reduce false positives from OCR
                 mismatches += 1
     
-    has_mismatch = mismatches > 0 and checks > 0 and (mismatches / checks) > 0.3
+    # Require at least 3 checks and a majority (>50%) to be mismatches to flag
+    has_mismatch = mismatches > 0 and checks >= 3 and (mismatches / checks) > 0.5
     
     validation_results = []
     if has_mismatch:
