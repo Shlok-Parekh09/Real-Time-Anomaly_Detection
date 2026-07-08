@@ -77,7 +77,13 @@ app.include_router(investigation_router, prefix=settings.API_V1_STR, tags=["Inve
 # Direct Analysis Endpoint (Quick single-file analysis)
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-@app.get("/")
+from fastapi.responses import Response
+
+@app.get("/favicon.ico", include_in_schema=False)
+async def favicon():
+    return Response(status_code=204)
+
+@app.api_route("/", methods=["GET", "HEAD"])
 def health_check():
     """Health check endpoint."""
     return {
@@ -253,7 +259,7 @@ def startup_event():
         startup_time_log["reason"] = "Unable to connect to Ollama"
 
 
-@app.get("/api/v1/health")
+@app.api_route("/api/v1/health", methods=["GET", "HEAD"])
 def api_health():
     """Detailed health check for the API."""
     db_ok = True
