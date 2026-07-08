@@ -454,13 +454,8 @@ import { FileText, CheckCircle, AlertTriangle, ShieldAlert, Plus, ArrowRight, Ex
           </tr>
         `;
       }).join('');
-
-    } catch (error) {
-      console.error('Dashboard load failed:', error);
-      recentBody.parentElement?.querySelector('table')?.classList.add('hidden');
-      errorState?.classList.remove('hidden');
-    }
-  }
+    } // closes if (recentBody)
+  } // closes renderDashboardUI
 
   function renderRecentActivity(investigations: any[]) {
     if (!recentActivityList) return;
