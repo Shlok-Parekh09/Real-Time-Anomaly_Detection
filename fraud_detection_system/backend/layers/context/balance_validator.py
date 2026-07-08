@@ -63,80 +63,76 @@ def validate_running_balances(file_path: str) -> List[AnomalyFeature]:
 
 def _extract_transaction_rows(file_path: str) -> List[Dict[str, Any]]:
     """
-    Extracts transaction rows from PDF tables.
-    Looks for columns containing: date, description, debit/credit, balance.
+    Extracts transaction rows by parsing raw text line-by-line.
+    Filters for lines that begin with a Date and end with monetary amounts.
+    This bypasses brittle table column extractions which fail on multi-line descriptions.
     """
     rows = []
+    
+    # Matches DD-MM-YYYY, DD/MM/YYYY, DD.MM.YYYY, or DD MMM YYYY
+    date_pattern = re.compile(r'^\s*(?:\d{1,2}[-/.]\d{1,2}[-/.]\d{2,4}|\d{1,2}\s+[A-Za-z]{3,4}\s+\d{2,4})')
     
     try:
         with pdfplumber.open(file_path) as pdf:
             for page_num, page in enumerate(pdf.pages):
-                tables = page.extract_tables()
+                # layout=True preserves the visual spacing of columns
+                text = page.extract_text(layout=True)
+                if not text:
+                    continue
                 
-                for table in tables:
-                    if not table or len(table) < 2:
+                for row_idx, line in enumerate(text.split('\n')):
+                    if not date_pattern.search(line):
                         continue
                     
-                    # Try to find header row dynamically
-                    header_row_idx = -1
-                    balance_col = None
-                    debit_col = None
-                    credit_col = None
-                    amount_col = None
+                    # Extract all monetary values from the line
+                    amounts = _extract_monetary_values_from_line(line)
                     
-                    for idx, row in enumerate(table):
-                        if not row: continue
-                        row_lower = [str(c).lower().strip() if c else "" for c in row]
+                    if len(amounts) >= 2:
+                        # Typical transaction row: ... [Debit/Credit] [Balance]
+                        balance = amounts[-1]
+                        amount = amounts[-2]
                         
-                        b_col = _find_column(row_lower, ["balance", "running balance", "closing", "bal"])
-                        if b_col is not None:
-                            header_row_idx = idx
-                            balance_col = b_col
-                            debit_col = _find_column(row_lower, ["debit", "withdrawal", "dr", "withdrawals"])
-                            credit_col = _find_column(row_lower, ["credit", "deposit", "cr", "deposits"])
-                            amount_col = _find_column(row_lower, ["amount", "value", "transaction"])
-                            break
-                    
-                    if balance_col is None or header_row_idx == -1:
-                        continue  # Can't verify without a balance column
-                    
-                    for row_idx, row in enumerate(table[header_row_idx + 1:], start=header_row_idx + 1):
-                        if not row or len(row) <= balance_col:
-                            continue
-                        
-                        balance = _parse_amount(row[balance_col])
-                        if balance is None:
-                            continue
-                        
-                        debit = _parse_amount(row[debit_col]) if debit_col is not None and debit_col < len(row) else None
-                        credit = _parse_amount(row[credit_col]) if credit_col is not None and credit_col < len(row) else None
-                        amount = _parse_amount(row[amount_col]) if amount_col is not None and amount_col < len(row) else None
-                        
-                        # Only add if we have at least one transaction amount
-                        if debit is None and credit is None and amount is None:
-                            continue
-                            
                         rows.append({
                             "page": page_num + 1,
                             "row": row_idx,
                             "balance": balance,
-                            "debit": debit,
-                            "credit": credit,
                             "amount": amount,
-                            "raw": row
+                            "raw": line.strip()
                         })
-    except Exception:
+                    elif len(amounts) == 1:
+                        # Opening balance row: ... [Balance]
+                        rows.append({
+                            "page": page_num + 1,
+                            "row": row_idx,
+                            "balance": amounts[0],
+                            "amount": None,
+                            "raw": line.strip()
+                        })
+    except Exception as e:
         pass
     
     return rows
 
+def _extract_monetary_values_from_line(line: str) -> List[Decimal]:
+    """Helper to extract and parse all monetary amounts in a line."""
+    # Match Western (1,234.50) and Indian lakh (1,23,456.78) formats
+    pattern = r'\b(?:\d{1,2}(?:,\d{2})*,\d{3}\.\d{2}|\d{1,3}(?:,\d{3})*\.\d{2}|\d+\.\d{2})\b'
+    matches = re.findall(pattern, line)
+    
+    decimals = []
+    for m in matches:
+        val = _parse_amount(m)
+        if val is not None:
+            decimals.append(val)
+    return decimals
+
 
 def _check_running_balance(rows: List[Dict[str, Any]]) -> List[str]:
     """
-    Verifies that each row's balance = previous_balance - debit + credit.
-    Uses Decimal arithmetic for precision. Tolerance of 0.50 to account for
-    minor OCR digit misreads without missing real fraud.
-    Returns a list of error descriptions.
+    Verifies that each row's balance = previous_balance ± amount.
+    Because we parse raw text lines, we don't know if the amount is a Debit or Credit
+    just from the column position. We mathematically deduce it.
+    Uses Decimal arithmetic for exact precision.
     """
     errors = []
     TOLERANCE = Decimal("0.50")
@@ -147,36 +143,35 @@ def _check_running_balance(rows: List[Dict[str, Any]]) -> List[str]:
         
         prev_balance = prev["balance"]
         curr_balance = curr["balance"]
+        amt = curr.get("amount")
         
-        # Try to compute expected balance
-        debit = curr.get("debit") or Decimal("0")
-        credit = curr.get("credit") or Decimal("0")
-        
-        # If we have both debit and credit info
-        if debit > 0 or credit > 0:
-            expected = prev_balance - debit + credit
-            diff = abs(expected - curr_balance)
+        if amt is None:
+            continue
             
-            if diff > TOLERANCE:
-                errors.append(
-                    f"Row {curr['row']} on page {curr['page']}: "
-                    f"expected balance {expected:.2f} but found {curr_balance:.2f} "
-                    f"(difference: {diff:.2f})"
-                )
+        expected_debit = prev_balance - amt
+        expected_credit = prev_balance + amt
         
-        # If we only have a single amount column, try both directions
-        elif curr.get("amount"):
-            amt = curr["amount"]
-            expected_debit = prev_balance - amt
-            expected_credit = prev_balance + amt
+        # Check if the math works in either direction
+        diff_debit = abs(expected_debit - curr_balance)
+        diff_credit = abs(expected_credit - curr_balance)
+        
+        if diff_debit <= TOLERANCE:
+            # It's a valid debit transaction
+            curr["debit"] = amt
+            curr["credit"] = Decimal("0")
+        elif diff_credit <= TOLERANCE:
+            # It's a valid credit transaction
+            curr["debit"] = Decimal("0")
+            curr["credit"] = amt
+        else:
+            # Neither direction works — this is a real mathematical anomaly
+            errors.append(
+                f"Row {curr['row']} on page {curr['page']}: "
+                f"balance {curr_balance:.2f} doesn't mathematically follow from previous "
+                f"balance {prev_balance:.2f} using transaction amount {amt:.2f}. "
+                f"(If Debit: expected {expected_debit:.2f}. If Credit: expected {expected_credit:.2f})"
+            )
             
-            if abs(expected_debit - curr_balance) > TOLERANCE and abs(expected_credit - curr_balance) > TOLERANCE:
-                errors.append(
-                    f"Row {curr['row']} on page {curr['page']}: "
-                    f"balance {curr_balance:.2f} doesn't follow from previous {prev_balance:.2f} "
-                    f"with amount {amt:.2f}"
-                )
-    
     return errors
 
 

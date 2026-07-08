@@ -38,13 +38,12 @@ def resolve_ollama_model(preferred: str, base_url: str = "http://localhost:11434
             if m == preferred or m.startswith(preferred):
                 return m
         return preferred
-    # Preferred model not installed — fall back to the first available model
-    fallback = installed[0]
+    # Preferred model not installed - return it anyway so ai_provider_manager can flag it as offline
     logger.warning(
-        f"[OLLAMA] Preferred model '{preferred}' not installed. "
-        f"Falling back to '{fallback}'. Installed: {installed}"
+        f"[OLLAMA] Preferred model '{preferred}' is not installed in Ollama. "
+        f"Installed models: {installed}. The system will report AI as offline until it is pulled."
     )
-    return fallback
+    return preferred
 
 
 class Settings(BaseSettings):
