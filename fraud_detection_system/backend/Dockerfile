@@ -26,11 +26,9 @@ ENV HOME=/home/user \
 # Set working directory
 WORKDIR $HOME/app
 
-# Pre-pull the model during build as the 'user'
-# This ensures the model is saved to /home/user/.ollama/models instead of /root
+# Pre-pull is handled dynamically at runtime now
 RUN bash -c "ollama serve & OLLAMA_PID=\$!; \
     sleep 5; \
-    ollama pull gemma4:e4b || echo 'Warning: Could not pull gemma4:e4b.'; \
     kill \$OLLAMA_PID; \
     wait \$OLLAMA_PID || true"
 
