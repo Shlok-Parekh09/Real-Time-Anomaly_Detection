@@ -51,34 +51,16 @@ class AIProviderManager:
 
         def _pull_worker():
             try:
-                # 1. Fetch installed models
-                url_tags = f"{endpoint}/api/tags"
-                req = urllib.request.Request(url_tags)
-                with urllib.request.urlopen(req, timeout=3.0) as response:
-                    if response.status == 200:
-                        res_data = json.loads(response.read().decode('utf-8'))
-                        models = [m.get("name") for m in res_data.get("models", [])]
-                        
-                        # 2. Check if we need to pull
-                        model_ok = any(target_model in m or m.startswith(target_model) for m in models)
-                        if not model_ok:
-                            logger.info(f"[OLLAMA] Pulling target model {target_model}...")
-                            subprocess.run(["ollama", "pull", target_model], check=True)
-                            logger.info(f"[OLLAMA] Successfully pulled {target_model}")
-                            self._ai_ready_cache = False
-                            
-                        # 3. Clean up other models to save space
-                        # fetch again just in case
-                        req2 = urllib.request.Request(url_tags)
-                        with urllib.request.urlopen(req2, timeout=3.0) as r2:
-                            d2 = json.loads(r2.read().decode('utf-8'))
-                            models_after = [m.get("name") for m in d2.get("models", [])]
-                            for m in models_after:
-                                if target_model not in m and not m.startswith(target_model):
-                                    logger.info(f"[OLLAMA] Removing unused model {m}...")
-                                    subprocess.run(["ollama", "rm", m])
+                models_to_pull = ["qwen3.5:4b", "qwen3.5:9b", "gemma4:e4b", "gemma4:12b"]
+                for m in models_to_pull:
+                    logger.info(f"[OLLAMA] Background pulling model {m}...")
+                    subprocess.run(["ollama", "pull", m])
+                
+                # After all are pulled, check if target model is ready
+                self._ai_ready_cache = False
+                logger.info("[OLLAMA] Background pulling complete.")
             except Exception as e:
-                logger.error(f"[OLLAMA] Background pull/cleanup failed: {e}")
+                logger.error(f"[OLLAMA] Background pull failed: {e}")
 
         if self._pull_thread is None or not self._pull_thread.is_alive():
             self._pull_thread = threading.Thread(target=_pull_worker, daemon=True)

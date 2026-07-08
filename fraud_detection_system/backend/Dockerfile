@@ -26,9 +26,11 @@ ENV HOME=/home/user \
 # Set working directory
 WORKDIR $HOME/app
 
-# Pre-pull is handled dynamically at runtime now
+# Pre-pull a single lightweight default model during build
+# This ensures the space is instantly ready without hitting HF's 50GB cache limit
 RUN bash -c "ollama serve & OLLAMA_PID=\$!; \
     sleep 5; \
+    ollama pull qwen3.5:4b; \
     kill \$OLLAMA_PID; \
     wait \$OLLAMA_PID || true"
 
