@@ -136,31 +136,52 @@ import { Search, Filter, Plus, ChevronRight, ExternalLink, FileText, Download, M
   async function loadInvestigations() {
     if (!investigationsBody) return;
 
-    // Show skeletons
-    investigationsBody.innerHTML = Array(5).fill(0).map(() => `
-      <tr class="animate-pulse">
-        <td class="px-6 py-4"><div class="h-4 bg-slate-100 rounded w-3/4 mb-2"></div><div class="h-3 bg-slate-50 rounded w-1/2"></div></td>
-        <td class="px-6 py-4"><div class="h-4 bg-slate-100 rounded w-full"></div></td>
-        <td class="px-6 py-4"><div class="h-6 bg-slate-100 rounded-full w-20"></div></td>
-        <td class="px-6 py-4"><div class="flex items-center gap-2"><div class="w-12 h-1.5 bg-slate-100 rounded-full"></div></div></td>
-        <td class="px-6 py-4"><div class="h-4 bg-slate-100 rounded w-full"></div></td>
-        <td class="px-6 py-4"><div class="h-4 bg-slate-100 rounded w-24"></div></td>
-        <td class="px-6 py-4 text-right"><div class="h-8 w-8 bg-slate-50 rounded ml-auto"></div></td>
-      </tr>
-    `).join('');
+    // First try to load from cache
+    const cachedStr = sessionStorage.getItem('investigations_cache');
+    let hasRenderedCache = false;
     
-    emptyState?.classList.add('hidden');
-    errorState?.classList.add('hidden');
-    investigationsBody.parentElement?.querySelector('table')?.classList.remove('hidden');
+    if (cachedStr) {
+      try {
+        const cachedInv = JSON.parse(cachedStr);
+        allInvestigations = cachedInv;
+        renderInvestigations(cachedInv);
+        hasRenderedCache = true;
+      } catch(e) {}
+    }
+
+    if (!hasRenderedCache) {
+      // Only show skeletons if we don't have cached data!
+      investigationsBody.innerHTML = Array(5).fill(0).map(() => `
+        <tr class="animate-pulse">
+          <td class="px-6 py-4"><div class="h-4 bg-slate-100 rounded w-3/4 mb-2"></div><div class="h-3 bg-slate-50 rounded w-1/2"></div></td>
+          <td class="px-6 py-4"><div class="h-4 bg-slate-100 rounded w-full"></div></td>
+          <td class="px-6 py-4"><div class="h-6 bg-slate-100 rounded-full w-20"></div></td>
+          <td class="px-6 py-4"><div class="flex items-center gap-2"><div class="w-12 h-1.5 bg-slate-100 rounded-full"></div></div></td>
+          <td class="px-6 py-4"><div class="h-4 bg-slate-100 rounded w-full"></div></td>
+          <td class="px-6 py-4"><div class="h-4 bg-slate-100 rounded w-24"></div></td>
+          <td class="px-6 py-4 text-right"><div class="h-8 w-8 bg-slate-50 rounded ml-auto"></div></td>
+        </tr>
+      `).join('');
+      
+      emptyState?.classList.add('hidden');
+      errorState?.classList.add('hidden');
+      if (investigationsBody.parentElement) investigationsBody.parentElement.querySelector('table')?.classList.remove('hidden');
+    }
 
     try {
-      allInvestigations = await api.getInvestigations();
+      const investigations = await api.getInvestigations();
+      sessionStorage.setItem('investigations_cache', JSON.stringify(investigations));
+      allInvestigations = investigations;
+      
+      // Re-render to ensure any status updates (e.g. from PROCESSING to COMPLETED) are reflected
       renderInvestigations(allInvestigations);
     } catch (error) {
       console.error('Failed to fetch investigations:', error);
-      investigationsBody.parentElement?.querySelector('table')?.classList.add('hidden');
-      errorState?.classList.remove('hidden');
-      if (errorMessage) errorMessage.textContent = error instanceof Error ? error.message : 'Unknown error occurred';
+      if (!hasRenderedCache) {
+        if (investigationsBody.parentElement) investigationsBody.parentElement.querySelector('table')?.classList.add('hidden');
+        errorState?.classList.remove('hidden');
+        if (errorMessage) errorMessage.textContent = error instanceof Error ? error.message : 'Unknown error occurred';
+      }
     }
   }
 

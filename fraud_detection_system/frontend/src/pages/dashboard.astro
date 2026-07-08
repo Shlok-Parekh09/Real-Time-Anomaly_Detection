@@ -266,34 +266,62 @@ import { FileText, CheckCircle, AlertTriangle, ShieldAlert, Plus, ArrowRight, Ex
   async function loadDashboardData() {
     if (!recentBody) return;
 
-    // Reset UI
-    recentBody.innerHTML = Array(3).fill(0).map(() => `
-      <tr class="animate-pulse">
-        <td class="px-6 py-4"><div class="h-4 bg-slate-100 rounded w-20"></div></td>
-        <td class="px-6 py-4">
-          <div class="h-4 bg-slate-100 rounded w-32 mb-1"></div>
-          <div class="h-3 bg-slate-50 rounded w-16"></div>
-        </td>
-        <td class="px-6 py-4">
-          <div class="flex items-center gap-2 justify-center">
-            <div class="w-16 h-1.5 bg-slate-100 rounded-full"></div>
-            <div class="h-3 bg-slate-100 rounded w-6"></div>
-          </div>
-        </td>
-        <td class="px-6 py-4"><div class="h-5 bg-slate-100 rounded-full w-24"></div></td>
-        <td class="px-6 py-4"><div class="h-4 bg-slate-100 rounded w-16"></div></td>
-        <td class="px-6 py-4 text-center"><div class="h-8 bg-slate-100 rounded w-28 mx-auto"></div></td>
-        <td class="px-6 py-4 text-right"><div class="h-8 bg-slate-100 rounded w-24 ml-auto"></div></td>
-      </tr>
-    `).join('');
-    emptyState?.classList.add('hidden');
-    errorState?.classList.add('hidden');
-    recentBody.parentElement?.querySelector('table')?.classList.remove('hidden');
+    // First try to load from cache
+    const cachedStr = sessionStorage.getItem('investigations_cache');
+    let hasRenderedCache = false;
+    
+    if (cachedStr) {
+      try {
+        const cachedInv = JSON.parse(cachedStr);
+        lastInvestigations = cachedInv;
+        renderDashboardUI(cachedInv);
+        hasRenderedCache = true;
+      } catch(e) {}
+    }
+
+    if (!hasRenderedCache) {
+      // Only show skeletons if we don't have cached data!
+      recentBody.innerHTML = Array(3).fill(0).map(() => `
+        <tr class="animate-pulse">
+          <td class="px-6 py-4"><div class="h-4 bg-slate-100 rounded w-20"></div></td>
+          <td class="px-6 py-4">
+            <div class="h-4 bg-slate-100 rounded w-32 mb-1"></div>
+            <div class="h-3 bg-slate-50 rounded w-16"></div>
+          </td>
+          <td class="px-6 py-4">
+            <div class="flex items-center gap-2 justify-center">
+              <div class="w-16 h-1.5 bg-slate-100 rounded-full"></div>
+              <div class="h-3 bg-slate-100 rounded w-6"></div>
+            </div>
+          </td>
+          <td class="px-6 py-4"><div class="h-5 bg-slate-100 rounded-full w-24"></div></td>
+          <td class="px-6 py-4"><div class="h-4 bg-slate-100 rounded w-16"></div></td>
+          <td class="px-6 py-4 text-center"><div class="h-8 bg-slate-100 rounded w-28 mx-auto"></div></td>
+          <td class="px-6 py-4 text-right"><div class="h-8 bg-slate-100 rounded w-24 ml-auto"></div></td>
+        </tr>
+      `).join('');
+      emptyState?.classList.add('hidden');
+      errorState?.classList.add('hidden');
+      if (recentBody.parentElement) recentBody.parentElement.querySelector('table')?.classList.remove('hidden');
+    }
 
     try {
       const investigations = await api.getInvestigations();
+      sessionStorage.setItem('investigations_cache', JSON.stringify(investigations));
       lastInvestigations = investigations;
       
+      // Update the UI with fresh data if it changed (stale-while-revalidate)
+      renderDashboardUI(investigations);
+    } catch (err) {
+      if (!hasRenderedCache) {
+        if (recentBody.parentElement) recentBody.parentElement.querySelector('table')?.classList.add('hidden');
+        emptyState?.classList.add('hidden');
+        errorState?.classList.remove('hidden');
+      }
+    }
+  }
+
+  function renderDashboardUI(investigations: any[]) {
       // Calculate Metrics
       if (metricsGrid) {
         const total = investigations.length;
@@ -334,70 +362,76 @@ import { FileText, CheckCircle, AlertTriangle, ShieldAlert, Plus, ArrowRight, Ex
       renderRecentActivity(recent);
       
       if (recent.length === 0) {
-        recentBody.parentElement?.querySelector('table')?.classList.add('hidden');
+        if (recentBody?.parentElement) recentBody.parentElement.querySelector('table')?.classList.add('hidden');
         emptyState?.classList.remove('hidden');
         return;
       }
 
-      recentBody.innerHTML = recent.map(inv => {
-        const date = new Date(inv.created_at).toLocaleDateString('en-US', {
-          month: 'short',
-          day: 'numeric'
-        });
+      emptyState?.classList.add('hidden');
+      errorState?.classList.add('hidden');
+      if (recentBody?.parentElement) recentBody.parentElement.querySelector('table')?.classList.remove('hidden');
 
-        // Status styling with colored dots/pills
-        let statusPillClass = 'bg-slate-50 text-slate-700 border-slate-200';
-        let statusDotClass = 'bg-slate-400';
-        if (inv.status === 'COMPLETED') {
-          statusPillClass = 'bg-emerald-50 text-emerald-700 border-emerald-200';
-          statusDotClass = 'bg-emerald-500';
-        } else if (inv.status === 'PROCESSING' || inv.status === 'IN_PROGRESS') {
-          statusPillClass = 'bg-blue-50 text-blue-700 border-blue-200';
-          statusDotClass = 'bg-blue-500 animate-pulse';
-        } else if (inv.status === 'FAILED') {
-          statusPillClass = 'bg-rose-50 text-rose-700 border-rose-200';
-          statusDotClass = 'bg-rose-500';
-        } else if (inv.status === 'PENDING') {
-          statusPillClass = 'bg-amber-50 text-amber-700 border-amber-200';
-          statusDotClass = 'bg-amber-500';
-        }
+      if (recentBody) {
+        recentBody.innerHTML = recent.map(inv => {
+          const date = new Date(inv.created_at).toLocaleDateString('en-US', {
+            month: 'short',
+            day: 'numeric'
+          });
 
-        const trustVal = inv.trust_score !== null ? Math.round(inv.trust_score) : null;
+          // Status styling with colored dots/pills
+          let statusPillClass = 'bg-slate-50 text-slate-700 border-slate-200';
+          let statusDotClass = 'bg-slate-400';
+          if (inv.status === 'COMPLETED') {
+            statusPillClass = 'bg-emerald-50 text-emerald-700 border-emerald-200';
+            statusDotClass = 'bg-emerald-500';
+          } else if (inv.status === 'PROCESSING' || inv.status === 'IN_PROGRESS') {
+            statusPillClass = 'bg-blue-50 text-blue-700 border-blue-200';
+            statusDotClass = 'bg-blue-500 animate-pulse';
+          } else if (inv.status === 'FAILED') {
+            statusPillClass = 'bg-rose-50 text-rose-700 border-rose-200';
+            statusDotClass = 'bg-rose-500';
+          } else if (inv.status === 'PENDING') {
+            statusPillClass = 'bg-amber-50 text-amber-700 border-amber-200';
+            statusDotClass = 'bg-amber-500';
+          }
 
-        // Trust score progress bar classes
-        let scoreColor = 'text-slate-400';
-        let scoreBg = 'bg-slate-200';
-        if (trustVal !== null) {
-          if (trustVal >= 80) { scoreColor = 'text-emerald-600'; scoreBg = 'bg-emerald-500'; }
-          else if (trustVal >= 50) { scoreColor = 'text-amber-600'; scoreBg = 'bg-amber-500'; }
-          else { scoreColor = 'text-rose-600'; scoreBg = 'bg-rose-500'; }
-        }
+          const trustVal = inv.trust_score !== null ? Math.round(inv.trust_score) : null;
 
-        const isBaseline = !!inv.is_baseline;
-        const toggleDisabled = inv.status !== 'COMPLETED' ? 'opacity-40 cursor-not-allowed pointer-events-none' : '';
+          // Trust score progress bar classes
+          let scoreColor = 'text-slate-400';
+          let scoreBg = 'bg-slate-200';
+          if (trustVal !== null) {
+            if (trustVal >= 80) { scoreColor = 'text-emerald-600'; scoreBg = 'bg-emerald-500'; }
+            else if (trustVal >= 50) { scoreColor = 'text-amber-600'; scoreBg = 'bg-amber-500'; }
+            else { scoreColor = 'text-rose-600'; scoreBg = 'bg-rose-500'; }
+          }
 
-        return `
-          <tr class="hover:bg-slate-50 transition-colors group border-b border-slate-100">
-            <td class="px-6 py-4">
-              <p class="text-sm font-medium text-slate-700">${inv.context}</p>
-            </td>
-            <td class="px-6 py-4">
-              <p class="text-sm font-semibold text-slate-900">${inv.title || 'Untitled'}</p>
-              <span class="font-mono text-[9px] font-bold text-slate-400 uppercase tracking-tighter block mt-0.5">${inv.id.substring(0, 8)}…</span>
-            </td>
-            <td class="px-6 py-4">
-              <div class="flex items-center gap-2 justify-center">
-                <div class="w-16 h-1.5 bg-slate-100 rounded-full overflow-hidden shrink-0">
-                  <div class="h-full rounded-full ${scoreBg}" style="width: ${trustVal || 0}%"></div>
+          const isBaseline = !!inv.is_baseline;
+          const toggleDisabled = inv.status !== 'COMPLETED' ? 'opacity-40 cursor-not-allowed pointer-events-none' : '';
+
+          return `
+            <tr class="hover:bg-slate-50 transition-colors group border-b border-slate-100">
+              <td class="px-6 py-4">
+                <p class="text-sm font-medium text-slate-700">${inv.context}</p>
+              </td>
+              <td class="px-6 py-4">
+                <p class="text-sm font-semibold text-slate-900">${inv.title || 'Untitled'}</p>
+                <span class="font-mono text-[9px] font-bold text-slate-400 uppercase tracking-tighter block mt-0.5">${inv.id.substring(0, 8)}…</span>
+              </td>
+              <td class="px-6 py-4">
+                <div class="flex items-center gap-2 justify-center">
+                  <div class="w-16 h-1.5 bg-slate-100 rounded-full overflow-hidden shrink-0">
+                    <div class="h-full rounded-full ${scoreBg}" style="width: ${trustVal || 0}%"></div>
+                  </div>
+                  <span class="text-xs font-bold ${scoreColor}">${trustVal !== null ? trustVal + '%' : 'N/A'}</span>
                 </div>
-                <span class="text-xs font-bold ${scoreColor}">${trustVal !== null ? trustVal + '%' : 'N/A'}</span>
-              </div>
-            </td>
-            <td class="px-6 py-4">
-              <span class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-bold border ${statusPillClass}">
-                <span class="w-1.5 h-1.5 rounded-full ${statusDotClass}"></span>
-                ${formatEnum(inv.status)}
-              </span>
+              </td>
+              <td class="px-6 py-4">
+                <span class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-bold border ${statusPillClass}">
+                  <span class="w-1.5 h-1.5 rounded-full ${statusDotClass}"></span>
+                  ${formatEnum(inv.status)}
+                </span>
+
             </td>
             <td class="px-6 py-4">
               <p class="text-sm text-slate-500 font-medium">${date}</p>
