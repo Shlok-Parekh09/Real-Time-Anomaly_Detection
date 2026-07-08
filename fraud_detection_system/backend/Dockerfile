@@ -30,7 +30,7 @@ WORKDIR $HOME/app
 # This ensures the model is saved to /home/user/.ollama/models instead of /root
 RUN bash -c "ollama serve & OLLAMA_PID=\$!; \
     sleep 5; \
-    ollama pull gemma4:e4b || echo 'Warning: Could not pull gemma4:e4b.'; \
+    ollama pull qwen3.5:9b || echo 'Warning: Could not pull qwen3.5:9b.'; \
     kill \$OLLAMA_PID; \
     wait \$OLLAMA_PID || true"
 
