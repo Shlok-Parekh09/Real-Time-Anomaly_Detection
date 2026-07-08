@@ -258,6 +258,9 @@ def startup_event():
         startup_time_log["ai"] = "offline"
         startup_time_log["reason"] = "Unable to connect to Ollama"
 
+    from core.ai_provider_manager import ai_provider_manager
+    ai_provider_manager.ensure_model_is_pulled()
+
 
 @app.api_route("/api/v1/health", methods=["GET", "HEAD"])
 def api_health():
