@@ -9,6 +9,9 @@ echo "Waiting for Ollama to be ready..."
 sleep 5
 
 # Optional: Ensure the model is available if the pull failed during build
+# ollama pull gemma4:e4b
+# ollama pull gemma4:12b
+# ollama pull qwen3.5:4b
 # ollama pull qwen3.5:9b
 
 # Start the FastAPI application on the Hugging Face Spaces required port (7860)
