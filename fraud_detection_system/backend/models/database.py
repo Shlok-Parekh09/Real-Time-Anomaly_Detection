@@ -21,6 +21,7 @@ class Investigation(Base):
     confidence_score = Column(Float, nullable=True)
     recommendation = Column(String, nullable=True)
     ai_summary_json = Column(JSON, nullable=True)
+    is_baseline = Column(Boolean, default=False)
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 

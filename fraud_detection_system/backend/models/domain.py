@@ -46,6 +46,9 @@ class DocumentBase(BaseModel):
 class DocumentSchema(DocumentBase):
     id: str
     classification: Optional[str] = None
+    extracted_text: Optional[str] = None
+    entities_json: Optional[Any] = None
+    metadata_json: Optional[Any] = None
     created_at: datetime
 
     class Config:
@@ -76,6 +79,7 @@ class InvestigationSchema(InvestigationBase):
     confidence_score: Optional[float] = None
     recommendation: Optional[str] = None
     ai_summary_json: Optional[Any] = None
+    is_baseline: bool = False
     created_at: datetime
     updated_at: datetime
     documents: List[DocumentSchema] = []
@@ -86,3 +90,14 @@ class InvestigationSchema(InvestigationBase):
 class InvestigationFullSchema(InvestigationSchema):
     findings: List[FindingSchema] = []
     events: List[InvestigationEventSchema] = []
+
+class AnomalyFeature(BaseModel):
+    type: str
+    description: str
+    risk_level: str
+
+class InvestigationResponse(BaseModel):
+    fraud_probability_score: float
+    status: str
+    anomalies: List[Any] = []
+    ai_summary: Optional[str] = ""

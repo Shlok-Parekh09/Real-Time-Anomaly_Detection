@@ -3,6 +3,7 @@ uvicorn[standard]
 python-multipart
 PyPDF2
 PyMuPDF
+pdfplumber
 opencv-python-headless
 pytesseract
 Pillow
@@ -11,3 +12,8 @@ pydantic
 sqlalchemy
 pydantic-settings
 pydantic[email]
+thefuzz
+python-Levenshtein
+pyjarowinkler
+httpx
+reportlab

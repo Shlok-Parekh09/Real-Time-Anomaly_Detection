@@ -1,32 +1,62 @@
-FROM python:3.10-slim
-
-# Create a non-root user
-RUN useradd -m -u 1000 user
-USER user
-ENV PATH="/home/user/.local/bin:${PATH}"
-
-WORKDIR /app
+FROM python:3.11-slim
 
 # Install system dependencies
-USER root
 RUN apt-get update && apt-get install -y \
-    libglib2.0-0 \
-    libsm6 \
-    libxext6 \
-    libxrender-dev \
+    curl \
+    gcc \
+    g++ \
+    zstd \
+    dos2unix \
     tesseract-ocr \
+    tesseract-ocr-eng \
     && rm -rf /var/lib/apt/lists/*
 
-# Fix permissions
-RUN chown -R user:user /app
+# Install Ollama binary (requires root)
+RUN curl -fsSL https://ollama.com/install.sh | sh
+
+# Set up a new user named "user" with user ID 1000 (Required by Hugging Face Spaces)
+RUN useradd -m -u 1000 user
 USER user
 
-COPY --chown=user requirements.txt .
-RUN pip install --no-cache-dir --user -r requirements.txt
+# Set home and path for the user
+ENV HOME=/home/user \
+    PATH=/home/user/.local/bin:$PATH \
+    OLLAMA_MODELS=/home/user/.ollama/models
 
+# Set working directory
+WORKDIR $HOME/app
+
+# Pre-pull a single lightweight default model during build
+# This ensures the space is instantly ready without hitting HF's 50GB cache limit
+RUN bash -c "ollama serve & OLLAMA_PID=\$!; \
+    sleep 5; \
+    ollama pull qwen3.5:4b; \
+    kill \$OLLAMA_PID; \
+    wait \$OLLAMA_PID || true"
+
+# Copy requirements
+COPY --chown=user requirements.txt .
+
+# Install Python dependencies
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Copy application code
 COPY --chown=user . .
 
-# Hugging Face Spaces uses port 7860 by default
+# Fix Windows line endings and make executable
+RUN dos2unix start.sh && chmod +x start.sh
+
+# Create necessary directories
+RUN mkdir -p uploads
+
+# Set environment variables for Hugging Face Spaces
+ENV PYTHONUNBUFFERED=1
+ENV PORT=7860
+ENV OLLAMA_BASE_URL=http://localhost:11434
+ENV USE_LOCAL_LLM=True
+ENV DATASET_DIR=/home/user/app/dataset
+
 EXPOSE 7860
 
-CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "7860"]
+# Start command using explicit bash to avoid execution permission issues
+CMD ["bash", "start.sh"]

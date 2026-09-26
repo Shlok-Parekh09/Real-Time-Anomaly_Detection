@@ -1,37 +1,24 @@
 ---
-import { TrendingUp, TrendingDown } from "lucide-astro";
-
 interface Props {
   title: string;
   value: string | number;
-  trend?: string;
-  trendType?: 'up' | 'down' | 'neutral';
+  secondary?: string;
   icon: any;
   colorClass: string;
 }
 
-const { title, value, trend, trendType, icon: Icon, colorClass } = Astro.props;
+const { title, value, secondary, icon: Icon, colorClass } = Astro.props;
 ---
 
-<div class="investigation-card p-6 flex flex-col justify-between">
-  <div class="flex items-start justify-between">
-    <div>
-      <p class="text-sm font-medium text-slate-500 uppercase tracking-wider">{title}</p>
-      <p class="text-3xl font-bold text-slate-900 mt-1">{value}</p>
-    </div>
-    <div class={`p-3 rounded-lg ${colorClass}`}>
-      <Icon class="w-6 h-6" />
+<div class="bg-white border border-slate-200 rounded-lg p-5 flex flex-col justify-between hover:shadow-md hover:border-slate-300 transition-all duration-200 group">
+  <div class="flex items-center justify-between">
+    <span class="text-xs font-bold text-slate-400 uppercase tracking-widest">{title}</span>
+    <div class={`p-2 rounded ${colorClass} group-hover:scale-105 transition-transform shrink-0`}>
+      <Icon class="w-4.5 h-4.5" />
     </div>
   </div>
-  
-  {trend && (
-    <div class="mt-4 flex items-center gap-2">
-      <span class={`flex items-center text-xs font-semibold ${trendType === 'up' ? 'text-emerald-600' : trendType === 'down' ? 'text-rose-600' : 'text-slate-500'}`}>
-        {trendType === 'up' && <TrendingUp class="w-3 h-3 mr-1" />}
-        {trendType === 'down' && <TrendingDown class="w-3 h-3 mr-1" />}
-        {trend}
-      </span>
-      <span class="text-xs text-slate-400 font-medium">vs last month</span>
-    </div>
-  )}
+  <div class="mt-3 flex items-baseline justify-between gap-2">
+    <p class="text-2xl font-bold text-slate-900 tracking-tight metrics-value">{value}</p>
+    <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider shrink-0 metrics-secondary">{secondary || ''}</span>
+  </div>
 </div>

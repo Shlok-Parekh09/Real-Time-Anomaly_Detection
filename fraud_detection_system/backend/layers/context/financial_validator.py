@@ -1,318 +1,194 @@
-"""
-Financial Transaction Validator
-Validates that transactions mathematically match statement balances
-"""
-
-from __future__ import annotations
-
+import pdfplumber
 import re
-import datetime
-from decimal import Decimal, InvalidOperation
-from typing import Any
+import numpy as np
+from models.domain import AnomalyFeature
 
+def extract_monetary_values(text: str) -> list[float]:
+    """Extracts formatted amounts (e.g., 1,234.50, 500.00, or Indian lakh 1,23,456.78) from text."""
+    # Match Western (1,234.50) and Indian lakh (1,23,456.78) formats
+    pattern = r'\b(?:\d{1,2}(?:,\d{2})*,\d{3}\.\d{2}|\d{1,3}(?:,\d{3})*\.\d{2}|\d+\.\d{2})\b'
+    matches = re.findall(pattern, text)
+    return [float(m.replace(',', '')) for m in matches]
 
-def extract_financial_amounts(text: str) -> list[Decimal]:
-    """Extract all financial amounts from text."""
-    # Pattern to match currency amounts
-    patterns = [
-        r'[\$£€¥]\s*(\d{1,3}(?:,\d{3})*(?:\.\d{2})?)',  # $1,234.56
-        r'(\d{1,3}(?:,\d{3})*(?:\.\d{2})?)\s*[\$£€¥]',  # 1,234.56$
-        r'(\d{1,3}(?:,\d{3})*\.\d{2})',  # 1,234.56
-    ]
-    
-    amounts = []
-    for pattern in patterns:
-        matches = re.findall(pattern, text)
-        for match in matches:
-            try:
-                # Remove commas and convert to Decimal
-                clean_amount = match.replace(',', '')
-                amount = Decimal(clean_amount)
-                amounts.append(amount)
-            except (InvalidOperation, ValueError):
-                continue
-    
-    return amounts
-
-
-def validate_bank_statement_math(text: str) -> dict[str, Any]:
+def analyze_benfords_law(amounts: list[float]) -> bool:
     """
-    Validate that bank statement transactions add up correctly.
-    Returns fraud indicators if math doesn't match.
+    Applies Benford's law to the first digits of transaction amounts.
+    Returns False if the distribution is highly statistically suspicious.
     """
+    if len(amounts) < 20: 
+        return True # Not enough statistical significance
+        
+    first_digits = [int(str(a).lstrip('0.')[0]) for a in amounts if a > 0]
+    if not first_digits:
+        return True
+        
+    counts = {i: 0 for i in range(1, 10)}
+    for d in first_digits:
+        counts[d] += 1
+        
+    # Benford expects '1' to appear ~30% of the time. 
+    # If '1' is extremely rare (< 5%) in a large dataset, it indicates fabricated human numbers.
+    percent_ones = counts[1] / len(amounts)
+    if percent_ones < 0.05:
+        return False
+        
+    return True
+
+def analyze_round_numbers(amounts: list[float]) -> bool:
+    """Checks if an unnatural amount of transactions end perfectly in .00"""
+    if not amounts:
+        return True
+        
+    round_numbers = [a for a in amounts if a % 1 == 0 or str(a).endswith('.00')]
+    # If more than 40% of amounts are perfectly round, it's highly suspicious for a normal bank account
+    if len(round_numbers) / len(amounts) > 0.40:
+        return False
+    return True
+
+def run_financial_analysis(file_path: str) -> list[AnomalyFeature]:
+    """Reads PDF tabular data and validates financial logic."""
+    anomalies = []
+    all_amounts = []
     
-    # Extract all amounts
-    amounts = extract_financial_amounts(text)
+    try:
+        with pdfplumber.open(file_path) as pdf:
+            for i, page in enumerate(pdf.pages):
+                text = page.extract_text()
+                if text:
+                    amounts = extract_monetary_values(text)
+                    all_amounts.extend(amounts)
+                    
+                    # We can add structural balance math checking here in the future
+                    # For now, we gather all amounts to run statistical analysis
+                    
+    except Exception as e:
+        anomalies.append(AnomalyFeature(
+            type="Data Extraction Error",
+            description=f"Failed to parse tables: {str(e)}",
+            risk_level="Medium"
+        ))
+        
+    # Run Benford's Law
+    if not analyze_benfords_law(all_amounts):
+        anomalies.append(AnomalyFeature(
+            type="Statistical Anomaly",
+            description="Transaction amounts deviate significantly from Benford's Law (Natural Distribution). Flagged for potential human fabrication.",
+            risk_level="Medium"
+        ))
+        
+    # Run Round Number Check
+    if not analyze_round_numbers(all_amounts):
+        anomalies.append(AnomalyFeature(
+            type="Round Number Anomaly",
+            description="Unusually high frequency of round numbers ending in .00. Real statements typically feature varied cent values.",
+            risk_level="Medium"
+        ))
+
+    return anomalies
+
+
+def validate_bank_statement_math(text: str) -> dict:
+    """
+    Validates basic math in bank statement text.
+    Called by real_estate_signals.py to check for altered numbers.
+    Returns dict with 'has_balance_mismatch' flag and details.
     
-    if len(amounts) < 3:
-        return {
-            "validated": False,
-            "reason": "Insufficient financial data to validate",
-            "amounts_found": len(amounts),
-        }
+    Note: This uses a sliding-window heuristic on extracted amounts.
+    For structured table validation, balance_validator.py is more accurate.
+    """
+    amounts = extract_monetary_values(text)
     
-    # Try to identify opening balance, closing balance, and transactions
-    # Common patterns in bank statements
+    if len(amounts) < 5:
+        return {"has_balance_mismatch": False, "reason": "Not enough amounts to verify"}
     
-    # Look for balance keywords
-    opening_balance = _find_balance(text, ["opening balance", "previous balance", "balance brought forward", "b/f"])
-    closing_balance = _find_balance(text, ["closing balance", "current balance", "balance carried forward", "c/f", "ending balance"])
+    # Look for running balance patterns:
+    # Try to find sequences where amounts should form running totals
+    # A common pattern: amount1 - amount2 = amount3 (or +)
+    mismatches = 0
+    checks = 0
     
-    # Extract transactions (credits and debits)
-    credits = _extract_transactions(text, ["credit", "deposit", "cr", "paid in"])
-    debits = _extract_transactions(text, ["debit", "withdrawal", "dr", "paid out"])
+    for i in range(len(amounts) - 2):
+        a, b, c = amounts[i], amounts[i+1], amounts[i+2]
+        
+        # Check if c = a + b or c = a - b
+        if b > 0 and c > 0:
+            checks += 1
+            diff_add = abs((a + b) - c)
+            diff_sub = abs((a - b) - c)
+            diff_sub2 = abs((b - a) - c)
+            
+            # If none of the basic arithmetic relationships hold
+            min_diff = min(diff_add, diff_sub, diff_sub2)
+            if min_diff > 0.50:  # Wider tolerance to reduce false positives from OCR
+                mismatches += 1
     
-    # Validate the math
+    # Require at least 3 checks and a majority (>50%) to be mismatches to flag
+    has_mismatch = mismatches > 0 and checks >= 3 and (mismatches / checks) > 0.5
+    
     validation_results = []
-    
-    if opening_balance and closing_balance:
-        # Calculate expected closing balance
-        total_credits = sum(credits) if credits else Decimal('0')
-        total_debits = sum(debits) if debits else Decimal('0')
-        
-        calculated_closing = opening_balance + total_credits - total_debits
-        
-        # Allow small rounding differences (0.02)
-        difference = abs(calculated_closing - closing_balance)
-        
-        if difference > Decimal('0.02'):
-            validation_results.append({
-                "type": "balance_mismatch",
-                "severity": "high",
-                "description": f"Closing balance doesn't match calculations",
-                "opening_balance": float(opening_balance),
-                "closing_balance": float(closing_balance),
-                "calculated_closing": float(calculated_closing),
-                "difference": float(difference),
-                "total_credits": float(total_credits),
-                "total_debits": float(total_debits),
-            })
-    
-
-    # Validate impossible dates
-    date_results = validate_impossible_dates(text)
-    validation_results.extend(date_results)
-
-    # Check for suspicious patterns
-
-    
-    # 1. Identical amounts (fraud indicator)
-    if amounts:
-        from collections import Counter
-        amount_counts = Counter(amounts)
-        identical_amounts = [amt for amt, count in amount_counts.items() if count >= 3]
-        
-        if identical_amounts:
-            validation_results.append({
-                "type": "identical_amounts",
-                "severity": "high",
-                "description": f"Found {len(identical_amounts)} amounts repeated 3+ times",
-                "identical_amounts": [float(amt) for amt in identical_amounts[:5]],
-            })
-    
-    # 2. Round numbers (fraud indicator)
-    round_amounts = [amt for amt in amounts if amt == amt.quantize(Decimal('1'))]
-    round_percentage = (len(round_amounts) / len(amounts)) * 100 if amounts else 0
-    
-    if round_percentage > 70:
+    if has_mismatch:
         validation_results.append({
-            "type": "excessive_round_numbers",
+            "type": "altered_bank_math",
             "severity": "high",
-            "description": f"{round_percentage:.1f}% of amounts are perfectly rounded",
-            "round_percentage": round(round_percentage, 1),
-            "round_count": len(round_amounts),
-            "total_count": len(amounts),
+            "description": f"Running balances do not match calculated values (found {mismatches} mathematical mismatch(es) out of {checks} row check(s))."
         })
-    
-    # 3. Very round numbers (1000, 5000, etc.)
-    very_round = [amt for amt in amounts if amt in [Decimal('1000'), Decimal('2000'), Decimal('3000'), Decimal('5000'), Decimal('10000')]]
-    
-    if len(very_round) >= 3:
-        validation_results.append({
-            "type": "very_round_numbers",
-            "severity": "medium",
-            "description": f"Found {len(very_round)} suspiciously round amounts (1000, 5000, etc.)",
-            "very_round_amounts": [float(amt) for amt in very_round],
-        })
-    
-    # 4. Missing variation (all amounts too similar)
-    if len(amounts) >= 5:
-        amount_values = [float(amt) for amt in amounts]
-        mean_amount = sum(amount_values) / len(amount_values)
-        variance = sum((x - mean_amount) ** 2 for x in amount_values) / len(amount_values)
-        std_dev = variance ** 0.5
         
-        # Low standard deviation indicates lack of variation
-        if std_dev < mean_amount * 0.1:  # Less than 10% variation
-            validation_results.append({
-                "type": "low_variation",
-                "severity": "medium",
-                "description": "Amounts show suspiciously low variation",
-                "std_dev": round(std_dev, 2),
-                "mean": round(mean_amount, 2),
-            })
-    
     return {
-        "validated": True,
-        "amounts_found": len(amounts),
-        "opening_balance": float(opening_balance) if opening_balance else None,
-        "closing_balance": float(closing_balance) if closing_balance else None,
-        "total_credits": float(sum(credits)) if credits else 0,
-        "total_debits": float(sum(debits)) if debits else 0,
-        "credit_count": len(credits),
-        "debit_count": len(debits),
-        "validation_results": validation_results,
-        "fraud_indicators_found": len(validation_results),
-        "has_balance_mismatch": any(v["type"] == "balance_mismatch" for v in validation_results),
+        "has_balance_mismatch": has_mismatch,
+        "mismatches": mismatches,
+        "checks": checks,
+        "total_amounts_found": len(amounts),
+        "validation_results": validation_results
     }
 
 
-
-def validate_impossible_dates(text: str) -> list[dict[str, Any]]:
-    """Check for impossible dates like Feb 31, Apr 31 in text."""
-    results = []
-
-    # Common date formats in statements (DD/MM/YYYY or DD-MM-YYYY or DD MMM YYYY)
-    # Simple regex to catch DD/MM or DD-MM
-    date_patterns = [
-        r'\b(30|31)[/-](02|2)\b',      # Feb 30/31
-        r'\b(31)[/-](04|06|09|11|4|6|9)\b', # 31st of Apr, Jun, Sep, Nov
-        r'\b(30|31)\s+(Feb|February)\b',
-        r'\b(31)\s+(Apr|April|Jun|June|Sep|September|Nov|November)\b'
-    ]
-
-    for pattern in date_patterns:
-        matches = re.finditer(pattern, text, re.IGNORECASE)
-        for match in matches:
-            results.append({
-                "type": "impossible_date",
-                "severity": "high",
-                "description": f"Impossible date found in transactions: {match.group(0)}",
-                "evidence": [f"Matched text: {match.group(0)}"]
-            })
-
-    return results
-
-
-def _find_balance(text: str, keywords: list[str]) -> Decimal | None:
-    """Find a balance amount near specific keywords."""
-    text_lower = text.lower()
-    
-    for keyword in keywords:
-        # Find keyword position
-        pos = text_lower.find(keyword)
-        if pos == -1:
-            continue
-        
-        # Look for amount near keyword (within 100 characters)
-        context = text[pos:pos+100]
-        amounts = extract_financial_amounts(context)
-        
-        if amounts:
-            return amounts[0]  # Return first amount found
-    
-    return None
-
-
-def _extract_transactions(text: str, keywords: list[str]) -> list[Decimal]:
-    """Extract transaction amounts near specific keywords."""
-    text_lower = text.lower()
-    transactions = []
-    
-    for keyword in keywords:
-        # Find all occurrences of keyword
-        pos = 0
-        while True:
-            pos = text_lower.find(keyword, pos)
-            if pos == -1:
-                break
-            
-            # Look for amount near keyword
-            context = text[max(0, pos-50):pos+100]
-            amounts = extract_financial_amounts(context)
-            
-            if amounts:
-                transactions.append(amounts[0])
-            
-            pos += len(keyword)
-    
-    return transactions
-
-
-def validate_payslip_math(text: str) -> dict[str, Any]:
+def validate_payslip_math(text: str) -> dict:
     """
-    Validate that payslip calculations are correct.
-    Net pay should equal gross pay minus deductions.
+    Validates basic math on a payslip (Gross Pay - Deductions = Net Pay).
     """
+    gross = None
+    deductions = None
+    net = None
     
-    # Look for payslip-specific keywords
-    gross_pay = _find_balance(text, ["gross pay", "gross salary", "total earnings"])
-    net_pay = _find_balance(text, ["net pay", "net salary", "take home"])
+    # Extract using standard keywords and amount formats
+    # Note: Using multi-stage matching or optional decimals
+    gross_match = re.search(r"(?i)(?:gross|basic|earnings|total\s+earnings|gross\s+salary)[:\s\-]*([0-9,]+\.\d{2}|[0-9,]+)", text)
+    ded_match = re.search(r"(?i)(?:deduction|total\s+deductions|deductions)[:\s\-]*([0-9,]+\.\d{2}|[0-9,]+)", text)
+    net_match = re.search(r"(?i)(?:net|net\s+pay|take\s+home|salary\s+amount|net\s+salary)[:\s\-]*([0-9,]+\.\d{2}|[0-9,]+)", text)
     
-    # Look for deductions
-    tax = _find_balance(text, ["tax", "income tax", "paye", "federal tax"])
-    ni = _find_balance(text, ["national insurance", "ni", "social security"])
-    pension = _find_balance(text, ["pension", "retirement", "401k"])
-    
+    def parse_amount(val_str):
+        if not val_str:
+            return None
+        val_clean = val_str.replace(",", "").strip()
+        try:
+            return float(val_clean)
+        except ValueError:
+            return None
+            
+    if gross_match:
+        gross = parse_amount(gross_match.group(1))
+    if ded_match:
+        deductions = parse_amount(ded_match.group(1))
+    if net_match:
+        net = parse_amount(net_match.group(1))
+        
     validation_results = []
+    has_mismatch = False
     
-    if gross_pay and net_pay:
-        # Calculate total deductions
-        total_deductions = Decimal('0')
-        if tax:
-            total_deductions += tax
-        if ni:
-            total_deductions += ni
-        if pension:
-            total_deductions += pension
-        
-        # Calculate expected net pay
-        calculated_net = gross_pay - total_deductions
-        
-        # Check if it matches
-        difference = abs(calculated_net - net_pay)
-        
-        if difference > Decimal('0.02'):
+    if gross is not None and deductions is not None and net is not None:
+        expected_net = gross - deductions
+        if abs(expected_net - net) > 2.0:
+            has_mismatch = True
             validation_results.append({
-                "type": "payslip_math_error",
+                "type": "altered_payslip_math",
                 "severity": "high",
-                "description": "Net pay doesn't match gross pay minus deductions",
-                "gross_pay": float(gross_pay),
-                "net_pay": float(net_pay),
-                "calculated_net": float(calculated_net),
-                "difference": float(difference),
-                "total_deductions": float(total_deductions),
+                "description": f"Payslip math mismatch: Gross ({gross}) - Deductions ({deductions}) should be Net ({expected_net}), but Net is reported as {net}."
             })
-        
-        # Check if net > gross (impossible)
-        if net_pay > gross_pay:
-            validation_results.append({
-                "type": "net_exceeds_gross",
-                "severity": "high",
-                "description": "Net pay is higher than gross pay (impossible)",
-                "gross_pay": float(gross_pay),
-                "net_pay": float(net_pay),
-            })
-        
-        # Check if deductions are reasonable (typically 20-45% of gross)
-        if total_deductions > 0:
-            deduction_percentage = (total_deductions / gross_pay) * 100
             
-            if deduction_percentage < 10 or deduction_percentage > 60:
-                validation_results.append({
-                    "type": "unusual_deduction_rate",
-                    "severity": "medium",
-                    "description": f"Deduction rate of {deduction_percentage:.1f}% is outside normal range (20-45%)",
-                    "deduction_percentage": round(float(deduction_percentage), 1),
-                })
-    
     return {
-        "validated": True,
-        "gross_pay": float(gross_pay) if gross_pay else None,
-        "net_pay": float(net_pay) if net_pay else None,
-        "tax": float(tax) if tax else None,
-        "ni": float(ni) if ni else None,
-        "pension": float(pension) if pension else None,
+        "has_payslip_mismatch": has_mismatch,
         "validation_results": validation_results,
-        "fraud_indicators_found": len(validation_results),
+        "gross": gross,
+        "deductions": deductions,
+        "net": net
     }

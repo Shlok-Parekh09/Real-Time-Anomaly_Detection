@@ -1,10 +1,11 @@
 ---
 import "../styles/global.css";
-import { Search, Bell, User, LayoutDashboard, FileSearch, ShieldCheck, Settings, HelpCircle } from "lucide-astro";
+import { User, LayoutDashboard, FileSearch, Settings, Plus } from "lucide-astro";
+import { ClientRouter } from 'astro:transitions';
 
 interface Props {
 	title?: string;
-  activeTab?: 'dashboard' | 'investigations' | 'compliance' | 'settings';
+  activeTab?: 'dashboard' | 'investigations' | 'settings';
 }
 
 const { title = "Anobis | Investigation Platform", activeTab = 'dashboard' } = Astro.props;
@@ -17,78 +18,144 @@ const { title = "Anobis | Investigation Platform", activeTab = 'dashboard' } = A
 		<meta name="viewport" content="width=device-width" />
 		<link rel="icon" type="image/png" href="/favicon-96x96.png" sizes="96x96" />
 		<link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+		<link rel="preconnect" href="https://fonts.googleapis.com">
+		<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+		<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Devanagari:wght@400;500;600;700&display=swap" rel="stylesheet">
 		<link rel="shortcut icon" href="/favicon.ico" />
 		<link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
 		<meta name="apple-mobile-web-app-title" content="Anobis" />
 		<link rel="manifest" href="/site.webmanifest" />
 		<meta name="generator" content={Astro.generator} />
 		<title>{title}</title>
+		<ClientRouter />
 	</head>
 	<body class="bg-slate-50 text-slate-900 flex h-screen overflow-hidden">
 		<!-- Main Sidebar -->
-		<aside class="w-64 bg-slate-900 text-slate-300 flex flex-col flex-shrink-0">
-			<div class="p-6 flex items-center gap-3">
-				<div class="w-8 h-8 rounded flex items-center justify-center overflow-hidden">
+		<aside class="w-56 bg-slate-900 text-slate-300 flex flex-col flex-shrink-0 border-r border-slate-800">
+			<a href="/" class="h-14 px-5 flex items-center gap-2.5 border-b border-slate-800 hover:bg-slate-800/40 transition-colors select-none">
+				<div class="w-7 h-7 rounded flex items-center justify-center overflow-hidden shrink-0">
 					<img src="/favicon-96x96.png" alt="Anobis Logo" class="w-full h-full object-cover" />
 				</div>
-				<span class="font-bold text-white text-lg tracking-tight">Anobis</span>
-			</div>
+				<span class="font-extrabold text-white text-base tracking-wider uppercase">Anobis</span>
+			</a>
 			
-			<nav class="flex-1 px-4 space-y-1">
-				<a href="/" class={`flex items-center gap-3 px-3 py-2 rounded-md transition-colors ${activeTab === 'dashboard' ? 'bg-slate-800 text-white' : 'hover:bg-slate-800 hover:text-white'}`}>
-					<LayoutDashboard class="w-4 h-4" />
-					<span class="text-sm font-medium">Dashboard</span>
+			<nav class="flex-1 p-3 space-y-1">
+				<a href="/dashboard" class={`flex items-center gap-3 px-3 py-2 rounded-md transition-all ${activeTab === 'dashboard' ? 'bg-slate-800 text-white font-semibold' : 'hover:bg-slate-800/60 hover:text-white text-slate-400'}`}>
+					<LayoutDashboard class="w-4 h-4 shrink-0" />
+					<span class="text-sm">Dashboard</span>
 				</a>
-				<a href="/investigations" class={`flex items-center gap-3 px-3 py-2 rounded-md transition-colors ${activeTab === 'investigations' ? 'bg-slate-800 text-white' : 'hover:bg-slate-800 hover:text-white'}`}>
-					<FileSearch class="w-4 h-4" />
-					<span class="text-sm font-medium">Investigations</span>
+				<a href="/investigations" class={`flex items-center gap-3 px-3 py-2 rounded-md transition-all ${activeTab === 'investigations' ? 'bg-slate-800 text-white font-semibold' : 'hover:bg-slate-800/60 hover:text-white text-slate-400'}`}>
+					<FileSearch class="w-4 h-4 shrink-0" />
+					<span class="text-sm">Investigations</span>
 				</a>
-				<a href="#" class={`flex items-center gap-3 px-3 py-2 rounded-md transition-colors ${activeTab === 'compliance' ? 'bg-slate-800 text-white' : 'hover:bg-slate-800 hover:text-white'}`}>
-					<ShieldCheck class="w-4 h-4" />
-					<span class="text-sm font-medium">Compliance</span>
+				<a href="/settings" class={`flex items-center gap-3 px-3 py-2 rounded-md transition-all ${activeTab === 'settings' ? 'bg-slate-800 text-white font-semibold' : 'hover:bg-slate-800/60 hover:text-white text-slate-400'}`}>
+					<Settings class="w-4 h-4 shrink-0" />
+					<span class="text-sm">Settings</span>
 				</a>
 			</nav>
-			
-			<div class="p-4 border-t border-slate-800 space-y-1">
-				<a href="#" class="flex items-center gap-3 px-3 py-2 rounded-md hover:bg-slate-800 hover:text-white transition-colors">
-					<Settings class="w-4 h-4" />
-					<span class="text-sm font-medium">Settings</span>
-				</a>
-				<a href="#" class="flex items-center gap-3 px-3 py-2 rounded-md hover:bg-slate-800 hover:text-white transition-colors">
-					<HelpCircle class="w-4 h-4" />
-					<span class="text-sm font-medium">Support</span>
-				</a>
-			</div>
 		</aside>
 
 		<!-- Main Content -->
-		<div class="flex-1 flex flex-col min-w-0 overflow-hidden">
-			<!-- Header -->
-			<header class="h-16 bg-white border-b border-slate-200 flex items-center justify-between px-8 flex-shrink-0">
+		<div class="flex-1 flex flex-col min-w-0 overflow-hidden relative bg-slate-50/70">
+			<!-- Animated Cloudy Gradient Background -->
+			<div class="absolute inset-0 z-0 pointer-events-none overflow-hidden opacity-[0.14] mix-blend-multiply">
+				<div class="absolute -top-[20%] -left-[10%] w-[65%] h-[65%] rounded-full bg-gradient-to-br from-blue-700 via-blue-600 to-indigo-800 filter blur-[130px] animate-[pulse_12s_infinite_ease-in-out]"></div>
+				<div class="absolute -bottom-[20%] -right-[10%] w-[65%] h-[65%] rounded-full bg-gradient-to-tl from-amber-600 via-orange-500 to-amber-700 filter blur-[130px] animate-[pulse_16s_infinite_ease-in-out]"></div>
+			</div>
+
+			<header class="h-14 bg-white/80 backdrop-blur-md border-b border-slate-200 flex items-center justify-between px-6 flex-shrink-0 z-30">
 				<div class="flex items-center gap-4 flex-1">
-					<div class="relative w-96">
-						<Search class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-						<input 
-							type="text" 
-							placeholder="Search investigations, files, or audit logs..." 
-							class="w-full pl-10 pr-4 py-2 bg-slate-100 border-transparent rounded-md text-sm focus:bg-white focus:border-slate-300 focus:ring-0 transition-all"
-						/>
-					</div>
+					<!-- Left spacing -->
 				</div>
 				
 				<div class="flex items-center gap-4">
-					<button class="p-2 text-slate-500 hover:bg-slate-100 rounded-full relative">
-						<Bell class="w-5 h-5" />
-						<span class="absolute top-2 right-2 w-2 h-2 bg-rose-500 rounded-full border-2 border-white"></span>
-					</button>
-					<div class="h-8 w-px bg-slate-200"></div>
-					<div class="flex items-center gap-3 pl-2">
-						<div class="text-right">
-							<p class="text-sm font-semibold text-slate-900">Arjun Sharma</p>
-							<p class="text-xs text-slate-500">Senior Auditor</p>
+					<!-- AI Engine Health Pill (Phase 10) -->
+					<div class="relative group">
+						<button id="ai-health-pill" class="flex items-center gap-1.5 px-3 py-1 bg-slate-100 border border-slate-200 text-[10px] font-bold rounded-full transition-all duration-300">
+							<span class="text-slate-400">AI:</span>
+							<span id="ai-health-status" class="flex items-center gap-1">
+								<span class="w-1.5 h-1.5 rounded-full bg-slate-400 animate-pulse"></span>
+								<span>Checking...</span>
+							</span>
+						</button>
+						<!-- Interactive Hover Card -->
+						<div class="absolute right-0 top-full mt-2 w-64 bg-white border border-slate-200 rounded-lg shadow-xl p-4 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto transition-all duration-200 z-50">
+							<p class="text-[10px] font-bold text-slate-400 uppercase tracking-wider border-b border-slate-100 pb-2 mb-3">AI Engine Status Dashboard</p>
+							<div class="space-y-2">
+								<div class="flex items-center justify-between text-[11px]">
+									<span class="text-slate-500 font-medium">AI Engine:</span>
+									<span id="health-detail-ai" class="font-bold text-slate-700">Checking...</span>
+								</div>
+								<div class="flex items-center justify-between text-[11px]">
+									<span class="text-slate-500 font-medium">Active Provider:</span>
+									<span id="health-detail-provider" class="font-bold text-slate-700">--</span>
+								</div>
+								<div class="flex items-center justify-between text-[11px]">
+									<span class="text-slate-500 font-medium">Model:</span>
+									<span id="health-detail-model" class="font-semibold text-slate-800">gemma-4-31b-it</span>
+								</div>
+								<div class="flex items-center justify-between text-[11px]">
+									<span class="text-slate-500 font-medium">Endpoint/API:</span>
+									<span id="health-detail-endpoint" class="font-mono text-slate-600 text-[10px] truncate max-w-[130px]" title="Endpoint">--</span>
+								</div>
+								<div class="flex items-center justify-between text-[11px]">
+									<span class="text-slate-500 font-medium">Execution Mode:</span>
+									<span id="health-detail-mode" class="font-semibold text-slate-700">--</span>
+								</div>
+								<div class="flex items-center justify-between text-[11px]">
+									<span class="text-slate-500 font-medium">Inference Latency:</span>
+									<span id="health-detail-inference" class="font-mono text-slate-600">-- ms</span>
+								</div>
+								<div class="flex items-center justify-between text-[11px]">
+									<span class="text-slate-500 font-medium">Dataset State:</span>
+									<span id="health-detail-dataset" class="font-semibold text-slate-700">--</span>
+								</div>
+								<div class="flex items-center justify-between text-[11px]">
+									<span class="text-slate-500 font-medium">KNN Engine:</span>
+									<span id="health-detail-knn" class="font-semibold text-slate-700">--</span>
+								</div>
+								<div id="health-detail-reason-row" class="hidden border-t border-slate-100 pt-2 mt-2">
+									<p class="text-[9px] font-bold text-rose-500">Reason:</p>
+									<p id="health-detail-reason" class="text-[9px] text-slate-500 leading-relaxed font-semibold mt-0.5">--</p>
+								</div>
+							</div>
 						</div>
-						<div class="w-10 h-10 bg-slate-200 rounded-full flex items-center justify-center overflow-hidden border border-slate-300">
-							<User class="w-6 h-6 text-slate-400" />
+					</div>
+					<!-- Synchronous pre-paint cache restore: eliminates 'Checking...' flicker on tab switch -->
+					<script is:inline>
+					(function() {
+						try {
+							var c = sessionStorage.getItem('aiHealthCache');
+							if (!c) return;
+							var r = JSON.parse(c);
+							var pill = document.getElementById('ai-health-pill');
+							var status = document.getElementById('ai-health-status');
+							if (!pill || !status) return;
+							if (r.ai === 'ready') {
+								status.innerHTML = '<span class="w-1.5 h-1.5 rounded-full bg-emerald-500 inline-block"></span><span class="text-emerald-700">Ready</span>';
+								pill.className = 'flex items-center gap-1.5 px-3 py-1 bg-emerald-50 border border-emerald-200 text-[10px] font-bold rounded-full transition-all duration-300';
+							} else {
+								status.innerHTML = '<span class="w-1.5 h-1.5 rounded-full bg-rose-500 inline-block"></span><span class="text-rose-700">Offline</span>';
+								pill.className = 'flex items-center gap-1.5 px-3 py-1 bg-rose-50 border border-rose-200 text-[10px] font-bold rounded-full transition-all duration-300';
+							}
+						} catch(e) {}
+					})();
+					</script>
+
+					<!-- New Investigation Button -->
+					<a href="/new-investigation" class="px-3 py-1.5 bg-slate-900 hover:bg-slate-800 text-white rounded font-medium text-xs transition-all flex items-center gap-1.5 shadow-sm">
+						<Plus class="w-3.5 h-3.5" />
+						New Investigation
+					</a>
+ 
+					<div class="h-6 w-px bg-slate-200"></div>
+					<div class="flex items-center gap-2.5 pl-1">
+						<div class="text-right">
+							<p class="text-xs font-semibold text-slate-900 leading-none">Admin</p>
+							<p class="text-[9px] text-slate-400 font-bold uppercase tracking-wider mt-1">Lead Auditor</p>
+						</div>
+						<div class="w-8 h-8 bg-slate-200 rounded-full flex items-center justify-center overflow-hidden border border-slate-300">
+							<User class="w-5 h-5 text-slate-400" />
 						</div>
 					</div>
 				</div>
@@ -99,5 +166,117 @@ const { title = "Anobis | Investigation Platform", activeTab = 'dashboard' } = A
 				<slot />
 			</main>
 		</div>
+		<script>
+			async function updateAiHealth() {
+				const statusEl = document.getElementById('ai-health-status');
+				const pillEl = document.getElementById('ai-health-pill');
+				
+				const dAi = document.getElementById('health-detail-ai');
+				const dProvider = document.getElementById('health-detail-provider');
+				const dModel = document.getElementById('health-detail-model');
+				const dEndpoint = document.getElementById('health-detail-endpoint');
+				const dMode = document.getElementById('health-detail-mode');
+				const dInference = document.getElementById('health-detail-inference');
+				const dDataset = document.getElementById('health-detail-dataset');
+				const dKnn = document.getElementById('health-detail-knn');
+				const dReasonRow = document.getElementById('health-detail-reason-row');
+				const dReason = document.getElementById('health-detail-reason');
+				
+				if (!statusEl || !pillEl) return;
+
+				// If cache says AI is ready, apply instantly and skip the fetch entirely
+				const cachedHealth = sessionStorage.getItem('aiHealthCache');
+				if (cachedHealth) {
+					try {
+						const res = JSON.parse(cachedHealth);
+						applyHealthUI(res);
+						if (res.ai === 'ready') return; // Model is loaded — do NOT re-check
+					} catch(e) {}
+				}
+				
+				try {
+					const res = await fetch((import.meta.env.PUBLIC_API_URL || 'http://localhost:7860') + '/api/v1/system/health')
+						.then(r => r.json());
+					
+					sessionStorage.setItem('aiHealthCache', JSON.stringify(res));
+					applyHealthUI(res);
+
+					// If AI just became ready, stop all future polling
+					if (res.ai === 'ready' && window.__aiHealthInterval) {
+						clearInterval(window.__aiHealthInterval);
+						window.__aiHealthInterval = null;
+					}
+				} catch (e) {
+					statusEl.innerHTML = `
+						<span class="w-1.5 h-1.5 rounded-full bg-rose-500 inline-block"></span>
+						<span class="text-rose-700">System Offline</span>
+					`;
+					pillEl.className = "flex items-center gap-1.5 px-3 py-1 bg-rose-50 border border-rose-200 text-[10px] font-bold rounded-full transition-all duration-300";
+					
+					if (dAi) dAi.innerHTML = '<span class="text-rose-600 font-bold">🔴 System Offline</span>';
+					if (dReasonRow) dReasonRow.classList.remove('hidden');
+					if (dReason) dReason.textContent = 'Unable to connect to local backend API';
+				}
+
+				function applyHealthUI(res: any) {
+					const datasetLoaded = res.dataset === 'loaded';
+					const aiReady = res.ai === 'ready';
+					
+					if (dProvider) dProvider.textContent = res.provider || 'Local Ollama';
+					if (dModel) dModel.textContent = res.model || 'qwen3.5:9b';
+					if (dEndpoint) dEndpoint.textContent = res.endpoint || 'http://localhost:11434';
+					if (dMode) dMode.textContent = res.execution_mode || 'Offline';
+					if (dInference) dInference.textContent = aiReady ? `${res.startup_latency_ms} ms` : 'N/A';
+					if (dDataset) {
+						dDataset.textContent = datasetLoaded ? 'Loaded' : 'Empty';
+						dDataset.className = datasetLoaded ? 'font-bold text-emerald-600' : 'font-bold text-slate-500';
+					}
+					if (dKnn) {
+						dKnn.textContent = res.knn === 'ready' ? 'Ready' : 'Offline';
+						dKnn.className = res.knn === 'ready' ? 'font-bold text-emerald-600' : 'font-bold text-rose-500';
+					}
+					
+					if (aiReady) {
+						statusEl.innerHTML = `
+							<span class="w-1.5 h-1.5 rounded-full bg-emerald-500 inline-block"></span>
+							<span class="text-emerald-700">Ready</span>
+						`;
+						pillEl.className = "flex items-center gap-1.5 px-3 py-1 bg-emerald-50 border border-emerald-200 text-[10px] font-bold rounded-full transition-all duration-300";
+						
+						if (dAi) dAi.innerHTML = '<span class="text-emerald-600 font-bold">🟢 Ready</span>';
+						if (dReasonRow) dReasonRow.classList.add('hidden');
+					} else {
+						const failReason = res.reason || 'qwen3.5:9b not installed';
+						statusEl.innerHTML = `
+							<span class="w-1.5 h-1.5 rounded-full bg-rose-500 inline-block"></span>
+							<span class="text-rose-700">Offline</span>
+						`;
+						pillEl.className = "flex items-center gap-1.5 px-3 py-1 bg-rose-50 border border-rose-200 text-[10px] font-bold rounded-full transition-all duration-300";
+						
+						if (dAi) dAi.innerHTML = '<span class="text-rose-600 font-bold">🔴 Offline</span>';
+						if (dReasonRow) dReasonRow.classList.remove('hidden');
+						if (dReason) dReason.textContent = failReason;
+					}
+				}
+			}
+			
+			document.addEventListener('astro:page-load', updateAiHealth);
+			
+			// Poll only if AI is not yet ready; stop once it is
+			(window as any).__aiHealthInterval = setInterval(() => {
+				const cache = sessionStorage.getItem('aiHealthCache');
+				if (cache) {
+					try {
+						const res = JSON.parse(cache);
+						if (res.ai === 'ready') {
+							clearInterval((window as any).__aiHealthInterval);
+							(window as any).__aiHealthInterval = null;
+							return;
+						}
+					} catch(e) {}
+				}
+				updateAiHealth();
+			}, 10000);
+		</script>
 	</body>
 </html>

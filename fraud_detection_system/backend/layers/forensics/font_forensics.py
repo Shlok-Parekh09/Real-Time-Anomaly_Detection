@@ -1,87 +1,128 @@
-from typing import Dict, Any, List
+"""
+Font Forensics Module
+Analyzes font consistency within PDFs to detect manual tampering.
+Bank-generated PDFs use consistent proprietary fonts; edited documents show mixed consumer fonts.
+"""
 
-try:
-    import fitz  # PyMuPDF
-    PYMUPDF_AVAILABLE = True
-except ImportError:
-    PYMUPDF_AVAILABLE = False
+import fitz  # PyMuPDF
+from collections import Counter
+from typing import List, Dict, Any
+from models.domain import AnomalyFeature
 
-class FontForensics:
+
+def analyze_font_consistency(file_path: str) -> List[AnomalyFeature]:
     """
-    Analyzes font consistency within PDFs.
+    Analyzes font usage across all pages of a PDF.
+    Flags documents with too many distinct font families or suspicious consumer fonts.
     """
-    def analyze(self, pdf_bytes: bytes) -> List[Dict[str, Any]]:
-        findings = []
-        if not PYMUPDF_AVAILABLE:
-            return findings
+    anomalies = []
 
-        try:
-            doc = fitz.open(stream=pdf_bytes, filetype="pdf")
-            all_fonts = set()
-            consumer_fonts = ["arial", "timesnewroman", "helvetica", "calibri", "courier"]
-            found_consumer = []
+    try:
+        doc = fitz.open(file_path)
+        all_fonts: List[str] = []
+        all_sizes: List[float] = []
+        font_page_map: Dict[str, List[int]] = {}
 
-            for page_num in range(len(doc)):
-                page = doc[page_num]
-                fonts = page.get_fonts()
-                for font in fonts:
-                    font_name = font[3].lower()
-                    all_fonts.add(font_name)
-                    for cf in consumer_fonts:
-                        if cf in font_name and font_name not in found_consumer:
-                            found_consumer.append(font_name)
+        for page_num in range(len(doc)):
+            page = doc[page_num]
+            blocks = page.get_text("dict", flags=fitz.TEXT_PRESERVE_WHITESPACE)
 
-                # Basic Alignment drift check
-                blocks = page.get_text("dict")["blocks"]
-                decimal_x_coords = []
-                for b in blocks:
-                    if b['type'] == 0:
-                        for l in b["lines"]:
-                            for s in l["spans"]:
-                                text = s["text"].strip()
-                                if '.' in text and any(c.isdigit() for c in text): # Has decimal and numbers
-                                    decimal_x_coords.append(s["bbox"][2]) # Right bounding box edge
+            for block in blocks.get("blocks", []):
+                if block.get("type") != 0:  # text blocks only
+                    continue
+                for line in block.get("lines", []):
+                    for span in line.get("spans", []):
+                        font_name = span.get("font", "unknown").lower()
+                        font_size = span.get("size", 0)
 
-                if decimal_x_coords:
-                    # Group x-coords within 1.5px
-                    groups = []
-                    for x in decimal_x_coords:
-                        matched = False
-                        for gx in groups:
-                            if abs(x - gx) < 1.5:
-                                matched = True
-                                break
-                        if not matched:
-                            groups.append(x)
+                        all_fonts.append(font_name)
+                        all_sizes.append(font_size)
 
-                    if len(groups) > 5 and len(decimal_x_coords) > 10:
-                        findings.append({
-                            "name": "Decimal Alignment Drift",
-                            "severity": "MEDIUM",
-                            "description": "Detected multiple misaligned decimal points in numerical columns. Authentic tables typically align perfectly.",
-                            "evidence": [f"Found {len(groups)} different vertical alignment points for decimals on page {page_num+1}."]
-                        })
+                        if font_name not in font_page_map:
+                            font_page_map[font_name] = []
+                        font_page_map[font_name].append(page_num + 1)
 
-            if len(all_fonts) > 3:
-                findings.append({
-                    "name": "Font Inconsistencies",
-                    "severity": "MEDIUM",
-                    "description": "Unusually high number of distinct fonts. Banks typically use 1-2 proprietary fonts.",
-                    "evidence": [f"Fonts found ({len(all_fonts)} total): {', '.join(list(all_fonts)[:5])}..."]
-                })
+        doc.close()
 
-            if found_consumer and len(all_fonts) > 1:
-                findings.append({
-                    "name": "Mixed Consumer & Proprietary Fonts",
-                    "severity": "HIGH",
-                    "description": "Detected standard consumer fonts mixed with other fonts. Fraudsters often use standard fonts to edit numbers.",
-                    "evidence": [f"Standard fonts detected: {', '.join(found_consumer)}"]
-                })
+        if not all_fonts:
+            return anomalies
 
-            doc.close()
-            return findings
-        except Exception as e:
-            print(f"[FontForensics] Error: {e}")
-            return findings
+        # --- Check 1: Too many distinct font families ---
+        # Normalize font names to base families
+        base_families = set()
+        for font in all_fonts:
+            # Strip common suffixes like -bold, -italic, etc.
+            base = font.split("-")[0].split(",")[0].strip()
+            base_families.add(base)
 
-font_forensics = FontForensics()
+        if len(base_families) > 4:
+            anomalies.append(AnomalyFeature(
+                type="Font Inconsistency",
+                description=(
+                    f"Document uses {len(base_families)} distinct font families: "
+                    f"{', '.join(sorted(list(base_families))[:6])}. "
+                    "Bank-generated statements typically use 1-2 consistent fonts. "
+                    "Multiple fonts suggest manual editing or copy-paste from different sources."
+                ),
+                risk_level="High"
+            ))
+
+        # --- Check 2: Suspicious consumer fonts mixed with system fonts ---
+        consumer_fonts = [
+            "arial", "times", "calibri", "cambria", "comic",
+            "georgia", "verdana", "trebuchet", "segoe", "tahoma",
+            "impact", "palatino", "garamond", "bookman"
+        ]
+        proprietary_indicators = [
+            "courier", "ocr", "micr", "bank", "monospace",
+            "code", "consolas", "lucida", "fixed"
+        ]
+
+        found_consumer = []
+        found_proprietary = []
+        for base in base_families:
+            if any(cf in base for cf in consumer_fonts):
+                found_consumer.append(base)
+            if any(pf in base for pf in proprietary_indicators):
+                found_proprietary.append(base)
+
+        if found_consumer and found_proprietary:
+            anomalies.append(AnomalyFeature(
+                type="Mixed Font Origin",
+                description=(
+                    f"Document mixes proprietary/monospace fonts ({', '.join(found_proprietary)}) "
+                    f"with consumer fonts ({', '.join(found_consumer)}). "
+                    "This pattern is common when numbers are manually replaced using standard fonts "
+                    "in a document originally generated by banking software."
+                ),
+                risk_level="High"
+            ))
+
+        # --- Check 3: Inconsistent font sizes for numeric content ---
+        font_counter = Counter(all_fonts)
+        size_counter = Counter(round(s, 1) for s in all_sizes)
+
+        # If the document has a dominant size but some text in a very different size
+        if len(size_counter) > 1:
+            most_common_size = size_counter.most_common(1)[0][0]
+            outlier_sizes = [s for s, c in size_counter.items()
+                          if abs(s - most_common_size) > 2.0 and c < len(all_sizes) * 0.05]
+            if outlier_sizes:
+                anomalies.append(AnomalyFeature(
+                    type="Font Size Anomaly",
+                    description=(
+                        f"Dominant text size is {most_common_size}pt but found small clusters of text at "
+                        f"{', '.join(str(s) + 'pt' for s in outlier_sizes[:3])}. "
+                        "Inserted or replaced text often has slightly different sizing than the original."
+                    ),
+                    risk_level="Low"
+                ))
+
+    except Exception as e:
+        anomalies.append(AnomalyFeature(
+            type="Font Analysis Error",
+            description=f"Could not analyze fonts: {str(e)}",
+            risk_level="Low"
+        ))
+
+    return anomalies
