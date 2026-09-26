@@ -2,6 +2,7 @@ import re
 import io
 from typing import Dict, Any, List
 from .pdf_analyzer import pdf_analyzer
+from .font_alignment_analyzer import font_alignment_analyzer
 
 class DigitalForensics:
     """

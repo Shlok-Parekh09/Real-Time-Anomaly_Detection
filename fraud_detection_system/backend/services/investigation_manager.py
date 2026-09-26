@@ -6,6 +6,12 @@ from models.database import Investigation, Document, Finding, Evidence
 from services.event_logger import log_event
 from layers.extraction.extraction_service import extraction_service
 from layers.forensics.digital_forensics import digital_forensics
+from layers.forensics.image_forensics import image_forensics
+from layers.forensics.font_forensics import font_forensics
+from layers.forensics.signature_validator import signature_validator
+from layers.context.date_validator import date_validator
+from layers.context.balance_validator import balance_validator
+
 from layers.cross_document.cross_document_validator import cross_document_validator
 from layers.scoring.trust_engine import trust_engine
 from layers.ai.summary_generator import summary_generator
