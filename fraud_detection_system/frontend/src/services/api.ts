@@ -45,6 +45,14 @@ class ApiService {
     return this.request<Investigation[]>('/api/v1/investigations');
   }
 
+  async getInvestigationStats(): Promise<any> {
+    return this.request<any>('/api/v1/investigations/stats');
+  }
+
+  async exportInvestigations(): Promise<any> {
+    return this.request<any>('/api/v1/investigations/export');
+  }
+
   async getInvestigation(id: string): Promise<InvestigationFull> {
     return this.request<InvestigationFull>(`/api/v1/investigations/${id}`);
   }
