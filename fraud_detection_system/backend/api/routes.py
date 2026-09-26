@@ -38,6 +38,77 @@ def list_investigations(
         .all()
     return investigations
 
+from sqlalchemy import func
+from datetime import date, datetime
+
+@router.get("/investigations/stats")
+def get_investigation_stats(db: Session = Depends(get_db)):
+    total = db.query(database.Investigation).count()
+
+    verified = db.query(database.Investigation).filter(
+        database.Investigation.status == 'COMPLETED',
+        database.Investigation.trust_score >= 80
+    ).count()
+
+    suspicious = db.query(database.Investigation).filter(
+        database.Investigation.status == 'COMPLETED',
+        database.Investigation.trust_score < 80,
+        database.Investigation.trust_score >= 50
+    ).count()
+
+    fraudulent = db.query(database.Investigation).filter(
+        database.Investigation.status == 'COMPLETED',
+        database.Investigation.trust_score < 50
+    ).count()
+
+    # Calculate created today
+    today = date.today()
+    created_today = db.query(database.Investigation).filter(
+        func.date(database.Investigation.created_at) == today
+    ).count()
+
+    # Average trust score for completed investigations
+    avg_trust_result = db.query(func.avg(database.Investigation.trust_score)).filter(
+        database.Investigation.status == 'COMPLETED',
+        database.Investigation.trust_score != None
+    ).scalar()
+
+    avg_trust = round(avg_trust_result) if avg_trust_result else 0
+
+    return {
+        "total": total,
+        "verified": verified,
+        "suspicious": suspicious,
+        "fraudulent": fraudulent,
+        "created_today": created_today,
+        "avg_trust": avg_trust
+    }
+
+@router.get("/investigations/export")
+def export_investigations(db: Session = Depends(get_db)):
+    investigations = db.query(database.Investigation).all()
+    completed = [i for i in investigations if i.status == 'COMPLETED']
+
+    snapshot = {
+        "generated_at": datetime.utcnow().isoformat(),
+        "total_investigations": len(investigations),
+        "completed": len(completed),
+        "auto_approved": len([i for i in completed if i.recommendation == 'AUTO_APPROVE']),
+        "manual_review": len([i for i in completed if i.recommendation != 'AUTO_APPROVE']),
+        "investigations": [
+            {
+                "id": i.id,
+                "title": i.title,
+                "context": i.context,
+                "status": i.status,
+                "trust_score": i.trust_score,
+                "recommendation": i.recommendation,
+            }
+            for i in investigations
+        ]
+    }
+    return snapshot
+
 @router.post("/investigations", response_model=domain.InvestigationSchema, status_code=201)
 def create_investigation(
     investigation: domain.InvestigationCreate,

@@ -268,13 +268,15 @@ import { FileText, CheckCircle, AlertTriangle, ShieldAlert, Plus, ArrowRight, Ex
 
     // First try to load from cache
     const cachedStr = sessionStorage.getItem('investigations_cache');
+    const cachedStatsStr = sessionStorage.getItem('stats_cache');
     let hasRenderedCache = false;
     
-    if (cachedStr) {
+    if (cachedStr && cachedStatsStr) {
       try {
         const cachedInv = JSON.parse(cachedStr);
+        const cachedStats = JSON.parse(cachedStatsStr);
         lastInvestigations = cachedInv;
-        renderDashboardUI(cachedInv);
+        renderDashboardUI(cachedInv, cachedStats);
         hasRenderedCache = true;
       } catch(e) {}
     }
@@ -306,12 +308,16 @@ import { FileText, CheckCircle, AlertTriangle, ShieldAlert, Plus, ArrowRight, Ex
     }
 
     try {
-      const investigations = await api.getInvestigations();
+      const [investigations, stats] = await Promise.all([
+        api.getInvestigations(),
+        api.getInvestigationStats()
+      ]);
       sessionStorage.setItem('investigations_cache', JSON.stringify(investigations));
+      sessionStorage.setItem('stats_cache', JSON.stringify(stats));
       lastInvestigations = investigations;
       
       // Update the UI with fresh data if it changed (stale-while-revalidate)
-      renderDashboardUI(investigations);
+      renderDashboardUI(investigations, stats);
     } catch (err) {
       if (!hasRenderedCache) {
         if (recentBody.parentElement) recentBody.parentElement.querySelector('table')?.classList.add('hidden');
@@ -321,22 +327,15 @@ import { FileText, CheckCircle, AlertTriangle, ShieldAlert, Plus, ArrowRight, Ex
     }
   }
 
-  function renderDashboardUI(investigations: any[]) {
-      // Calculate Metrics
-      if (metricsGrid) {
-        const total = investigations.length;
-        const verified = investigations.filter(i => i.status === 'COMPLETED' && i.trust_score !== null && i.trust_score >= 80).length;
-        const suspicious = investigations.filter(i => i.status === 'COMPLETED' && i.trust_score !== null && i.trust_score < 80 && i.trust_score >= 50).length;
-        const fraudulent = investigations.filter(i => i.status === 'COMPLETED' && i.trust_score !== null && i.trust_score < 50).length;
-
-        // Calculate count of investigations created today
-        const todayStr = new Date().toDateString();
-        const createdToday = investigations.filter(i => new Date(i.created_at).toDateString() === todayStr).length;
-
-        const completed = investigations.filter(i => i.status === 'COMPLETED');
-        const trustScores = completed.map(i => i.trust_score).filter(s => s !== null) as number[];
-        
-        const avgTrust = trustScores.length > 0 ? Math.round(trustScores.reduce((a, b) => a + b, 0) / trustScores.length) : 0;
+  function renderDashboardUI(investigations: any[], stats?: any) {
+      // Metrics
+      if (metricsGrid && stats) {
+        const total = stats.total || 0;
+        const verified = stats.verified || 0;
+        const suspicious = stats.suspicious || 0;
+        const fraudulent = stats.fraudulent || 0;
+        const createdToday = stats.created_today || 0;
+        const avgTrust = stats.avg_trust || 0;
 
         const metricValues = metricsGrid.querySelectorAll('.metrics-value');
         const metricSecondaries = metricsGrid.querySelectorAll('.metrics-secondary');
@@ -542,36 +541,23 @@ import { FileText, CheckCircle, AlertTriangle, ShieldAlert, Plus, ArrowRight, Ex
 
   retryBtn?.addEventListener('click', loadDashboardData);
   
-  document.getElementById('quarterly-report-btn')?.addEventListener('click', () => {
-    if (lastInvestigations.length === 0) {
-      alert('No investigations available to export.');
-      return;
+  document.getElementById('quarterly-report-btn')?.addEventListener('click', async () => {
+    try {
+      const snapshot = await api.exportInvestigations();
+
+      const blob = new Blob([JSON.stringify(snapshot, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `Anobis_Audit_Snapshot_${new Date().toISOString().slice(0, 10)}.json`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      console.error('Failed to export investigations:', err);
+      alert('Failed to export investigations. Please try again.');
     }
-    const completed = lastInvestigations.filter(i => i.status === 'COMPLETED');
-    const snapshot = {
-      generated_at: new Date().toISOString(),
-      total_investigations: lastInvestigations.length,
-      completed: completed.length,
-      auto_approved: completed.filter(i => i.recommendation === 'AUTO_APPROVE').length,
-      manual_review: completed.filter(i => i.recommendation !== 'AUTO_APPROVE').length,
-      investigations: lastInvestigations.map(i => ({
-        id: i.id,
-        title: i.title,
-        context: i.context,
-        status: i.status,
-        trust_score: i.trust_score,
-        recommendation: i.recommendation,
-      })),
-    };
-    const blob = new Blob([JSON.stringify(snapshot, null, 2)], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = `Anobis_Audit_Snapshot_${new Date().toISOString().slice(0, 10)}.json`;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    URL.revokeObjectURL(url);
   });
   document.getElementById('audit-logs-btn')?.addEventListener('click', () => {
     window.location.href = '/investigations';
