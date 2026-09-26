@@ -3,7 +3,6 @@ from __future__ import annotations
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-# New imports for Phase 1
 from core.database import engine, Base
 from api.routes import router as investigation_router
 from core.config import settings

@@ -6,6 +6,12 @@ from models.database import Investigation, Document, Finding, Evidence
 from services.event_logger import log_event
 from layers.extraction.extraction_service import extraction_service
 from layers.forensics.digital_forensics import digital_forensics
+from layers.forensics.image_forensics import image_forensics
+from layers.forensics.font_forensics import font_forensics
+from layers.forensics.signature_validator import signature_validator
+from layers.context.date_validator import date_validator
+from layers.context.balance_validator import balance_validator
+
 from layers.cross_document.cross_document_validator import cross_document_validator
 from layers.scoring.trust_engine import trust_engine
 from layers.ai.summary_generator import summary_generator
@@ -122,6 +128,19 @@ class InvestigationManager:
             # B. Forensics Layer (Single Doc)
             forensic_findings = digital_forensics.analyze(file_bytes, doc.filename, doc.file_type, results.get("metadata", {}))
             
+            # New Font Forensics
+            if doc.file_type == "pdf":
+                forensic_findings.extend(font_forensics.analyze(file_bytes))
+                forensic_findings.extend(signature_validator.validate(file_bytes, doc.classification or "Unknown"))
+
+            # New Image Forensics
+            if doc.file_type in ["image", "png", "jpg", "jpeg"]:
+                forensic_findings.extend(image_forensics.analyze_image(file_bytes, doc.filename))
+
+            # Date Validation (runs on extracted text)
+            if doc.extracted_text:
+                forensic_findings.extend(date_validator.validate(doc.extracted_text))
+
             for ff in forensic_findings:
                 finding = Finding(
                     investigation_id=investigation.id,

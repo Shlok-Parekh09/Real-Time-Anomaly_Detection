@@ -79,8 +79,8 @@ class EntityExtractor:
         return None
 
     def _extract_salary(self, text: str) -> Optional[float]:
-        # Look for "Net Pay" or similar
-        match = re.search(r"(?i)(?:net\s+pay|gross\s+salary|net\s+salary)[:\s]+(?:rs\.?|inr)?\s*([\d,.]+)", text)
+        # Look for "Net Pay" or similar, support ₹, Rs, INR, etc.
+        match = re.search(r"(?i)(?:net\s+pay|gross\s+salary|net\s+salary)[:\s]+(?:[\$£€¥₹]|rs\.?|inr)?\s*([\d,.]+)", text)
         if match:
             try:
                 val = match.group(1).replace(",", "")

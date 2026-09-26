@@ -6,6 +6,7 @@ Validates that transactions mathematically match statement balances
 from __future__ import annotations
 
 import re
+import datetime
 from decimal import Decimal, InvalidOperation
 from typing import Any
 
@@ -87,7 +88,13 @@ def validate_bank_statement_math(text: str) -> dict[str, Any]:
                 "total_debits": float(total_debits),
             })
     
+
+    # Validate impossible dates
+    date_results = validate_impossible_dates(text)
+    validation_results.extend(date_results)
+
     # Check for suspicious patterns
+
     
     # 1. Identical amounts (fraud indicator)
     if amounts:
@@ -158,6 +165,33 @@ def validate_bank_statement_math(text: str) -> dict[str, Any]:
         "fraud_indicators_found": len(validation_results),
         "has_balance_mismatch": any(v["type"] == "balance_mismatch" for v in validation_results),
     }
+
+
+
+def validate_impossible_dates(text: str) -> list[dict[str, Any]]:
+    """Check for impossible dates like Feb 31, Apr 31 in text."""
+    results = []
+
+    # Common date formats in statements (DD/MM/YYYY or DD-MM-YYYY or DD MMM YYYY)
+    # Simple regex to catch DD/MM or DD-MM
+    date_patterns = [
+        r'\b(30|31)[/-](02|2)\b',      # Feb 30/31
+        r'\b(31)[/-](04|06|09|11|4|6|9)\b', # 31st of Apr, Jun, Sep, Nov
+        r'\b(30|31)\s+(Feb|February)\b',
+        r'\b(31)\s+(Apr|April|Jun|June|Sep|September|Nov|November)\b'
+    ]
+
+    for pattern in date_patterns:
+        matches = re.finditer(pattern, text, re.IGNORECASE)
+        for match in matches:
+            results.append({
+                "type": "impossible_date",
+                "severity": "high",
+                "description": f"Impossible date found in transactions: {match.group(0)}",
+                "evidence": [f"Matched text: {match.group(0)}"]
+            })
+
+    return results
 
 
 def _find_balance(text: str, keywords: list[str]) -> Decimal | None:

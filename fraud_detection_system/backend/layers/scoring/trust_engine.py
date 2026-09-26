@@ -53,18 +53,19 @@ class TrustEngine:
         
         for f in findings:
             severity = f.get("severity", "LOW").upper()
-            source = f.get("layer_source", "CONTEXT").upper()
             
-            # Use middle of range for base deduction
-            base_deduction = (self.SEVERITY_DEDUCTIONS[severity][0] + self.SEVERITY_DEDUCTIONS[severity][1]) / 2
-            multiplier = self.SOURCE_MULTIPLIERS.get(source, 1.0)
-            
-            deductions[severity] += base_deduction * multiplier
+            # Use specific deductions from ARCHITECTURE.md
+            if severity == "HIGH":
+                deductions["HIGH"] += 35
+            elif severity == "MEDIUM":
+                deductions["MEDIUM"] += 18
+            else:
+                deductions["LOW"] += 8
 
         # 2. Apply Caps
         total_deduction = deductions["HIGH"] # Uncapped
-        total_deduction += min(deductions["MEDIUM"], self.DEDUCTION_CAPS["MEDIUM"])
-        total_deduction += min(deductions["LOW"], self.DEDUCTION_CAPS["LOW"])
+        total_deduction += min(deductions["MEDIUM"], 50.0)
+        total_deduction += min(deductions["LOW"], 25.0)
         
         score -= total_deduction
 
@@ -73,8 +74,8 @@ class TrustEngine:
             score += 5.0 # All expected docs present
             
         # Bonus for strong cross-doc consistency (if no HIGH/MEDIUM cross-doc findings)
-        cross_doc_anomalies = [f for f in findings if f["layer_source"] == "CROSS_DOC" and f["severity"] in ["HIGH", "MEDIUM"]]
-        if not cross_doc_anomalies and any(f["layer_source"] == "CROSS_DOC" for f in findings):
+        cross_doc_anomalies = [f for f in findings if f.get("layer_source") == "CROSS_DOC" and f.get("severity") in ["HIGH", "MEDIUM"]]
+        if not cross_doc_anomalies and any(f.get("layer_source") == "CROSS_DOC" for f in findings):
              score += 5.0
 
         return max(0.0, min(100.0, round(score, 1)))
